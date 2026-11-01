@@ -1,0 +1,67 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "SSV Dashboard",
+        "description": "Adds the wall panel, room panel, phone and tablet dashboards. After this, open **SSV Dashboard** in the sidebar to create the dashboards."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "SSV Dashboard is already installed."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "SSV Dashboard",
+        "data": {
+          "timer_actions": "Turn heated walls and water off when their run timer ends"
+        }
+      }
+    }
+  },
+  "services": {
+    "save_scene": {
+      "name": "Save user scene",
+      "description": "Create or update a user scene from devices labelled Scene Device.",
+      "fields": {
+        "name": {
+          "name": "Name",
+          "description": "Scene name shown on the panels."
+        },
+        "entities": {
+          "name": "Entities",
+          "description": "Entity id → wanted state."
+        },
+        "icon": {
+          "name": "Icon",
+          "description": "mdi icon."
+        },
+        "scene": {
+          "name": "Scene",
+          "description": "Existing user scene to update; leave empty to create a new one."
+        }
+      }
+    },
+    "get_scene": {
+      "name": "Get user scene",
+      "description": "Read the stored states of a user scene.",
+      "fields": {
+        "scene": {
+          "name": "Scene",
+          "description": "User scene."
+        }
+      }
+    },
+    "delete_scene": {
+      "name": "Delete user scene",
+      "description": "Delete a user scene.",
+      "fields": {
+        "scene": {
+          "name": "Scene",
+          "description": "User scene."
+        }
+      }
+    }
+  }
+}

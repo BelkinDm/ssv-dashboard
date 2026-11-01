@@ -1,0 +1,35 @@
+save_scene:
+  fields:
+    name:
+      required: true
+      example: "Movie night"
+      selector:
+        text:
+    entities:
+      required: true
+      example: '{"light.living_ceiling": {"state": "on", "brightness": 80}}'
+      selector:
+        object:
+    icon:
+      example: "mdi:movie"
+      selector:
+        icon:
+    scene:
+      example: "scene.movie_night"
+      selector:
+        entity:
+          domain: scene
+get_scene:
+  fields:
+    scene:
+      required: true
+      selector:
+        entity:
+          domain: scene
+delete_scene:
+  fields:
+    scene:
+      required: true
+      selector:
+        entity:
+          domain: scene
