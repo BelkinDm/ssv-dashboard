@@ -1,0 +1,67 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "SSV Dashboard",
+        "description": "Добавляет дашборды настенных панелей, комнатных панелей, телефона и планшета. После этого откройте **SSV Dashboard** в боковом меню, чтобы создать дашборды."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "SSV Dashboard уже установлен."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "SSV Dashboard",
+        "data": {
+          "timer_actions": "Выключать тёплые стены и воду, когда заканчивается таймер"
+        }
+      }
+    }
+  },
+  "services": {
+    "save_scene": {
+      "name": "Сохранить сцену пользователя",
+      "description": "Создать или изменить сцену из устройств с меткой Scene Device.",
+      "fields": {
+        "name": {
+          "name": "Название",
+          "description": "Название сцены на панелях."
+        },
+        "entities": {
+          "name": "Сущности",
+          "description": "entity_id → нужное состояние."
+        },
+        "icon": {
+          "name": "Иконка",
+          "description": "Иконка mdi."
+        },
+        "scene": {
+          "name": "Сцена",
+          "description": "Сцена для изменения; пусто — создать новую."
+        }
+      }
+    },
+    "get_scene": {
+      "name": "Прочитать сцену пользователя",
+      "description": "Состояния, сохранённые в сцене.",
+      "fields": {
+        "scene": {
+          "name": "Сцена",
+          "description": "Сцена пользователя."
+        }
+      }
+    },
+    "delete_scene": {
+      "name": "Удалить сцену пользователя",
+      "description": "Удалить сцену пользователя.",
+      "fields": {
+        "scene": {
+          "name": "Сцена",
+          "description": "Сцена пользователя."
+        }
+      }
+    }
+  }
+}
