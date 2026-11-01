@@ -1,2 +1,71 @@
-# ssv-dashboard
-SSV Dashboard - wall panels, room panels, phone and tablet dashboards for Home Assistant
+# SSV Dashboard
+
+Wall panels, room panels, a phone and a tablet dashboard for Home Assistant — installed and updated from HACS.
+
+Everything on the panels is built from Home Assistant itself: floors → rooms → entities, sorted by **labels**. Nothing is listed by hand, so the same release works on every site.
+
+| Part | What it is |
+| --- | --- |
+| Wall panel 10″ (`panel.html`) | Home, Rooms with a page per room, Lights, Climate, Heating, Curtains, Water, Cameras, Intercom, Security, Schedule, night screen, alerts |
+| Room panel 4″ (`room.html`) | Light, curtains, climate, WC and water of one room, night mode |
+| Phone (`phone.html`) | Same logic with bottom tabs Home · Rooms · Lights · Climate · More; on a screen of 600 × 900 or more it switches to the Tablet dashboard |
+| User scenes | Guests create, change and delete their own scenes from devices labelled **Scene Device** — only with values the device supports |
+| Run timers | “Run 3h” on heated walls and hot water / recirculation; the integration turns the device off when the timer ends |
+| `sensor.ssv_time` | Panel clocks follow Home Assistant time, not the tablet's clock |
+| SSV Dashboard page | Admin page in the sidebar: creates dashboards, the start page and timers |
+
+## Install
+
+1. HACS → ⋮ → **Custom repositories** → `https://github.com/BelkinDm/ssv-dashboard`, type **Integration**.
+2. Find **SSV Dashboard** → **Download** → restart Home Assistant.
+3. **Settings → Devices & services → Add integration → SSV Dashboard**.
+4. Open **SSV Dashboard** in the sidebar:
+   - **Quick start** creates Living & Kitchen, Tablet and Phone;
+   - **Add a dashboard** creates a room panel 4″ or any other panel;
+   - **Start page** makes a dashboard the start page for everyone;
+   - **Create missing timers** prepares the Run buttons.
+5. Also from HACS (Frontend): **kiosk-mode** (required on panels) and **card-mod** (optional).
+
+Then put labels on your entities (Settings → Entities → select → Add label). The labels are created by the integration.
+
+| Label | Put it on |
+| --- | --- |
+| `light`, `on_off_only` | Lights; dimmable light shown as a plain switch |
+| `climate`, `ac`, `ufh`, `heated_wall`, `t_h` | AC, floor heating, heated walls, temperature / humidity sensors |
+| `curtain`, `net`, `blackout`, `roller`, `shutter`, `left`, `right`, `both_side` | Curtains and their look |
+| `scene`, `scene_device` | Ready scenes; devices guests may use in their own scenes |
+| `water`, `hot_water`, `recirculation`, `valve`, `water_meter` | Water functions |
+| `cctv`, `alarm`, `doorbell`, `critical` | Cameras, alarm, intercom, leak / smoke sensors |
+| `home`, `schedule`, `no_panel` | Tile on Home, Scheduler entities, hide from all panels |
+| `panel_<id>` (on an area) | Bind that room to panel `<id>` |
+
+## Panel address parameters
+
+| Parameter | Meaning |
+| --- | --- |
+| `panel=` | Panel id (labels `panel_<id>`) |
+| `room=` | Room (area id): big room on Home, or the room of a 4″ panel |
+| `villa=`, `place=` | Name in the header and the line under it |
+| `tablet=` | Phone only: where large screens are sent (default `/ssv-tablet/main`) |
+| `stay=1` | Phone only: never switch to Tablet |
+| `diag=1` | Installer view: also show unavailable entities |
+
+## Updates
+
+Publish a GitHub release with a higher `version` in `manifest.json`. HACS shows the update; after **Update** and a restart, every open panel reloads itself within 10 minutes. Rooms, labels, users, guests' scenes and settings are not touched by an update.
+
+## Moving from the old `/local/morea` files
+
+On the SSV Dashboard page, dashboards that still use `/local/morea/…` show **Move to SSV files**. After moving all of them, the old `inex_scenes` integration and the two “INEX Panel – … timer finished” automations can be removed: scenes made with it keep working (`inex_user_…` ids are accepted), and the timers are handled by SSV Dashboard.
+
+---
+
+## По-русски кратко
+
+1. HACS → ⋮ → Custom repositories → адрес репозитория, тип Integration → Download → перезапуск HA.
+2. Настройки → Устройства и службы → Добавить интеграцию → **SSV Dashboard**.
+3. В боковом меню **SSV Dashboard**: Quick start (Living & Kitchen, Tablet, Phone), «Add a dashboard» для комнатных панелей, «Start page» — стартовая для всех, «Create missing timers» — таймеры для кнопок Run.
+4. Из HACS (Frontend) поставить **kiosk-mode** и при желании **card-mod**.
+5. Повесить метки на сущности — сами метки интеграция создаёт.
+
+Обновление: новый Release на GitHub → HACS → Обновить → перезапуск. Панели перезагрузятся сами в течение 10 минут.
