@@ -1,0 +1,1879 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>SSV Dashboard · Wall Panel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ===== Villa Wall Panel · design system v1.0 tokens ===== */
+:root{
+  --bg:#070B10;--side:#0B121A;--surface:#0F1720;--raised:#121C26;--line:#1E2A36;--line2:#26333F;
+  --text:#E6EDF3;--text2:#93A3B3;--text3:#7B8B9B;--soft:#B4C1CD;
+  --mint:#8FD9B6;--amber:#E2B66E;--heat:#E88E7E;--cool:#8CC0E8;--alert:#E0695A;
+  --mono:'JetBrains Mono',ui-monospace,monospace;--sans:Manrope,system-ui,sans-serif;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);overflow:hidden;user-select:none;-webkit-user-select:none}
+button{font:inherit;color:inherit;cursor:pointer;margin:0}
+#stage{position:absolute;left:0;top:0;width:1280px;height:800px;transform-origin:0 0;background:var(--bg);font-family:var(--sans);color:var(--text);overflow:hidden}
+.i{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;flex:none}
+
+/* shell */
+#side{position:absolute;left:0;top:0;width:200px;height:800px;padding:16px 12px;background:var(--side);border-right:1px solid #1A2530;display:flex;flex-direction:column;gap:6px}
+.brand{height:72px;padding:0 6px;display:flex;align-items:center;gap:14px;margin-bottom:8px}
+.brand .nm{display:flex;flex-direction:column;gap:4px;min-width:0;padding-left:14px;border-left:1px solid var(--line)}
+.brand .nm b{font-size:20px;font-weight:300;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brand .nm span{font:500 11px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tab{height:58px;border-radius:14px;padding:0 14px;display:flex;align-items:center;gap:14px;background:transparent;color:var(--soft);border:1px solid transparent;width:100%;text-align:left;flex:none}
+.tab span{font-size:15px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.tab.sel{background:#12302A;color:var(--mint);border-color:#2A5A4A}
+.tab.night{color:var(--text3)}
+#top{position:absolute;left:216px;top:16px;width:1048px;height:72px;padding:0 12px 0 24px;background:var(--surface);border:1px solid var(--line);border-radius:18px;display:flex;align-items:center;gap:16px}
+#top .ttl{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
+#top .eb{font:500 12px var(--mono);letter-spacing:.2em;text-transform:uppercase;color:var(--cool);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#top .hd{font-size:28px;font-weight:400;letter-spacing:-.01em;line-height:1.1}
+.pill{height:56px;border-radius:14px;padding:0 16px;background:var(--raised);border:1px solid var(--line2);display:flex;align-items:center;gap:12px}
+.pill .v{font-size:24px;font-weight:300;letter-spacing:-.02em}
+.pill .l{font:500 12px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text2);line-height:1.35}
+.pill.warn{background:#2E2614;border-color:#5A4826;color:#E8C487;font:600 15px var(--mono);letter-spacing:.1em}
+.pill.crit{background:#3A1C1A;border-color:#6A302A;color:#F0AFA3;font:600 15px var(--mono);letter-spacing:.1em}
+.clk{display:flex;flex-direction:column;align-items:flex-end;padding:0 8px 0 4px}
+.clk b{font:500 30px var(--mono);color:#CFE6F7;letter-spacing:.04em;line-height:1.1}
+.clk span{font:500 12px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)}
+#view{position:absolute;left:216px;top:104px;width:1048px;height:680px}
+
+/* primitives */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:20px;display:flex;flex-direction:column;gap:12px;color:var(--text);min-width:0;min-height:0;position:relative;text-align:left}
+.card.on{background:#1C1810;border-color:#4E3F22}
+.card.heat{background:#241416;border-color:#5E3330}
+.card.cool{background:#0E1C2A;border-color:#2B4A66}
+.card.ok{background:#0E1C18;border-color:#2A4A3D}
+.card.na,.tile.na{background:#0A1016;border:1px dashed #2E3B48}
+.row{display:flex;align-items:center;gap:14px;min-width:0}
+.col{display:flex;flex-direction:column;gap:4px;flex:1;min-width:0}
+.e{font:500 13px var(--mono);letter-spacing:.18em;text-transform:uppercase;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.e.w{color:var(--text);font-size:14px}
+.s{font:500 12px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.s.amber{color:#C9B48C}.s.heat{color:var(--heat)}.s.cool{color:var(--cool)}.s.mint{color:var(--mint)}.s.dim{color:var(--text3)}
+.t{font-size:20px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.n{font-size:22px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.v{font-size:48px;font-weight:300;letter-spacing:-.03em;font-variant-numeric:tabular-nums;line-height:1;white-space:nowrap}
+.u{font-size:.4em;font-weight:400;color:var(--text2);margin-left:3px;letter-spacing:0}
+.big{font-size:64px;font-weight:300;letter-spacing:-.04em;line-height:.95;font-variant-numeric:tabular-nums;white-space:nowrap}
+.hr{height:1px;background:#1A2530;flex:none}
+.sp{flex:1}
+.btn{height:56px;min-width:56px;border-radius:14px;background:var(--raised);border:1px solid var(--line2);color:var(--text);font:500 14px var(--mono);letter-spacing:.12em;text-transform:uppercase;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 14px;flex:1;white-space:nowrap}
+.btn.sel{background:var(--mint);border-color:var(--mint);color:#0A2018}
+.btn.lit{background:var(--amber);border-color:var(--amber);color:#2A1E0A}
+.btn.sq{flex:none;width:56px;padding:0}
+.btn.f{flex:none;padding:0 20px}
+.btn.dim{color:#5E6E7E;border-color:#1A242E}
+.btn.ghost{background:rgba(7,11,16,.45);border-color:#3A3F46}
+.btn.danger{background:var(--alert);border-color:var(--alert);color:#1A0806}
+.btn:disabled{opacity:.35}
+.chip{height:30px;border-radius:15px;padding:0 12px;display:inline-flex;align-items:center;gap:8px;font:500 12px var(--mono);letter-spacing:.1em;text-transform:uppercase;background:#16212C;color:var(--text2);white-space:nowrap;flex:none}
+.chip.amber{background:#2E2614;color:#E8C487}.chip.mint{background:#12302A;color:#A6E4C6}.chip.cool{background:#13283A;color:#A9CDEB}.chip.heat{background:#3A1C1A;color:#F0AFA3}.chip.crit{background:var(--alert);color:#1A0806}
+.dot{width:8px;height:8px;border-radius:4px;background:currentColor;flex:none;display:inline-block}
+.fchip{height:56px;border-radius:14px;background:transparent;border:1px solid var(--line);color:var(--soft);font:600 15px var(--sans);padding:0 18px;display:inline-flex;align-items:center;gap:10px;white-space:nowrap;flex:none}
+.fchip.sel{background:#12302A;border-color:#2A5A4A;color:var(--mint)}
+.fchip b{font:500 12px var(--mono);letter-spacing:.08em;color:var(--amber)}
+.chips{display:flex;align-items:center;gap:8px;min-width:0;overflow-x:auto;scrollbar-width:none;flex:1}
+.chips::-webkit-scrollbar{display:none}
+.bar{display:flex;align-items:center;gap:8px;height:56px;flex:none}
+.pager{display:flex;align-items:center;gap:6px;flex:none}
+.pager span{font:500 13px var(--mono);letter-spacing:.1em;color:var(--text2);min-width:44px;text-align:center}
+.grid{flex:1;min-height:0;display:grid;gap:16px}
+.empty{height:100%;display:flex;align-items:center;justify-content:center;color:var(--text3);font:500 14px var(--mono);letter-spacing:.14em;text-transform:uppercase;text-align:center}
+.vw{height:100%;display:flex;flex-direction:column;gap:16px}
+
+/* scenes */
+.sc{height:64px;border-radius:18px;background:transparent;border:1px solid var(--line);color:var(--soft);font:600 16px var(--sans);display:flex;align-items:center;justify-content:center;gap:10px;min-width:0;padding:0 10px}
+.sc.on{background:#0E1C18;border-color:#2A5A4A;color:var(--mint)}
+.sc span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sct{background:var(--raised);border:1px solid var(--line2);border-radius:18px;padding:18px;display:flex;flex-direction:column;justify-content:space-between;color:var(--text);text-align:left;width:100%;height:100%;min-width:0}
+.sct.on{background:#0E1C18;border-color:#2A4A3D}
+.sct .d{width:48px;height:48px;border-radius:14px;background:#1A2632;color:var(--text2);display:flex;align-items:center;justify-content:center}
+.sct.on .d{background:var(--mint);color:#0A2018}
+.pin{font:500 11px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--cool);background:#13283A;border-radius:12px;height:24px;padding:0 10px;display:inline-flex;align-items:center}
+
+/* switch */
+.sw{width:84px;height:48px;border-radius:24px;background:var(--line);position:relative;flex:none;border:0;padding:0}
+.sw i{position:absolute;top:4px;left:4px;width:40px;height:40px;border-radius:20px;background:var(--text3);transition:left .12s,background-color .12s}
+.sw.on{background:var(--amber)}.sw.on i{left:40px;background:#2A1E0A}
+.ln{height:64px;display:flex;align-items:center;gap:14px;color:var(--soft);background:none;border:0;padding:0;width:100%;text-align:left;flex:none}
+.ln b{font-size:17px;font-weight:600;color:var(--text);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ln em{font:500 13px var(--mono);letter-spacing:.08em;font-style:normal;color:var(--text2);white-space:nowrap}
+.ln em.heat{color:var(--heat)}.ln em.mint{color:var(--mint)}.ln em.amber{color:var(--amber)}.ln em.crit{color:var(--alert)}
+
+/* light tiles */
+.tile{position:relative;overflow:hidden;border-radius:22px;background:var(--surface);border:1px solid var(--line);padding:20px;display:flex;flex-direction:column;justify-content:space-between;color:var(--text);text-align:left;width:100%;height:100%;transition:border-color .12s;touch-action:none;min-width:0}
+.tile.on{border-color:#4E3F22}
+.lvl{position:absolute;left:0;right:0;bottom:0;background:#2A2113;transition:height .12s}
+.tile .top,.tile .bot{position:relative;display:flex;min-width:0}
+.tile .top{justify-content:space-between;align-items:flex-start}
+.tile .bot{flex-direction:column;gap:6px}
+.d{width:52px;height:52px;border-radius:16px;background:#16212C;color:var(--text2);display:flex;align-items:center;justify-content:center;flex:none}
+.tile.on .d{background:var(--amber);color:#2A1E0A}
+.tile.na .d{background:transparent;border:1px dashed #3A4856;color:#5E6E7E}
+.pct{font-size:44px;font-weight:300;letter-spacing:-.03em;line-height:1;font-variant-numeric:tabular-nums}
+.pct span{font-size:18px;color:#B4A27F;margin-left:2px}
+.st{font-size:30px;font-weight:300;line-height:1;color:var(--text3)}
+.tile.on .st{color:var(--text)}
+.tile.on .s{color:#C9B48C}
+.cd{width:14px;height:14px;border-radius:7px;flex:none}
+
+/* climate */
+.rt{font-size:36px;font-weight:300;letter-spacing:-.03em;line-height:1;font-variant-numeric:tabular-nums}
+.rt span{font-size:15px;color:var(--text2);margin-left:2px}
+.rh{font-size:24px;font-weight:300;color:var(--soft);font-variant-numeric:tabular-nums;line-height:1}
+.rh span{font-size:13px;color:var(--text3);margin-left:2px}
+.blk{border-radius:16px;padding:12px;display:flex;flex-direction:column;gap:10px;background:var(--raised);border:1px solid var(--line)}
+.blk.cool{background:#0E1C2A;border-color:#2B4A66}
+.blk.heat{background:#241416;border-color:#5E3330}
+.blk .btn{background:rgba(7,11,16,.45);border-color:#26333F;font-size:13px;padding:0 8px;min-width:0}
+.blk .btn.sel{background:var(--mint);border-color:var(--mint);color:#0A2018}
+.blk .btn.dim{color:#5E6E7E;border-color:#1A242E}
+.lab{display:flex;align-items:center;gap:10px;flex:1;min-width:0}
+.lab b{font:600 13px var(--mono);letter-spacing:.1em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.spv{width:76px;text-align:center;font-size:30px;font-weight:300;letter-spacing:-.02em;font-variant-numeric:tabular-nums;flex:none}
+
+/* curtains */
+.win{position:relative;height:120px;border-radius:12px;background:#142231;overflow:hidden;border:1px solid var(--line);touch-action:none;flex:1;min-height:80px}
+.win::before{content:"";position:absolute;left:50%;top:10px;bottom:0;width:1px;background:#22344A}
+.win .rail{position:absolute;left:0;right:0;top:0;height:6px;background:#2A3744}
+.win .fl,.win .fr{position:absolute;top:6px;bottom:0;background:#4A4136;transition:width .12s}
+.win .fl{left:0;border-right:3px solid #625645}.win .fr{right:0;border-left:3px solid #625645}
+.win.sheer .fl,.win.sheer .fr{background:#3C4A58;border-color:#56677A}
+.win.roller .fl{left:0;right:0;width:auto!important;border:0;border-bottom:3px solid #625645}
+.win.roller .fr{display:none}
+/* INEX 2026-10-27: curtain types, handles, light knob */
+.cw{position:relative;border-radius:12px;background:#142231;overflow:hidden;border:1px solid var(--line);touch-action:none;flex:1;min-height:80px;--m:16px;--g:8px}.cw i{position:absolute;display:block;pointer-events:none}.cw.both::before{content:"";position:absolute;left:50%;top:10px;bottom:0;width:1px;background:#22344A}.cw .rl{left:0;right:0;top:0;height:6px;background:#2A3744;z-index:1}.cw .pn{top:6px;bottom:0;background-color:#4A4136;background-image:repeating-linear-gradient(90deg,rgba(0,0,0,.16) 0 2px,transparent 2px 12px)}.cw.net .pn{background-color:#3C4A58}.cw.blackout .pn{background-color:#2A2620}.cw .pn.a{left:0;border-right:3px solid #625645}.cw .pn.b{right:0;border-left:3px solid #625645}.cw.net .pn.a,.cw.net .pn.b{border-color:#56677A}.cw.both .pn{width:calc(var(--m) + (50% - var(--m) - var(--g)) * (1 - var(--p)))}.cw.left .pn,.cw.right .pn{width:calc(var(--m) + (100% - 2 * var(--m)) * (1 - var(--p)))}.cw .hk{top:calc(50% + 3px);width:10px;height:40px;margin:-20px 0 0 -5px;border-radius:6px;background:#E6EDF3;border:2px solid #0F1720;box-sizing:border-box;box-shadow:0 0 0 4px rgba(230,237,243,.12);z-index:2}.cw.both .hk.a{left:calc(var(--m) + (50% - var(--m) - var(--g)) * (1 - var(--p)))}.cw.both .hk.b{left:calc(100% - var(--m) - (50% - var(--m) - var(--g)) * (1 - var(--p)))}.cw.left .hk.a{left:calc(var(--m) + (100% - 2 * var(--m)) * (1 - var(--p)))}.cw.right .hk.b{left:calc(100% - var(--m) - (100% - 2 * var(--m)) * (1 - var(--p)))}.cw.roller .pn,.cw.shutter .pn{left:0;right:0;bottom:auto;height:calc(var(--m) + (100% - 6px - 2 * var(--m)) * (1 - var(--p)));background-image:none;border-bottom:4px solid #625645;box-sizing:border-box}.cw.shutter .pn{background:repeating-linear-gradient(180deg,#5B6875 0 8px,#3F4A55 8px 10px);border-bottom-color:#8A98A6}.cw.roller .hk,.cw.shutter .hk{left:50%;width:40px;height:10px;margin:-5px 0 0 -20px;top:calc(6px + var(--m) + (100% - 6px - 2 * var(--m)) * (1 - var(--p)))}.cw.mv .hk{background:#E2B66E}.tile{--in:14px}.lvl.pv{height:calc(var(--in) + (100% - 2 * var(--in)) * var(--p,0))}.tile:not(.on) .lvl.pv{height:0}.tile .kn{position:absolute;right:18px;bottom:calc(var(--in) + (100% - 2 * var(--in)) * var(--p,0));width:28px;height:6px;margin-bottom:-3px;border-radius:3px;background:#3A4856;box-shadow:0 0 0 3px rgba(7,11,16,.35);pointer-events:none}.tile.on .kn{background:#E6EDF3}.tile:not(.on) .lvl.pv{height:calc(var(--in) + (100% - 2 * var(--in)) * var(--p,0));background:transparent}.lvl.pv::before{content:"";position:absolute;left:12px;right:12px;top:-.5px;height:1px;background:rgba(147,163,179,.35)}.tile.on .lvl.pv::before{background:rgba(243,221,174,.6)}
+
+/* water grid, 3 columns */
+.grid.c3 .big{font-size:52px}
+.grid.c3 .btn{font-size:12px;letter-spacing:.06em;padding:0 6px;min-width:0}
+.grid.c3 .card{padding:18px}
+
+/* cameras */
+.cam{border-radius:20px;position:relative;overflow:hidden;background:#141C24;border:1px solid var(--line);color:var(--text);padding:0;width:100%;height:100%;display:block}
+.cam img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.camb{position:absolute;left:0;right:0;bottom:0;height:64px;padding:0 18px;display:flex;align-items:center;gap:12px;background:rgba(7,11,16,.82)}
+.cam .chip{position:absolute;top:14px;left:14px}
+
+/* overlays */
+.scrim{position:absolute;inset:0;background:rgba(3,6,9,.84);display:none;align-items:center;justify-content:center}
+.scrim.show{display:flex}
+#ov{z-index:20}#crit{z-index:35}
+.dlg{width:640px;max-width:1000px;background:var(--surface);border:1px solid var(--line2);border-radius:26px;padding:28px;display:flex;flex-direction:column;gap:22px}
+.dlg.wide{width:1000px;height:640px}
+.dlg.critical{background:#241416;border-color:#6A302A}
+.keypad{display:grid;grid-template-columns:repeat(3,96px);gap:12px;justify-content:center}
+.keypad .btn{height:72px;font-size:24px;font-family:var(--sans)}
+.pinv{height:56px;display:flex;align-items:center;justify-content:center;gap:14px}
+.pinv i{width:16px;height:16px;border-radius:8px;border:2px solid var(--text2)}
+.pinv i.f{background:var(--text)}
+#toast{position:absolute;left:50%;bottom:28px;transform:translateX(-50%);height:52px;padding:0 22px;border-radius:14px;background:#12302A;border:1px solid #2A5A4A;color:var(--mint);font:500 14px var(--mono);letter-spacing:.1em;text-transform:uppercase;display:none;align-items:center;gap:10px;z-index:40}
+#toast.show{display:flex}
+
+/* night */
+#night{position:absolute;inset:0;background:#000;z-index:30;display:none;color:#8C8478}
+#night.show{display:block}
+.nb{height:112px;border-radius:20px;background:#0B0A09;border:1px solid #1E1C19;color:#8C8478;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:10px;padding:0 22px;flex:1;text-align:left}
+.nb b{font-size:20px;font-weight:500;color:#A39A8C}
+.nb span,.ns{font:500 13px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:#6E685E}
+
+#conn{position:absolute;left:216px;right:16px;bottom:16px;height:48px;border-radius:14px;background:#2E2614;border:1px solid #5A4826;color:#E8C487;font:500 13px var(--mono);letter-spacing:.1em;text-transform:uppercase;display:none;align-items:center;justify-content:center;z-index:50;padding:0 16px;text-align:center}
+#conn.show{display:flex}
+
+[data-act="sceneedit"]{display:none!important}
+.win.blackout .fl,.win.blackout .fr{background:#15191F;border-color:#39424D}
+</style>
+</head>
+<body>
+<div id="stage">
+  <nav id="side" aria-label="Sections"></nav>
+  <header id="top"></header>
+  <main id="view"><div class="empty">Connecting…</div></main>
+  <div id="ov" class="scrim" role="dialog" aria-modal="true"></div>
+  <div id="crit" class="scrim" role="alertdialog" aria-modal="true"></div>
+  <div id="toast"></div>
+  <div id="night"></div>
+  <div id="conn">Connecting to Home Assistant…</div>
+</div>
+
+<script>
+/* INEX wall panel 10" — single consolidated file (no override blocks).
+   BUILD changes on every deploy; open panels compare it every 10 min and reload themselves. */
+const BUILD = '2026-11-01.1300';
+let lastMsg = Date.now(), downSince = 0, noData = 0, reloading = false; const BOOT = Date.now();
+const UNAVAILABLE = '<div class="empty">This section is temporarily unavailable</div>';
+function safe(fn, fallback = ''){ try { return fn(); } catch (e) { console.error('[panel]', e); return fallback; } }
+function hardReload(){ if (reloading) return; reloading = true;
+  fetch(location.href, { cache: 'reload' }).then(r => { if (r.ok) location.reload(); else reloading = false; }).catch(() => { reloading = false; }); }
+async function checkUpdate(){ try { const t = await (await fetch(location.href, { cache: 'no-store' })).text(); const m = t.match(/const BUILD = '([^']+)'/); if (m && m[1] !== BUILD) hardReload(); } catch (e) {} }
+function dropSocket(){ const old = ws; if (old) { old.onclose = null; old.onmessage = null; old.onerror = null; try { old.close(); } catch (e) {} }
+  connected = false; setConn('Reconnecting…');
+  Object.keys(waiters).forEach(k => { try { waiters[k].rej(new Error('closed')); } catch (e) {} delete waiters[k]; });
+  setTimeout(connect, 1000); }
+function watchdog(){
+  const now = Date.now();
+  if (connected) { downSince = 0;
+    if (now - lastMsg > 75000) { dropSocket(); return; }
+    if (now - lastMsg > 25000) send({ type: 'ping' }).catch(() => {});
+    if (!M) { noData = noData || now; if (now - noData > 120000) hardReload(); } else noData = 0;
+  } else { downSince = downSince || now; if (now - downSince > 300000) hardReload(); }
+  const d = new Date(); if (d.getHours() === 4 && d.getMinutes() < 10 && now - BOOT > 7200000 && now - lastTouch > 1800000) hardReload();
+}
+
+/* =====================================================================
+   VILLA WALL PANEL — Morea 1 design system
+   Everything is built from Home Assistant itself:
+     floors → areas (rooms) → entities.
+   A tab, room, card, chip or control exists only if its entity exists
+   and reports a real state. Nothing is listed by hand.
+
+   URL parameters
+     ?panel=living        panel id. If any area carries the label
+                          "panel_<id>" (e.g. panel_living), this panel shows
+                          only those areas; otherwise the whole house.
+     ?room=living_room    room shown big on Home (default: first room with
+                          climate / temperature on the lowest floor)
+     ?villa=Morea 1       name in the sidebar (default: HA location name)
+     ?place=Paphos        sub-line in the sidebar
+     ?diag=1              installer view: also show unavailable entities
+
+   HA labels (Settings → Labels)
+     on_off_only   light shown as On/Off, no dimming
+     panel_hide    entity never shown on panels
+     light         switch.* that drives a light → shown as a light
+     scene         script.* shown as a scene (all scene.* are scenes)
+     panel_<id>    on an AREA: bind that room to panel <id>
+   Timer loads (Water tab): timer.X + script.X_timer (+ script.X_stop)
+   ===================================================================== */
+const Q = new URLSearchParams(location.search);
+const PANEL = {
+  id: (Q.get('panel') || 'living').toLowerCase(),
+  room: Q.get('room') || null,
+  villa: Q.get('villa') || null,
+  place: Q.get('place') || '',
+  diag: Q.get('diag') === '1',
+};
+const SET = {
+  onOffLabels: ['on_off_only'],
+  hideLabels: ['panel_hide', 'no_panel'],
+  lightLabels: ['light'],
+  sceneLabels: ['scene'],
+  openAlertMin: 10,
+  nightIdleMinutes: 3, nightFrom: 22, nightTo: 6,
+  homeIdleMinutes: 2,
+  homeScenes: 4,
+};
+
+const IC = {
+strip: '<rect x="2.5" y="9" width="19" height="5" rx="1.5"/><path d="M6.5 11.5h.01M10.5 11.5h.01M14.5 11.5h.01M18.5 11.5h.01"/><path d="M5 17.5l-1 2M12 17.5v2M19 17.5l1 2"/>',
+downlight: '<path d="M3 4h18"/><path d="M8 4v2.5a4 4 0 0 0 8 0V4"/><path d="M9 14l-2 5M12 14v6M15 14l2 5"/>',
+track: '<path d="M2 4h20"/><path d="M7 4v3M17 4v3"/><path d="M5 7h4l1.5 6h-7z"/><path d="M15 7h4l1.5 6h-7z"/>',
+chandelier: '<path d="M12 2v12"/><path d="M4 9c0 3 3.6 5 8 5s8-2 8-5"/><path d="M4 9V7M20 9V7M8 12V9.5M16 12V9.5"/><path d="M10 18h4l-2 3z"/>',
+hanging: '<path d="M12 2v6"/><path d="M5 15a7 7 0 0 1 14 0z"/><path d="M10 18a2 2 0 0 0 4 0"/>',
+floorlamp: '<path d="M8 3h8l2.5 7h-13z"/><path d="M12 10v10"/><path d="M8 21h8"/>',
+tablelamp: '<path d="M8 4h8l2.5 7h-13z"/><path d="M12 11v6"/><path d="M8.5 20h7l-1-3h-5z"/>',
+walllamp: '<path d="M4 4v16"/><path d="M4 13h5"/><path d="M9 6h7l3 6H9z"/><path d="M12 15.5v2M16 15.5l1 1.8"/>',
+mirror: '<rect x="6" y="5" width="12" height="16" rx="2"/><path d="M6 2.5h12"/><path d="M9 10l2-2M9 14l5-5"/>',
+step: '<path d="M3 20h5v-5h5v-5h5V5h3"/><path d="M6.5 18v.01M11.5 13v.01M16.5 8v.01"/>',
+spike: '<path d="M12 13v8M8 21h8"/><path d="M8.5 7.5l5-3 2.5 4.3-5 3z"/><path d="M17.5 4.5l3-1.5M18.5 7.5h3"/>',
+ceiling: '<path d="M3 4h18"/><path d="M5 4a7 7 0 0 0 14 0"/><path d="M12 14v3M7.5 13l-1.5 2.5M16.5 13l1.5 2.5"/>',
+boiler: '<path d="M12 8s5.5 5.4 5.5 9a5.5 5.5 0 0 1-11 0C6.5 13.4 12 8 12 8z"/><path d="M8.5 2.5c-.8.9.8 1.8 0 2.7M12 2c-.8.9.8 1.8 0 2.7M15.5 2.5c-.8.9.8 1.8 0 2.7"/><path d="M10 16.5a2 2 0 0 0 2 2"/>',
+pumpc: '<circle cx="11" cy="13.5" r="7"/><path d="M11 13.5c1-2.2 3-3.2 4.5-3M11 13.5c1.4 1.9 1.3 4.2.2 5.5M11 13.5c-2.4.3-4.3-.8-5-2.3"/><path d="M13.5 7V3.5H21v5h-3.5"/>',
+  home:'<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/>',
+  rooms:'<rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/>',
+  bulb:'<path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/>',
+  cove:'<circle cx="12" cy="12" r="9"/><circle cx="8" cy="10" r="1.2"/><circle cx="12" cy="7.5" r="1.2"/><circle cx="16" cy="10" r="1.2"/>',
+  pendant:'<path d="M12 3v5"/><path d="M5 15a7 7 0 0 1 14 0z"/><path d="M10 18h4"/>',
+  spot:'<circle cx="7" cy="8" r="2"/><circle cx="17" cy="8" r="2"/><path d="M3 21h18M7 10v11M17 10v11"/>',
+  stairs:'<path d="M3 20h5v-5h5v-5h5V5h3"/>',
+  vanity:'<rect x="5" y="3" width="14" height="12" rx="2"/><path d="M8 19h8M12 15v4"/>',
+  climate:'<path d="M14 14.8V5a2 2 0 0 0-4 0v9.8a4 4 0 1 0 4 0z"/><path d="M12 11v6"/>',
+  curtains:'<path d="M3 4h18"/><path d="M5 4c0 6 1.5 12 4 16H5zM19 4c0 6-1.5 12-4 16h4z"/>',
+  water:'<path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/><path d="M9 14a3 3 0 0 0 3 3"/>',
+  camera:'<rect x="3" y="6.5" width="12.5" height="11" rx="2"/><path d="M15.5 10.5l5.5-3v9l-5.5-3"/>',
+  shield:'<path d="M12 3l8 3v6c0 4.5-3.4 8.2-8 9-4.6-.8-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/>',
+  lock:'<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+  unlock:'<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/>',
+  door:'<path d="M6 21V4h10v17M4 21h16"/><circle cx="13" cy="12.5" r=".8"/>',
+  moon:'<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>',
+  power:'<path d="M12 3v9"/><path d="M6.3 7.3a8 8 0 1 0 11.4 0"/>',
+  minus:'<path d="M6 12h12"/>', plus:'<path d="M6 12h12M12 6v12"/>',
+  snow:'<path d="M12 2v20M4 6l16 12M20 6L4 18"/>',
+  waves:'<path d="M3 20h18"/><path d="M6 16c0-2 2-2 2-4s-2-2-2-4M12 16c0-2 2-2 2-4s-2-2-2-4M18 16c0-2 2-2 2-4s-2-2-2-4"/>',
+  flame:'<path d="M12 3c1 4 5 5 5 10a5 5 0 0 1-10 0c0-3 2-4 2-6 1.5 1 2 2 2 3 0-3 1-5 1-7z"/>',
+  pump:'<circle cx="12" cy="12" r="8"/><path d="M8 12a4 4 0 0 1 7-2.6M16 12a4 4 0 0 1-7 2.6"/><path d="M15 6.5v3h-3M9 17.5v-3h3"/>',
+  timer:'<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 1.5M10 2h4"/>',
+  play:'<path d="M7 5l12 7-12 7z"/>',
+  open:'<path d="M9 12H3M6 9l-3 3 3 3M15 12h6M18 9l3 3-3 3"/>',
+  close:'<path d="M3 12h6M6 9l3 3-3 3M21 12h-6M18 9l-3 3 3 3"/>',
+  stop:'<rect x="7" y="7" width="10" height="10" rx="1.5"/>',
+  c_left:'<path d="M3 4h18"/><path d="M5 4c0 6 2.5 12 6 16H5z"/><path d="M19 4v16"/>',
+  c_right:'<path d="M3 4h18"/><path d="M19 4c0 6-2.5 12-6 16h6z"/><path d="M5 4v16"/>',
+  c_roller:'<rect x="3" y="3" width="18" height="3" rx="1.5"/><path d="M5 6v10h14V6"/><path d="M12 16v3"/><circle cx="12" cy="20" r="1"/>',
+  c_shutter:'<rect x="3" y="3" width="18" height="4" rx="1"/><path d="M5 7v13h14V7"/><path d="M5 11h14M5 15h14"/>',
+  up:'<path d="M12 19V5M6 11l6-6 6 6"/>', down:'<path d="M12 5v14M6 13l6 6 6-6"/>',
+  aleft:'<path d="M20 12H4M10 6l-6 6 6 6"/>', aright:'<path d="M4 12h16M14 6l6 6-6 6"/>',
+  bell:'<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5h4"/>',
+  warn:'<path d="M12 3l9.5 17h-19z"/><path d="M12 10v4M12 17v.5"/>',
+  arc:'<circle cx="12" cy="12" r="9" stroke-opacity=".25"/><path d="M21 12a9 9 0 0 0-9-9"/>',
+  x:'<path d="M6 6l12 12M18 6L6 18"/>',
+  chev:'<path d="M9 6l6 6-6 6"/>', chevl:'<path d="M15 6l-6 6 6 6"/>',
+  more:'<circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/>',
+  scene:'<path d="M12 3l2.2 5.3 5.8.5-4.4 3.8 1.3 5.6L12 15.3 7.1 18.2l1.3-5.6L4 8.8l5.8-.5z"/>',
+  full:'<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
+  edit:'<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/>',
+  cloud:'<circle cx="9" cy="8" r="3"/><path d="M9 2.5v1M3.5 8h1M5 4l.7.7M13 4l-.7.7"/><path d="M8 19h9a3.5 3.5 0 0 0 0-7 4.5 4.5 0 0 0-8.4 1.6A2.7 2.7 0 0 0 8 19z"/>',
+};
+const svg = (n, st='') => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true"${st?` style="${st}"`:''}>${IC[n]||IC.bulb}</svg>`;
+const LOGO = (s=44) => `<svg viewBox="30 26.6 200.4 200.4" role="img" aria-label="INEX" style="width:${s}px;height:${s}px;flex:none"><path fill="#FFFFFF" d="M 39.67 217.17 L 39.67 145.96 L 31.96 145.96 L 31.96 224.88 L 110.87 224.88 L 110.87 217.17 Z M 91.23 71.12 L 91.23 63.39 L 69.90 63.39 L 69.90 71.12 L 76.71 71.12 L 76.71 99.59 L 69.90 99.59 L 69.90 107.31 L 91.23 107.31 L 91.23 99.59 L 84.43 99.59 L 84.43 71.12 Z M 31.96 28.39 L 31.96 107.31 L 39.67 107.31 L 39.67 36.11 L 110.87 36.11 L 110.87 28.39 Z M 220.72 145.96 L 220.72 217.17 L 149.52 217.17 L 149.52 224.88 L 228.44 224.88 L 228.44 145.96 Z M 180.62 166.53 L 193.14 149.08 L 193.14 145.96 L 185.86 145.96 L 175.85 159.91 L 165.85 145.96 L 158.58 145.96 L 158.58 149.08 L 171.11 166.53 L 156.56 186.79 L 156.56 189.90 L 163.85 189.90 L 175.86 173.16 L 187.87 189.90 L 195.15 189.90 L 195.15 186.79 Z M 149.52 28.39 L 149.52 36.10 L 220.72 36.10 L 220.72 107.31 L 228.44 107.31 L 228.44 28.39 Z M 186.04 63.37 L 186.04 91.16 L 161.87 63.37 L 157.96 63.37 L 157.96 107.31 L 165.67 107.31 L 165.67 79.53 L 189.85 107.31 L 193.75 107.31 L 193.75 63.37 Z M 94.17 153.67 L 94.17 145.96 L 68.34 145.96 L 66.63 145.99 L 66.63 189.89 L 94.17 189.89 L 94.17 182.14 L 74.33 182.14 L 74.33 171.33 L 92.97 171.33 L 92.97 163.62 L 74.33 163.62 L 74.33 153.67 Z"/></svg>`;
+
+const S = {};                 // entity_id → state object
+const pending = {};           // optimistic: entity_id → {state, attrs, until}
+const REG = { ents:{}, devs:{}, areas:[], floors:[], loaded:false };
+let M = null;                 // model built from the registry
+let HA = { location:'' };
+let view = 'home', connected = false;
+const UI = { lightRoom:null, coverRoom:'all', roomFloor:'all', page:{}, lastScene:null, lastSceneAt:0, sceneEdit:false };
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const store = { get(k, d){ try { const v = localStorage.getItem('wp_'+PANEL.id+'_'+k); return v == null ? d : JSON.parse(v); } catch(e){ return d; } },
+                set(k, v){ try { localStorage.setItem('wp_'+PANEL.id+'_'+k, JSON.stringify(v)); } catch(e){} } };
+
+function st(id){
+  const s = S[id]; const p = pending[id];
+  if (p && p.until > Date.now()) return { ...(s||{}), state:(p.state == null ? (s||{}).state : p.state), attributes:{ ...(s?s.attributes:{}), ...(p.attrs||{}) }, _pending:true };
+  return s;
+}
+const real = (id) => { const s = S[id]; return !!s && s.state !== 'unavailable' && s.state !== 'unknown'; };
+const show = (id) => (!!S[id] && S[id].state !== 'unavailable') || (PANEL.diag && !!S[id]);
+const isOn = (id) => { const s = st(id); return !!s && s.state === 'on'; };
+const attr = (id, a) => { const s = st(id); return s ? s.attributes[a] : undefined; };
+const num = (v, d=1) => v == null || isNaN(v) ? null : Number(v).toFixed(d).replace(/\.0$/, d===1 && Math.abs(v) >= 100 ? '' : '.0');
+const fmtT = (v) => v == null || isNaN(v) ? '--' : (Math.round(v*10)/10).toFixed(1);
+const lbl = (id) => (REG.ents[id] && REG.ents[id].lb) || [];
+const hasLabel = (id, list) => lbl(id).some(l => list.includes(l));
+
+function areaOf(id){
+  const e = REG.ents[id]; if (!e) return null;
+  if (e.ai) return e.ai;
+  const d = e.di && REG.devs[e.di]; return d ? d.area_id : null;
+}
+function cleanName(id, room){
+  const s = S[id]; let n = (s && s.attributes.friendly_name) || id.split('.')[1].replace(/_/g,' ');
+  n = n.replace(/^(LED\s+)?[A-Z]{1,3}\d+(\.\d+)*\s+/i, '');
+  const strip = (x) => { if (!x) return; const re = new RegExp('(^|\\s)' + String(x).replace(/[.*+?^$(){}|[\]\\]/g, '\\$&') + '(?=\\s|$)', 'gi'); const m = n.replace(re, ' ').replace(/\s+/g, ' ').trim(); if (m) n = m; };
+  strip(areaName(id)); if (room) strip(room.name);
+  return n.charAt(0).toUpperCase() + n.slice(1);
+}
+function areaName(id){ const e = REG.ents[id] || {}; const d = e.di && REG.devs[e.di]; const a = e.ai || (d && d.area_id); const A = a && (REG.areas || []).find(x => x.area_id === a); return A ? A.name : null; }
+function lightIcon(id){
+  /* light type -> icon; unknown type keeps the plain bulb */
+  const n = ' ' + String(attr(id, 'friendly_name') || id.split('.')[1]).replace(/^(LED\s+)?[A-Z]{1,3}\d+(\.\d+)*\s+/i, '').toLowerCase().replace(/[_\-.]/g, ' ') + ' ';
+  const TYPES = [
+    [/\btrack\b/, 'track'],
+    [/\bchandelier\b/, 'chandelier'],
+    [/\b(hanging|pendant)\b/, 'hanging'],
+    [/\bfloor lamp\b|\bstanding lamp\b/, 'floorlamp'],
+    [/\b(table|desk|bedside|night) lamp\b/, 'tablelamp'],
+    [/\bwall (lamp|light)\b|\bsconce\b/, 'walllamp'],
+    [/\bmirror\b/, 'mirror'],
+    [/\b(spot|spots|spotlight|spotlights|downlight|downlights)\b/, 'downlight'],
+    [/\b(cove|vanity|strip|tape|niche|profile|led)\b/, 'strip'],
+    [/\b(stair|stairs|step|steps)\b/, 'step'],
+    [/\b(spike|spikes|bollard|bollards)\b/, 'spike'],
+    [/\b(ceiling|plafond)\b/, 'ceiling'],
+  ];
+  for (const [re, ic] of TYPES) if (re.test(n)) return ic;
+  return 'bulb';
+}
+function climateKind(id){
+  const modes = attr(id, 'hvac_modes') || [];
+  return modes.some(m => ['cool','heat_cool','auto','dry','fan_only'].includes(m)) ? 'ac' : 'heat';
+}
+
+function buildModel(){
+  const floors = [...REG.floors].sort((a,b) => (a.level ?? 99) - (b.level ?? 99));
+  const panelLabel = 'panel_' + PANEL.id;
+  const tagged = REG.areas.filter(a => (a.labels||[]).includes(panelLabel));
+  const allowed = new Set((tagged.length ? tagged : REG.areas).map(a => a.area_id));
+  const order = [];
+  floors.forEach(f => REG.areas.forEach(a => { if (a.floor_id === f.floor_id && allowed.has(a.area_id)) order.push(a); }));
+  REG.areas.forEach(a => { if (!a.floor_id && allowed.has(a.area_id)) order.push(a); });
+  const floorName = {}; floors.forEach(f => floorName[f.floor_id] = f.name);
+  const rooms = order.map(a => ({ id:a.area_id, name:a.name, floor:a.floor_id || null, floorName: floorName[a.floor_id] || '',
+    lights:[], ac:[], heat:[], covers:[], temp:[], hum:[], co2:[], openings:[], hazards:[], cams:[], locks:[], alarms:[], timers:[], heaters:[] }));
+  const byId = {}; rooms.forEach(r => byId[r.id] = r);
+  const g = { scenes:[], cams:[], alarms:[], locks:[], timers:[], heaters:[], weather:null, hazards:[], openings:[], unassigned:[] };
+  const names = {};
+
+  Object.keys(S).forEach(id => {
+    const dom = id.split('.')[0];
+    const e = REG.ents[id];
+    if (e && (e.hb || e.ec != null || e.pl === 'browser_mod')) return;
+    if (hasLabel(id, SET.hideLabels)) return;
+    const aid = areaOf(id); const room = aid ? byId[aid] : null;
+    const inHouse = !aid || allowed.has(aid);
+    const dc = attr(id, 'device_class');
+    let kind = null;
+    if (dom === 'light') kind = 'light';
+    else if (dom === 'switch' && hasLabel(id, SET.lightLabels)) kind = 'light';
+    else if (dom === 'climate') kind = climateKind(id);
+    else if (dom === 'cover') kind = 'cover';
+    else if (dom === 'camera') kind = 'cam';
+    else if (dom === 'alarm_control_panel') kind = 'alarm';
+    else if (dom === 'lock') kind = 'lock';
+    else if ((dom === 'scene' || dom === 'script') && hasLabel(id, SET.sceneLabels)) kind = 'scene';
+    else if (dom === 'water_heater') kind = 'heater';
+    else if (dom === 'weather') kind = 'weather';
+    else if (dom === 'sensor' && dc === 'temperature') kind = 'temp';
+    else if (dom === 'sensor' && dc === 'humidity') kind = 'hum';
+    else if (dom === 'sensor' && dc === 'carbon_dioxide') kind = 'co2';
+    else if (dom === 'binary_sensor' && ['door','window','garage_door','opening'].includes(dc)) kind = 'opening';
+    else if (dom === 'binary_sensor' && ['moisture','smoke','gas','carbon_monoxide','safety'].includes(dc)) kind = 'hazard';
+    else if (dom === 'timer') { const base = id.slice(6); if (S['script.' + base + '_timer']) kind = 'timer'; }
+    if (!kind) return;
+/* no label, no tile: every drawn kind needs its function label */
+const NEED = { light:['light'], temp:['t_h'], hum:['t_h'], co2:['t_h'], cover:['curtain','roller','shutter'], cam:['cctv'], alarm:['alarm'], lock:['alarm','doorbell'], opening:['alarm'], hazard:['critical'], ac:['climate','ac'], heat:['climate','ufh','heated_wall'], heater:['hot_water'] };
+if (NEED[kind] && !hasLabel(id, NEED[kind])) return;
+    names[id] = cleanName(id, room);
+    if (kind === 'weather') { if (!g.weather) g.weather = id; return; }
+    if (kind === 'scene') { g.scenes.push(id); return; }
+    if (kind === 'timer') {
+      if (!inHouse) return;
+      const base = id.slice(6);
+      const t = { id:base, timer:id, start:'script.'+base+'_timer', stop: S['script.'+base+'_stop'] ? 'script.'+base+'_stop' : null, room };
+      g.timers.push(t); if (room) room.timers.push(t); return;
+    }
+    if (!room) {
+      // global-capable kinds may live without a room; room kinds without a room are left out
+      if (!inHouse) return;
+      if (kind === 'cam') g.cams.push(id);
+      else if (kind === 'alarm') g.alarms.push(id);
+      else if (kind === 'lock') g.locks.push(id);
+      else if (kind === 'heater') g.heaters.push(id);
+      else if (kind === 'hazard') g.hazards.push(id);
+      else if (kind === 'opening') g.openings.push(id);
+      else g.unassigned.push(id);
+      return;
+    }
+    const key = { light:'lights', ac:'ac', heat:'heat', cover:'covers', temp:'temp', hum:'hum', co2:'co2', opening:'openings', hazard:'hazards', cam:'cams', lock:'locks', alarm:'alarms', heater:'heaters' }[kind];
+    room[key].push(id);
+    if (['cam','alarm','lock','heater','hazard','opening'].includes(kind)) g[{cam:'cams',alarm:'alarms',lock:'locks',heater:'heaters',hazard:'hazards',opening:'openings'}[kind]].push(id);
+  });
+  rooms.forEach(r => r.lights.sort((a,b) => names[a].localeCompare(names[b], undefined, {numeric:true})));
+  g.scenes.sort((a,b) => names[a].localeCompare(names[b]));
+  M = { rooms, byId, floors: floors.filter(f => rooms.some(r => r.floor === f.floor_id)), g, names };
+}
+const NM = (id) => (M && M.names[id]) || cleanName(id);
+
+/* ===== Intercom: label Doorbell on the intercom DEVICE (or on its entities) =====
+   sensor *call_state* -> Idle / Ringing / On call; ringing opens a popup and takes a snapshot
+   switch *door* / *relay* or lock -> Open buttons; image *snapshot* or camera -> picture
+   button *snapshot* / *reject* / *hangup* -> call controls */
+const DBC = { t: 0, v: [] };
+function doorbells(){
+  const devs = {};
+  Object.keys(S).forEach(id => {
+    const e = REG.ents[id]; if (!e || e.hb || hasLabel(id, SET.hideLabels)) return;
+    const d = e.di && REG.devs[e.di];
+    if (!hasLabel(id, ['doorbell']) && !(d && (d.labels || []).includes('doorbell'))) return;
+    const k = e.di || id;
+    (devs[k] = devs[k] || { key: k, name: d ? (d.name_by_user || d.name || '') : '', ids: [] }).ids.push(id);
+  });
+  return Object.values(devs).map(x => {
+    const f = (dom, re) => x.ids.find(id => dmn(id) === dom && (!re || re.test(id)));
+    return Object.assign(x, {
+      name: x.name || cleanName(x.ids[0]),
+      state: f('sensor', /call_state/) || f('sensor', /call/),
+      cam: f('camera'), img: f('image', /snapshot/) || f('image'),
+      snap: f('button', /snapshot/), reject: f('button', /reject|decline/), hangup: f('button', /hang_?up/),
+      doors: x.ids.filter(id => dmn(id) === 'lock' || (dmn(id) === 'switch' && /door|relay|gate|lock/.test(id))).sort((a, b) => a.localeCompare(b, undefined, { numeric: true })),
+    });
+  }).filter(x => x.state || x.doors.length);
+}
+function dbList(){ if (!REG.loaded) return []; if (Date.now() - DBC.t > 5000) { DBC.v = dbAttachCams(safe(doorbells, [])); DBC.t = Date.now(); } return DBC.v; }
+const DBL = { idle: 'Idle', ring: 'Ringing', call: 'On call' };
+function dbState(x){ const v = x.state && S[x.state] ? String(S[x.state].state).toLowerCase() : ''; return /ring/.test(v) ? 'ring' : (!v || /idle|unknown|unavailable|dismiss|end|hang|reject|none/.test(v)) ? 'idle' : 'call'; }
+function doorName(x, id){ let n = String(attr(id, 'friendly_name') || id.split('.')[1].replace(/_/g, ' ')); if (x.name) n = n.split(x.name).join(' '); n = n.replace(/\brelay\b/ig, ' ').replace(/\s+/g, ' ').trim(); return n ? n.charAt(0).toUpperCase() + n.slice(1) : 'Door'; }
+function dbPicSrc(x){ if (x.cam && real(x.cam)) return camSrc(x.cam); if (x.img && real(x.img)) return attr(x.img, 'entity_picture') || ''; return ''; }
+function dbPicSub(x){ if (x.cam && real(x.cam)) return 'Live'; if (x.img && real(x.img)) { const t = new Date(S[x.img].state); return isNaN(t) ? 'Snapshot' : 'Snapshot · ' + fmtClock(t); } return 'No picture yet'; }
+/* ===== Intercom live video · WebRTC Camera (AlexxIT) + go2rtc =====
+   camera.* with label "doorbell" -> attached to the intercom; video goes via go2rtc stream (SET.rtcStream, default "doorbell") */
+function dbAttachCams(list){
+  const cams = Object.keys(S).filter(id => dmn(id) === 'camera' && hasLabel(id, ['doorbell']));
+  (list || []).forEach((x, i) => { if (!x.cam && cams.length) x.cam = cams[Math.min(i, cams.length - 1)]; });
+  return list;
+}
+let rtcEl = null, rtcLoading = false;
+function rtcHass(){ try { const ha = parent.document.querySelector('home-assistant'); return ha && ha.hass; } catch(e){ return null; } }
+function dbRtcSlot(x){ return '<div style="flex:1;min-height:0;border-radius:16px;overflow:hidden;background:#000;position:relative"><div class="rtcslot" style="position:absolute;inset:0"></div></div>'; }
+function mountRtc(){
+  const slots = document.querySelectorAll('.rtcslot');
+  if (!slots.length) { if (rtcEl && rtcEl.parentNode) rtcEl.parentNode.removeChild(rtcEl); return; }
+  const hass = rtcHass(); if (!hass) return;
+  if (!customElements.get('webrtc-camera')) {
+    if (!rtcLoading) { rtcLoading = true; const s = document.createElement('script'); s.type = 'module'; s.src = '/webrtc/webrtc-camera.js'; s.onload = () => customElements.whenDefined('webrtc-camera').then(() => mountRtc()); document.head.appendChild(s); }
+    return;
+  }
+  if (!rtcEl) {
+    rtcEl = document.createElement('webrtc-camera');
+    rtcEl.setConfig({ url: (typeof SET !== 'undefined' && SET.rtcStream) || 'doorbell', mode: 'webrtc,mse,hls,mjpeg', media: 'video,audio', muted: true, ui: true,
+      style: '.header{display:none} ha-card{height:100%;background:#000;border-radius:0} .player{height:100%} video{width:100%;height:100%;object-fit:contain}' });
+    rtcEl.style.cssText = 'position:absolute;inset:0;display:block;width:100%;height:100%';
+  }
+  rtcEl.hass = hass;
+  const slot = slots[slots.length - 1];
+  if (rtcEl.parentNode !== slot) slot.appendChild(rtcEl);
+}
+function dbPic(x){ if (x.cam && real(x.cam)) return dbRtcSlot(x); const src = dbPicSrc(x);
+  return `<div style="flex:1;min-height:0;border-radius:16px;overflow:hidden;background:#000;position:relative">${src ? `<img src="${esc(src)}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain" alt="">` : `<div class="empty">${x.snap ? 'Tap Snapshot to see the door' : 'No picture'}</div>`}</div>`; }
+function dbCallBtns(x){ const s = dbState(x); const b = [];
+  if (s === 'ring' && x.reject) b.push(`<button class="btn danger" data-dbtn="${x.reject}" style="height:72px;gap:10px">${svg('x')}Reject</button>`);
+  if (s === 'call' && x.hangup) b.push(`<button class="btn danger" data-dbtn="${x.hangup}" style="height:72px;gap:10px">${svg('x')}Hang up</button>`);
+  return b.join(''); }
+function dbDoorBtns(x){ return x.doors.map(id => `<button class="btn sel" data-dopen="${id}" style="height:72px;gap:10px"${real(id) ? '' : ' disabled'}>${svg('door')}Open ${esc(doorName(x, id))}</button>`).join(''); }
+function viewIntercom(){
+  const { items, pager } = paged('intercom', dbList(), 1); const x = items[0];
+  if (!x) return '<div class="empty">No intercom</div>';
+  const s = dbState(x); const calls = dbCallBtns(x);
+  return `<div class="vw">${pager ? `<div class="bar"><div class="sp"></div>${pager}</div>` : ''}
+<div class="grid" style="grid-template-columns:minmax(0,1.7fr) minmax(0,1fr)">
+<div class="card" style="padding:16px;gap:12px"><div class="row" style="height:56px;padding:0 4px"><div class="col"><div class="e w">${esc(x.name)}</div><div class="s">${esc(dbPicSub(x))}</div></div>${x.snap ? `<button class="btn f ghost" data-dbtn="${x.snap}" style="gap:8px">${svg('camera')}Snapshot</button>` : ''}</div>${dbPic(x)}</div>
+<div class="card${s === 'ring' ? ' on' : s === 'call' ? ' ok' : ''}" style="gap:14px"><div class="row"><div class="col"><div class="e w">Intercom</div><div class="s">Call state</div></div>${svg('bell', `width:30px;height:30px;color:${s === 'ring' ? 'var(--amber)' : s === 'call' ? 'var(--mint)' : 'var(--text2)'}`)}</div>
+<div style="flex:1;display:flex;flex-direction:column;justify-content:center"><div class="big" style="font-size:52px">${DBL[s]}</div></div>
+${calls ? `<div class="row" style="gap:10px">${calls}</div>` : ''}<div style="display:grid;gap:10px">${dbDoorBtns(x) || '<div class="s dim">No door relay</div>'}</div></div></div></div>`;
+}
+function openDoorOv(x){ const s = dbState(x);
+  const html = `<div class="dlg wide" style="padding:16px;gap:12px"><div class="row" style="height:56px;padding:0 8px">${svg('bell', 'width:32px;height:32px;color:' + (s === 'ring' ? 'var(--amber)' : 'var(--text2)'))}<div class="col"><div class="n">${esc(x.name)}</div><div class="s${s === 'ring' ? ' amber' : s === 'call' ? ' mint' : ''}">${DBL[s]} · ${esc(dbPicSub(x))}</div></div>${x.snap ? `<button class="btn f ghost" data-dbtn="${x.snap}" style="gap:8px">${svg('camera')}Snapshot</button>` : ''}<button class="btn sq" data-act="close" aria-label="Close">${svg('x')}</button></div>
+${dbPic(x)}<div class="row" style="gap:10px">${dbCallBtns(x)}${dbDoorBtns(x)}</div></div>`;
+  if (ovKind === 'door' && UI.dbHtml === html) return;
+  UI.dbHtml = html; openOv(html, 'door');
+}
+function refreshDoorOv(){ const x = dbList().find(d => d.key === UI.dbKey); if (x) openDoorOv(x); else closeOv(); }
+const dbSeen = {}; let dbCloseT = 0;
+function checkDoorbell(){
+  if (!M) return;
+  const L = dbList();
+  L.forEach(x => { if (dbState(x) !== 'ring') return; const k = x.key + '|' + S[x.state].last_changed; if (dbSeen[k]) return; dbSeen[k] = 1;
+    if (x.snap) call('button', 'press', {}, { entity_id: x.snap });
+    touched(); $('night').classList.remove('show');
+    UI.dbKey = x.key; openDoorOv(x); schedule(); });
+  if (ovKind === 'door' && !dbCloseT) { const x = L.find(d => d.key === UI.dbKey);
+    if (!x || dbState(x) === 'idle') dbCloseT = setTimeout(() => { dbCloseT = 0; if (ovKind !== 'door') return; const y = dbList().find(d => d.key === UI.dbKey); if (!y || dbState(y) === 'idle') closeOv(); }, 20000); }
+}
+
+
+/* ---- derived helpers ---- */
+const avail = (ids) => ids.filter(show);
+const roomLights = (r) => avail(r.lights);
+const lightsOnIn = (r) => r.lights.filter(id => real(id) && isOn(id));
+const allLights = () => M ? M.rooms.flatMap(r => r.lights) : [];
+const lightsOn = () => allLights().filter(id => real(id) && isOn(id)).length;
+const onOffOnly = (id) => hasLabel(id, SET.onOffLabels) || id.startsWith('switch.');
+const dimmable = (id) => { if (onOffOnly(id)) return false; const m = attr(id, 'supported_color_modes') || []; return m.some(x => x !== 'onoff'); };
+const colorful = (id) => { if (onOffOnly(id)) return false; const m = attr(id, 'supported_color_modes') || []; return m.some(x => ['hs','rgb','rgbw','rgbww','xy','color_temp'].includes(x)); };
+const bri = (id) => { const s = st(id); return s && s.state==='on' && s.attributes.brightness!=null ? Math.max(1, Math.round(s.attributes.brightness/2.55)) : null; };
+function roomTemp(r){
+  const t = avail(r.temp).filter(real).map(id => parseFloat(S[id].state)).filter(v => !isNaN(v));
+  if (t.length) return t.reduce((a,b)=>a+b,0)/t.length;
+  for (const id of [...r.ac, ...r.heat]) { const v = attr(id,'current_temperature'); if (real(id) && v != null) return v; }
+  return null;
+}
+function roomHum(r){
+  const t = r.hum.filter(real).map(id => parseFloat(S[id].state)).filter(v => !isNaN(v));
+  if (t.length) return Math.round(t.reduce((a,b)=>a+b,0)/t.length);
+  for (const id of r.ac) { const v = attr(id,'current_humidity'); if (real(id) && v != null) return v; }
+  return null;
+}
+const isOpen = (id) => real(id) && S[id].state === 'on';
+const openFor = (id) => isOpen(id) ? (Date.now() - new Date(S[id].last_changed)) / 60000 : 0;
+function since(id){ const m = Math.round(openFor(id)); return m < 1 ? 'now' : m < 60 ? m + ' min' : Math.floor(m/60) + ' h ' + (m%60) + ' min'; }
+
+let ws = null, msgId = 10, backoff = 1000;
+let FC = null, FC_ID = 0;
+const waiters = {};
+async function getToken(){
+  try {
+    const ha = window.parent !== window && window.parent.document.querySelector('home-assistant');
+    if (ha && ha.hass && ha.hass.auth) {
+      if (ha.hass.auth.expired) await ha.hass.auth.refreshAccessToken();
+      return ha.hass.auth.data.access_token;
+    }
+  } catch (e) {}
+  let t = null; try { t = JSON.parse(localStorage.getItem('hassTokens')||'null'); } catch(e){}
+  if (!t || !t.refresh_token) throw new Error('login');
+  if (!t.access_token || Date.now() > (t.expires||0) - 60000) {
+    const body = new URLSearchParams({ grant_type:'refresh_token', client_id:t.clientId, refresh_token:t.refresh_token });
+    const r = await fetch('/auth/token', { method:'POST', body });
+    if (!r.ok) throw new Error('login');
+    const j = await r.json();
+    t.access_token = j.access_token; t.expires = Date.now() + j.expires_in*1000; t.expires_in = j.expires_in;
+    try { localStorage.setItem('hassTokens', JSON.stringify(t)); } catch(e){}
+  }
+  return t.access_token;
+}
+function send(msg){ const id = ++msgId; msg.id = id; ws.send(JSON.stringify(msg)); return new Promise((res, rej) => { waiters[id] = { res, rej }; setTimeout(() => { if (waiters[id]) { delete waiters[id]; rej(new Error('timeout')); } }, 15000); }); }
+function setConn(text){ const c = $('conn'); if (text) { c.textContent = text; c.classList.add('show'); } else c.classList.remove('show'); }
+async function loadRegistry(){
+  const [e, d, a, f] = await Promise.all([
+    send({ type:'config/entity_registry/list_for_display' }).catch(() => ({ entities:[] })),
+    send({ type:'config/device_registry/list' }).catch(() => []),
+    send({ type:'config/area_registry/list' }).catch(() => []),
+    send({ type:'config/floor_registry/list' }).catch(() => []),
+  ]);
+  REG.ents = {}; (e.entities||[]).forEach(x => REG.ents[x.ei] = x);
+  REG.devs = {}; d.forEach(x => REG.devs[x.id] = x);
+  REG.areas = a; REG.floors = f; REG.loaded = true; DBC.t = 0; setTimeout(() => safe(checkDoorbell), 1500);
+  buildModel(); schedule();
+}
+let regT = 0;
+const reloadRegistry = () => { clearTimeout(regT); regT = setTimeout(loadRegistry, 600); };
+let modelT = 0;
+const rebuildSoon = () => { clearTimeout(modelT); modelT = setTimeout(() => { buildModel(); schedule(); }, 800); };
+
+async function connect(){
+  let token;
+  try { token = await getToken(); }
+  catch (e) { setConn('Not signed in · open Home Assistant on this panel and log in with “Keep me logged in”'); setTimeout(connect, 15000); return; }
+  ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/api/websocket');
+  lastMsg = Date.now(); ws.addEventListener('message', () => { lastMsg = Date.now(); });
+  ws.onmessage = async (ev) => {
+    const m = JSON.parse(ev.data);
+    if (m.type === 'auth_required') ws.send(JSON.stringify({ type:'auth', access_token: token }));
+    else if (m.type === 'auth_invalid') { ws.close(); }
+    else if (m.type === 'auth_ok') {
+      backoff = 1000; connected = true; setConn('');
+      try { const c = await send({ type:'get_config' }); HA.location = c.location_name || ''; } catch(e){}
+      let states; try { states = await send({ type:'get_states' }); } catch (e) { dropSocket(); return; }
+      for (const k in S) delete S[k];
+      states.forEach(s => S[s.entity_id] = s);
+      await send({ type:'subscribe_events', event_type:'state_changed' });
+      ['entity_registry_updated','device_registry_updated','area_registry_updated','floor_registry_updated','label_registry_updated']
+        .forEach(t => send({ type:'subscribe_events', event_type:t }).catch(() => {}));
+      try { await loadRegistry(); } catch (e) { console.error('[panel] registry', e); }
+      FC = null; const wId = Object.keys(S).find(k => k.startsWith('weather.'));
+      if (wId) { send({ type:'weather/subscribe_forecast', forecast_type:'daily', entity_id:wId }).catch(() => {}); FC_ID = msgId; }
+    }
+    else if (m.type === 'result') { const w = waiters[m.id]; if (w) { delete waiters[m.id]; m.success ? w.res(m.result) : w.rej(m.error); } }
+    else if (m.type === 'event' && m.id === FC_ID && m.event && m.event.forecast) { FC = m.event.forecast; schedule(); }
+    else if (m.type === 'event' && m.event) {
+      const et = m.event.event_type;
+      if (et === 'state_changed') {
+        const d = m.event.data;
+        const added = !S[d.entity_id] && d.new_state;
+        if (d.new_state) S[d.entity_id] = d.new_state; else delete S[d.entity_id];
+        if (/^sensor\.(ssv|inex)_time$/.test(d.entity_id) && d.new_state) haTimeSync(d.new_state.state, true);
+        const p = pending[d.entity_id]; if (p && d.new_state && (((p.state == null || d.new_state.state === p.state) && pendDone(p, d.new_state)) || (p.state == null && Date.now() - p.t0 > 6000 && !/ing$/.test(d.new_state.state)))) delete pending[d.entity_id];
+        if (dbList().some(x => x.state === d.entity_id)) safe(checkDoorbell);
+        if (added || !d.new_state) rebuildSoon();
+        else if (d.entity_id.startsWith('climate.') && d.old_state && JSON.stringify(d.old_state.attributes.hvac_modes) !== JSON.stringify(d.new_state.attributes.hvac_modes)) rebuildSoon();
+        checkHazards();
+        schedule();
+      } else if (/_registry_updated$/.test(et)) reloadRegistry();
+    }
+  };
+  ws.onclose = () => { connected = false; setConn('Reconnecting…'); setTimeout(connect, backoff); backoff = Math.min(backoff*2, 30000); };
+  ws.onerror = () => { try { ws.close(); } catch(e){} };
+}
+setInterval(watchdog, 10000); setInterval(checkUpdate, 600000);
+
+function call(domain, service, data = {}, target){
+  if (!connected) return Promise.resolve();
+  const msg = { type:'call_service', domain, service, service_data:data };
+  if (target) msg.target = target;
+  return send(msg).catch(() => {});
+}
+function optimistic(id, state, attrs, ms){ ms = ms || 5000; pending[id] = { state, attrs, until: Date.now() + ms, t0: Date.now() }; setTimeout(schedule, ms + 100); schedule(); }
+/* a held value is released only when the device reports it (state and attributes), so a drag never jumps back */
+function pendDone(p, ns){ const a = p.attrs || {}; return Object.keys(a).every(k => { const v = ns.attributes[k], w = a[k]; return typeof w === 'number' && typeof v === 'number' ? Math.abs(v - w) <= (k === 'brightness' ? 3 : 1) : v === w; }); }
+
+function lightDomain(id){ return id.split('.')[0]; }
+function toggleLight(id){
+  const on = isOn(id);
+  optimistic(id, on ? 'off' : 'on');
+  call(lightDomain(id), on ? 'turn_off' : 'turn_on', {}, { entity_id:id });
+}
+function setLights(ids, on){
+  ids = ids.filter(real);
+  ids.forEach(id => optimistic(id, on ? 'on' : 'off'));
+  const L = ids.filter(id => id.startsWith('light.')), W = ids.filter(id => id.startsWith('switch.'));
+  if (L.length) call('light', on ? 'turn_on' : 'turn_off', {}, { entity_id:L });
+  if (W.length) call('switch', on ? 'turn_on' : 'turn_off', {}, { entity_id:W });
+}
+function setBri(id, p){
+  if (p <= 0) { optimistic(id, 'off'); call('light', 'turn_off', {}, { entity_id:id }); }
+  else { optimistic(id, 'on', { brightness: Math.round(p*2.55) }); call('light', 'turn_on', { brightness_pct:p }, { entity_id:id }); }
+}
+function runScene(id){
+  const dom = id.split('.')[0];
+  call(dom, 'turn_on', {}, { entity_id:id });
+  UI.lastScene = id; UI.lastSceneAt = Date.now();
+  toast(`Scene “${NM(id)}” activated`);
+  schedule();
+}
+const tempQ = {};
+function stepTemp(id, dir){
+  const s = st(id); const a = s.attributes; const step = a.target_temp_step || 0.5;
+  let v = Math.round(((a.temperature ?? 22) + dir * step) * 10) / 10;
+  v = Math.min(a.max_temp ?? 30, Math.max(a.min_temp ?? 7, v));
+  optimistic(id, s.state, { temperature:v });
+  clearTimeout(tempQ[id]); tempQ[id] = setTimeout(() => call('climate', 'set_temperature', { temperature:v }, { entity_id:id }), 1000);
+}
+
+let raf = 0, dragging = null;
+function schedule(){ if (!raf) raf = requestAnimationFrame(() => { raf = 0; render(); }); }
+
+function tabs(){
+  const t = [['home','Home','home']];
+  if (!M) return t;
+  const R = M.rooms;
+  if (R.some(r => roomHasAny(r))) t.push(['rooms','Rooms','rooms']);
+  if (R.some(r => avail(r.lights).length)) t.push(['lights','Lights','bulb']);
+  if (zonesBy(CL.climate).length) t.push(['climate','Climate','climate']);
+  if (zonesBy(CL.wall).length) t.push(['heating','Heating','waves']);
+  if (curtEnts().length) t.push(['curtains','Curtains','curtains']);
+  if (wEnts().length) t.push(['water','Water','water']);
+  if (avail(M.g.cams).length) t.push(['cameras','Cameras','camera']);
+  if (dbList().length) t.push(['intercom','Intercom','bell']);
+  if (avail(M.g.alarms).length || avail(M.g.locks).length) t.push(['security','Security','shield']);
+  t.push(['schedule','Schedule','timer']);
+  return t;
+}
+function roomHasAny(r){ return ['lights','ac','heat','covers','temp','hum','openings','locks'].some(k => avail(r[k]).length); }
+function renderSide(){
+  const t = tabs();
+  if (!t.some(x => x[0] === view) && !(view === 'room' && M && M.byId[UI.room])) view = 'home';
+  const villa = PANEL.villa || HA.location || 'Villa';
+  $('side').innerHTML =
+    `<div class="brand">${LOGO()}<div class="nm"><b>${esc(villa)}</b><span>${esc(PANEL.place || PANEL.id)}</span></div></div>` +
+    t.map(([k, label, ic]) => `<button class="tab${k===view || (k==='rooms' && view==='room')?' sel':''}" data-tab="${k}">${svg(ic)}<span>${label}</span></button>`).join('') +
+    `<div class="sp"></div><button class="tab night" data-act="night">${svg('moon')}<span>Night</span></button>`;
+}
+function fmtClock(d){ return d.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' }); }
+function fmtDate(d){ return d.toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'short' }); }
+/* INEX 2026-10-27: clock comes from Home Assistant (sensor.ssv_time / sensor.inex_time: server time + HA time zone), not from the tablet's own clock */
+var HA_OFF = 0, HA_TZ = 0, HA_TZOK = false;
+function haTimeSync(iso, live){ const ms = Date.parse(iso); if (isNaN(ms)) return; if (live) HA_OFF = ms - Date.now(); const z = /([+-])(\d\d):?(\d\d)$/.exec(iso); if (z) { HA_TZ = (z[1] === '-' ? -1 : 1) * (+z[2] * 60 + +z[3]); HA_TZOK = true; } }
+function haAt(t){ if (!HA_TZOK) { const s = S['sensor.ssv_time'] || S['sensor.inex_time']; if (s && s.state) haTimeSync(s.state, false); } return HA_TZOK ? new Date(t + (HA_TZ + new Date(t).getTimezoneOffset()) * 60000) : new Date(t); }
+function haNow(){ return haAt(Date.now() + HA_OFF); }
+function greet(){ const h = haNow().getHours(); return h < 5 ? 'Good night' : h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'; }
+function alerts(){
+  if (!M) return [];
+  const a = [];
+  M.g.hazards.filter(isOpen).forEach(id => a.push({ id, crit:true, text: NM(id), sub:'Detected' }));
+  M.g.alarms.filter(id => real(id) && S[id].state === 'triggered').forEach(id => a.push({ id, crit:true, text: NM(id), sub:'Alarm triggered' }));
+  M.g.openings.filter(id => openFor(id) >= SET.openAlertMin).forEach(id => a.push({ id, crit:false, text: NM(id), sub:'Open · ' + since(id) }));
+  return a;
+}
+function renderTop(){
+  const now = haNow();
+  const villa = PANEL.villa || HA.location || '';
+  const T = {
+    home: ['Overview', greet()],
+    rooms: [`Rooms · ${M ? M.rooms.filter(roomHasAny).length : 0} areas`, 'Rooms'],
+    lights: [`Lighting · ${M ? M.rooms.filter(r => avail(r.lights).length).length : 0} rooms · ${lightsOn()} on`, 'Lights'],
+    climate: ['Climate', 'Climate'], heating: ['Heating', 'Heating'], schedule: ['Schedule', 'Schedule'],
+    curtains: [`Curtains · ${M ? curtEnts().length : 0} tracks`, 'Curtains'],
+    water: ['Water', 'Water'],
+    cameras: [`Video · ${M ? avail(M.g.cams).length : 0} cameras`, 'Cameras'],
+    security: ['Security', 'Security'],
+    intercom: ['Intercom', 'Intercom'],
+    room: (M && M.byId[UI.room]) ? [M.byId[UI.room].floorName || 'Room', M.byId[UI.room].name] : ['Room', 'Room'],
+  };
+  const [eb, hd] = T[view] || T.home;
+  const al = alerts();
+  let alertBtn = '';
+  if (al.length) alertBtn = `<button class="pill ${al.some(x=>x.crit)?'crit':'warn'}" data-act="alerts" aria-label="Alerts">${svg('bell')}${al.length}</button>`;
+  let weather = '';
+  const w = M && M.g.weather;
+  if (w && real(w)) {
+    const a = S[w].attributes; const fc = (FC && FC[0]) || (a.forecast && a.forecast[0]) || null;
+    weather = `<div class="pill">${svg('cloud','width:26px;height:26px;color:var(--soft)')}<div class="v">${Math.round(a.temperature)}°</div><div class="l">${esc(S[w].state.replace(/[-_]/g,' '))}${fc && fc.temperature!=null ? `<br>H ${Math.round(fc.temperature)}°${fc.templow!=null?' · L '+Math.round(fc.templow)+'°':''}` : ''}</div></div>`;
+  }
+  $('top').innerHTML = `<div class="ttl"><div class="eb">${esc(eb)}</div><div class="hd">${esc(hd)}</div></div>${alertBtn}${weather}
+    <div class="clk"><b id="clk">${fmtClock(now)}</b><span>${fmtDate(now)}</span></div>`;
+}
+
+/* ---- paging (nothing scrolls) ---- */
+function paged(key, items, per){
+  const pages = Math.max(1, Math.ceil(items.length / per));
+  let p = UI.page[key] || 0; if (p >= pages) p = pages - 1; UI.page[key] = p;
+  const pager = pages > 1 ? `<div class="pager"><button class="btn sq" data-pg="${key}" data-d="-1" ${p?'':'disabled'} aria-label="Previous">${svg('chevl')}</button><span>${p+1}/${pages}</span><button class="btn sq" data-pg="${key}" data-d="1" ${p<pages-1?'':'disabled'} aria-label="Next">${svg('chev')}</button></div>` : '';
+  return { items: items.slice(p*per, p*per+per), pager };
+}
+
+function pinnedScenes(){ return avail(M.g.scenes).filter(id => hasLabel(id, ['home'])).slice(0, SET.homeScenes); }
+function sceneActive(id){ return UI.lastScene === id && Date.now() - UI.lastSceneAt < 30*60000; }
+
+function viewHome(){
+  const pins = safe(pinnedScenes, []); const all = avail(M.g.scenes);
+  const btns = pins.map(id => `<button class="sc${sceneActive(id) ? ' on' : ''}" data-scene="${id}">${svg(sceneIcon(id))}<span>${esc(NM(id))}</span></button>`);
+  btns.push(`<button class="sc" data-act="alloff">${svg('power')}<span>All off</span></button>`);
+  if (btns.length < 5) btns.push(`<button class="sc" data-act="night">${svg('moon')}<span>Night</span></button>`);
+  btns.push(`<button class="sc" data-act="scenes">${svg('more')}<span>${all.length ? 'More' : 'Scenes'}</span></button>`);   /* always: new scenes are made from here */
+  return `<div class="vw">
+    <div style="display:grid;grid-template-columns:repeat(${btns.length},minmax(0,1fr));gap:12px">${btns.join('')}</div>
+    <div style="flex:1;min-height:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px">
+      <div style="display:flex;flex-direction:column;gap:16px;min-height:0"><div style="flex:1;min-height:0;display:grid">${safe(() => homeLights(4))}</div><div style="flex:none;display:grid">${safe(homeClimateCard)}</div></div>
+      <div style="display:grid;grid-template-rows:minmax(0,1fr) 216px;gap:16px;min-height:0">${safe(homeHouse, '<div></div>')}${safe(homeStatus, '<div></div>')}</div>
+    </div></div>`;
+}
+function sceneIcon(id){ const n = NM(id).toLowerCase(); return /night|sleep/.test(n) ? 'moon' : /movie|tv|cinema/.test(n) ? 'camera' : /away|leave/.test(n) ? 'door' : /off/.test(n) ? 'power' : 'scene'; }
+
+function stepper(id, off){
+  const sp = attr(id, 'temperature');
+  return `<button class="btn sq${off?' dim':''}" data-tmp="${id}" data-d="-1" aria-label="Lower">${svg('minus')}</button><div class="spv"${off?' style="color:var(--text3)"':''}>${sp!=null?fmtT(sp)+'°':'--'}</div><button class="btn sq${off?' dim':''}" data-tmp="${id}" data-d="1" aria-label="Raise">${svg('plus')}</button>`;
+}
+function homeLights(max){
+  const rows = homeLightGroups().slice(0, max || 6).map((x, i) => { const r = x.room, ids = x.ids; const on = ids.filter(id => real(id) && isOn(id));
+    const dim = on.find(id => bri(id) !== null);
+    const sub = on.length ? `${on.length} of ${ids.length} on${dim ? ' · ' + NM(dim) + ' ' + bri(dim) + ' %' : ''}` : `${ids.length} light${ids.length > 1 ? 's' : ''} · off`;
+    return (i ? '<div class="hr"></div>' : '') + `<div class="row" style="height:76px">
+      <button class="col" data-goroom="${r.id}" style="background:none;border:0;padding:0;text-align:left;color:inherit"><div class="n">${esc(r.name)}</div><div class="s${on.length ? ' amber' : ' dim'}">${esc(sub)}</div></button>
+      <button class="sw${on.length ? ' on' : ''}" data-homelights="${r.id}" aria-label="${esc(r.name)} lights"><i></i></button></div>`; }).join('');
+  return `<section class="card" aria-label="Lights" style="padding:24px">
+    <div class="row"><div class="e" style="flex:1">Lights</div>${hasTab('lights') ? '<button class="s" data-tab="lights" style="background:none;border:0;color:var(--text2);padding:8px 0">All rooms ›</button>' : ''}</div>
+    <div style="flex:1;min-height:0;display:flex;flex-direction:column;justify-content:${rows ? 'flex-start' : 'center'}">${rows || '<div class="empty">No lights</div>'}</div></section>`;
+}
+function homeHouse(){
+  const L = fnEnts('light', ['light', 'switch']), A = fnEnts('ac', ['climate']), U = fnEnts('ufh', ['climate', 'switch']);
+  const heatTab = hasTab('heating') ? 'heating' : 'climate';
+  const line = (icon, tab, n, one, many, off, col) => `<button class="row" data-tab="${tab}" style="flex:1;min-height:56px;background:none;border:0;padding:0;color:inherit;text-align:left;gap:16px">${svg(icon, 'width:28px;height:28px;color:' + (n ? col : 'var(--text3)'))}<div class="n" style="flex:1;font-size:22px;color:${n ? col : 'var(--text2)'}">${n ? n + ' ' + (n > 1 ? many : one) : off}</div>${svg('chev', 'width:18px;height:18px;color:var(--text3)')}</button>`;
+  const rows = [line('bulb', 'lights', L.filter(isRunning).length, 'light on', 'lights on', 'All lights off', 'var(--amber)')];
+  if (A.length) rows.push(line('snow', 'climate', A.filter(isRunning).length, 'AC on', 'ACs on', 'All AC off', 'var(--cool)'));
+  if (U.length) rows.push(line('flame', heatTab, U.filter(isRunning).length, 'floor heating zone on', 'floor heating zones on', 'All floor heating off', 'var(--heat)'));
+  return `<section class="card" aria-label="House" style="padding:24px"><div class="e">House</div><div style="flex:1;min-height:0;display:flex;flex-direction:column">${rows.join('<div class="hr"></div>')}</div></section>`;
+}
+function homeStatus(){
+  const rows = [];
+  avail(M.g.alarms).slice(0,1).forEach(id => { const s = S[id].state; rows.push(`<button class="ln" data-tab="security">${svg('shield')}<b>Security</b><em class="${s==='disarmed'?'':'mint'}">${esc(ALARM[s]||s)}${M.g.locks.length ? ' · ' + (M.g.locks.every(l => !real(l) || S[l].state==='locked') ? 'locked' : 'unlocked') : ''}</em></button>`); });
+  if (!M.g.alarms.length && avail(M.g.locks).length) { const allL = avail(M.g.locks).every(l => S[l].state === 'locked'); rows.push(`<button class="ln" data-tab="security">${svg(allL?'lock':'unlock')}<b>Doors</b><em class="${allL?'mint':'amber'}">${allL?'All locked':'Unlocked'}</em></button>`); }
+  wallRows().forEach(r => rows.push(r));
+  waterRows().forEach(r => rows.push(r));
+  if (0) waterTimers().filter(x => real(x.start)).forEach(x => { const r = timerInfo(x); rows.push(`<button class="ln" data-tab="water">${svg(timerIcon(x))}<b>${esc(NM(x.timer))}</b><em class="${r.active?'heat':''}">${r.active ? (r.left ? 'On · ' + r.left : 'On') : 'Off'}</em></button>`); });
+  avail(M.g.heaters).forEach(id => { const a = S[id].attributes; rows.push(`<button class="ln" data-tab="water">${svg('flame')}<b>${esc(NM(id))}</b><em>${a.current_temperature!=null?fmtT(a.current_temperature)+' °C':esc(S[id].state)}</em></button>`); });
+  const open = M.g.openings.filter(isOpen);
+  if (open.length) rows.unshift(`<button class="ln" data-act="alerts">${svg('door')}<b>${open.length === 1 ? esc(NM(open[0])) : open.length + ' openings'}</b><em class="amber">Open</em></button>`);
+  // active timers first
+  rows.sort((a,b) => (b.includes('class="heat"')|0) - (a.includes('class="heat"')|0));
+  return `<section class="card" aria-label="Status" style="padding:6px 24px;justify-content:center;gap:0">${rows.slice(0,3).join('<div class="hr"></div>') || '<div class="empty">All quiet</div>'}</section>`;
+}
+
+const MODE = { off:'Off', cool:'Cool', heat:'Heat', auto:'Auto', heat_cool:'Auto', dry:'Dry', fan_only:'Fan' };
+const ALARM = { disarmed:'Disarmed', armed_away:'Armed · Away', armed_home:'Armed · Home', armed_night:'Armed · Night', armed_vacation:'Armed · Vacation', armed_custom_bypass:'Armed', arming:'Arming…', pending:'Entry delay', triggered:'Triggered', disarming:'Disarming…' };
+function heatLabel(id){ return /wall/i.test(id + NM(id)) ? 'Heated wall' : /towel/i.test(id) ? 'Towel rail' : 'Floor heating'; }
+function viewRooms(){
+  let rooms = M.rooms.filter(roomHasAny);
+  const floors = M.floors.filter(f => rooms.some(r => r.floor === f.floor_id));
+  if (!floors.find(f => f.floor_id === UI.roomFloor)) UI.roomFloor = floors.length ? floors[0].floor_id : 'all';
+  if (UI.roomFloor !== 'all') rooms = rooms.filter(r => r.floor === UI.roomFloor);
+  const { items, pager } = paged('rooms' + UI.roomFloor, rooms, 6);
+  const lit = M.rooms.reduce((n,r) => n + lightsOnIn(r).length, 0);
+  const acOn = M.rooms.reduce((n,r) => n + r.ac.filter(id => real(id) && S[id].state !== 'off').length, 0);
+  const hOn = M.rooms.reduce((n,r) => n + r.heat.filter(id => real(id) && S[id].state !== 'off').length, 0);
+  const sum = [`${lit} lights on`, acOn ? acOn + ' AC' : '', hOn ? hOn + ' heating' : ''].filter(Boolean).join(' · ');
+  const cards = items.map(roomCard).join('');
+  return `<div class="vw">
+    <div class="bar">${floors.length > 1 ? floors.map(f => `<button class="btn f${UI.roomFloor===f.floor_id?' sel':''}" data-floor="${f.floor_id}">${esc(f.name.replace(/\s*floor$/i,''))}</button>`).join('') : ''}
+      <div class="sp"></div><span class="s" style="font-size:13px">${esc(sum)}</span>${pager}</div>
+    <div class="grid" style="grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr))">${cards}</div></div>`;
+}
+function roomCard(r){
+  const t = roomTemp(r), h = roomHum(r);
+  const co2 = r.co2.filter(real).map(id => +S[id].state)[0];
+  const on = lightsOnIn(r); const L = avail(r.lights);
+  const chips = [];
+  if (on.length) chips.push(`<span class="chip amber">${on.length} light${on.length>1?'s':''}</span>`);
+  avail(r.ac).forEach(id => { const s = st(id); if (s.state !== 'off') chips.push(`<span class="chip ${/heat/.test(s.attributes.hvac_action||s.state)?'heat':'cool'}">${esc(MODE[s.state]||s.state)} ${fmtT(s.attributes.temperature)}°</span>`); });
+  avail(r.heat).forEach(id => { const s = st(id); if (s.state !== 'off') chips.push(`<span class="chip heat">${esc(heatLabel(id))} → ${fmtT(s.attributes.temperature)}°</span>`); });
+  const cov = avail(r.covers).filter(real);
+  if (cov.length) { const p = cov.map(id => S[id].attributes.current_position).filter(v => v != null); chips.push(`<span class="chip">${p.length ? 'Curtains ' + Math.round(p.reduce((a,b)=>a+b,0)/p.length) + ' %' : 'Curtains ' + S[cov[0]].state}</span>`); }
+  r.openings.filter(isOpen).forEach(id => chips.push(`<span class="chip amber">${esc(NM(id))} open</span>`));
+  r.hazards.filter(isOpen).forEach(id => chips.push(`<span class="chip crit">${esc(NM(id))}</span>`));
+  if (!chips.length) chips.push(`<span class="chip">All off</span>`);
+  const heatOn = r.heat.some(id => real(id) && S[id].state !== 'off'), acOn = r.ac.some(id => real(id) && S[id].state !== 'off');
+  const icon = on.length ? svg('bulb','color:var(--amber)') : heatOn ? svg('waves','color:var(--heat)') : acOn ? svg('snow','color:var(--cool)') : '';
+  const go = L.length ? 'lights' : (r.ac.length || r.heat.length) ? 'climate' : r.covers.length ? 'curtains' : 'lights';
+  return `<div class="card${on.length?' on':''}">
+    <div class="row"><div class="col"><div class="t" style="font-size:22px">${esc(r.name)}</div><div class="s">${esc(r.floorName)}</div></div>${icon}</div>
+    ${t != null ? `<div class="row" style="align-items:baseline;gap:16px"><div class="v">${fmtT(t)}<span class="u">°C</span></div>${h!=null?`<div class="s">${h} % RH</div>`:''}${co2!=null&&!isNaN(co2)?`<div class="s ${co2>1000?'amber':''}">CO₂ ${Math.round(co2)}</div>`:''}</div>` : ''}
+    <div class="row" style="gap:8px;height:30px;overflow:hidden;flex-wrap:wrap">${chips.join('')}</div>
+    <div class="sp"></div>
+    <div class="row" style="gap:8px">${L.length ? `<button class="btn${on.length?' lit':''}" data-roomlights="${r.id}">${on.length?'Lights off':'Lights on'}</button>` : '<div class="sp"></div>'}<button class="btn sq" data-goroom="${r.id}" data-go="${go}" aria-label="Open ${esc(r.name)}">${svg('chev')}</button></div></div>`;
+}
+
+function viewLights(){
+  const rooms = M.rooms.filter(r => avail(r.lights).length);
+  const fOf = (r) => r.floor || '_none';
+  const fl = M.floors.filter(f => rooms.some(r => r.floor === f.floor_id)).map(f => ({ id: f.floor_id, name: f.name.replace(/\s*floor$/i, '') }));
+  if (rooms.some(r => !r.floor)) fl.push({ id: '_none', name: 'Other' });
+  if (!UI.lightRoom || !rooms.find(r => r.id === UI.lightRoom)) UI.lightRoom = (rooms.find(r => lightsOnIn(r).length) || rooms[0] || {}).id;
+  if (!UI.lightFloor || !fl.find(f => f.id === UI.lightFloor)) UI.lightFloor = UI.lightRoom ? fOf(M.byId[UI.lightRoom]) : (fl[0] || {}).id;
+  const inFloor = rooms.filter(r => fOf(r) === UI.lightFloor);
+  if (!inFloor.find(r => r.id === UI.lightRoom)) UI.lightRoom = (inFloor.find(r => lightsOnIn(r).length) || inFloor[0] || {}).id;
+  const r = M.byId[UI.lightRoom];
+  const fbtn = fl.length > 1 ? fl.map(f => { const n = rooms.filter(x => fOf(x) === f.id).reduce((a, x) => a + lightsOnIn(x).length, 0); const sel = f.id === UI.lightFloor;
+    return `<button class="btn f${sel ? ' sel' : ''}" data-lfloor="${f.id}">${esc(f.name)}${n ? `${lbadge(n, sel)}` : ''}</button>`; }).join('') : '';
+  const rbtn = inFloor.map(x => { const n = lightsOnIn(x).length; const sel = x.id === UI.lightRoom;
+    return `<button class="btn${sel ? ' sel' : ''}" data-lroom="${x.id}" style="min-width:0"><span style="white-space:normal;line-height:1.25;text-align:center">${esc(x.name)}</span>${n ? `${lbadge(n, sel)}` : ''}</button>`; }).join('');
+  const ids = r ? avail(r.lights).slice().sort(lightSort) : [];
+  const { items, pager } = paged('lights_' + UI.lightRoom, ids, 8);
+  const rows = ids.length > 4 ? 2 : 1;
+  const anyOn = r && lightsOnIn(r).length;
+  return `<div class="vw">
+    <div class="bar">${fbtn}<div class="sp"></div>${pager}<button class="btn lit f" data-act="roomoff" ${anyOn ? '' : 'disabled'}>${svg('power')}All off</button></div>
+    <div style="display:grid;grid-template-columns:repeat(${Math.max(inFloor.length, 6)},minmax(0,1fr));gap:12px">${rbtn}</div>
+    <div class="grid" style="grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(${rows},minmax(0,1fr))${rows === 1 ? ';max-height:332px' : ''}">${items.map(lightTile).join('')}</div></div>`;
+}
+function lightTile(id){
+  const s = st(id); const na = !s || s.state === 'unavailable'; const on = !na && s.state === 'on';
+  const dim = dimmable(id); const b = bri(id); const name = NM(id);
+  const lvl = on ? (dim && b != null ? b : 100) : 0;
+  const val = na ? `<div class="st">--</div>` : (on && dim && b != null ? `<div class="pct">${b}<span>%</span></div>` : `<div class="st">${on?'On':'Off'}</div>`);
+  const sub = na ? 'Unavailable' : s._pending ? (on ? 'Turning on…' : 'Turning off…') : colorful(id) ? colorLabel(id) : dim ? 'Slide to dim' : 'Switch';
+  const sw = colorful(id) && on ? colorSwatch(id) : '';
+  return `<button class="tile${on?' on':''}${na?' na':''}" data-light="${id}" style="--p:${lvl/100}" ${na?'disabled':''}>
+    ${dim && !na ? '<div class="lvl pv"></div><i class="kn"></i>' : `<div class="lvl" style="height:${lvl}%"></div>`}
+    <div class="top"><div class="d">${svg(s._pending ? 'arc' : lightIcon(id, name))}</div></div>
+    <div class="bot">${val}<div class="t">${esc(name)}</div><div class="row" style="gap:8px">${sw}<span class="s">${sub}</span></div></div></button>`;
+}
+const PRESETS = [
+  { k:'warm', name:'Warm white', ct:2700, sw:'#F3D9A4' },
+  { k:'neutral', name:'Neutral', ct:4000, sw:'#F4EEDD' },
+  { k:'cool', name:'Daylight', ct:5500, sw:'#DCE8F4' },
+  { k:'blush', name:'Blush', rgb:[255,170,150], sw:'#F2B4A4' },
+];
+function colorLabel(id){
+  const a = attr(id, 'color_mode') ? st(id).attributes : {};
+  if (!isOn(id)) return 'Hold for colour';
+  if (a.color_temp_kelvin) { const p = PRESETS.filter(x => x.ct).sort((x,y) => Math.abs(x.ct-a.color_temp_kelvin) - Math.abs(y.ct-a.color_temp_kelvin))[0]; return p.name; }
+  return 'Colour';
+}
+function colorSwatch(id){
+  const a = st(id).attributes; let c = '#F3D9A4';
+  if (a.rgb_color && a.color_mode !== 'color_temp') c = `rgb(${a.rgb_color.join(',')})`;
+  else if (a.color_temp_kelvin) c = PRESETS.filter(x => x.ct).sort((x,y) => Math.abs(x.ct-a.color_temp_kelvin) - Math.abs(y.ct-a.color_temp_kelvin))[0].sw;
+  return `<span class="cd" style="background:${c}"></span>`;
+}
+function openColor(id){
+  const modes = attr(id, 'supported_color_modes') || [];
+  const ct = modes.includes('color_temp'), rgb = modes.some(m => ['hs','rgb','rgbw','rgbww','xy'].includes(m));
+  const ps = PRESETS.filter(p => (p.ct && (ct || rgb)) || (p.rgb && rgb));
+  openOv(`<div class="dlg"><div class="row"><div class="col"><div class="e">Light colour</div><div class="n" style="font-size:28px">${esc(NM(id))}</div></div><button class="btn sq" data-act="close" aria-label="Close">${svg('x')}</button></div>
+    <div class="row" style="gap:10px">${ps.map(p => `<button class="btn" data-preset="${p.k}" data-id="${id}" style="height:96px;flex-direction:column;gap:10px"><span class="cd" style="width:28px;height:28px;border-radius:14px;background:${p.sw}"></span>${p.name}</button>`).join('')}</div>
+    <div class="row" style="gap:8px">${[10,30,60,100].map(p => `<button class="btn" data-bp="${p}" data-id="${id}">${p} %</button>`).join('')}<button class="btn" data-bp="0" data-id="${id}">Off</button></div></div>`);
+}
+function applyPreset(id, k){
+  const p = PRESETS.find(x => x.k === k); const modes = attr(id, 'supported_color_modes') || [];
+  const data = {};
+  if (p.ct) { if (modes.includes('color_temp')) data.color_temp_kelvin = p.ct; else data.color_temp_kelvin = p.ct; }
+  else data.rgb_color = p.rgb;
+  optimistic(id, 'on'); call('light', 'turn_on', data, { entity_id:id }); closeOv();
+}
+
+function viewClimate(){
+  const isAc = (id) => hasLabel(id, ['ac']) || climateKind(id) === 'ac';
+  const rooms = zonesBy(CL.climate).map(({ r, ids }) => Object.assign({}, r, { ac: ids.filter(isAc), heat: ids.filter(id => !isAc(id)) }));
+  const { items, pager } = paged('climate', rooms, 4);
+  return `<div class="vw" style="gap:${pager ? '16px' : '0'}">${pager ? `<div class="bar"><div class="sp"></div>${pager}</div>` : ''}
+    <div class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr))">${items.length ? items.map(climateCard).join('') : '<div class="empty" style="grid-column:1/-1">No climate devices</div>'}</div></div>`;
+}
+function climateCard(r){
+  const t = roomTemp(r), h = roomHum(r);
+  const ac = avail(r.ac), ht = avail(r.heat);
+  const blocks = [];
+  ac.slice(0, 2).forEach(id => blocks.push(acBlock(id, ac.length === 1 && ht.length === 0)));
+  ht.slice(0, Math.max(1, 3 - blocks.length)).forEach(id => blocks.push(heatBlock(id)));
+  return `<div class="card" style="padding:18px 20px">
+    <div class="row"><div class="col"><div class="e w">${esc(r.name)}</div><div class="s">${esc(r.floorName)}</div></div>
+      <div class="row" style="flex:none;gap:16px;align-items:baseline">${t!=null?`<div class="rt">${fmtT(t)}<span>°C</span></div>`:''}${h!=null?`<div class="rh">${h}<span>%</span></div>`:''}</div></div>
+    ${blocks.join('')}</div>`;
+}
+function acBlock(id, roomy){
+  const s = st(id); const a = s.attributes; const na = !real(id);
+  const mode = s.state; const off = mode === 'off' || na; const act = a.hvac_action || mode;
+  const cls = off ? '' : /heat/.test(act) || mode === 'heat' ? 'heat' : 'cool';
+  const col = cls === 'cool' ? 'var(--cool)' : cls === 'heat' ? 'var(--heat)' : 'var(--soft)';
+  const actTxt = { cooling:'Cooling', heating:'Heating', idle:'Idle', drying:'Drying', fan:'Fan', off:'Off' }[a.hvac_action] || MODE[mode] || mode;
+  const modes = (a.hvac_modes || []).filter(m => MODE[m]).slice(0, 5);
+  const fans = (a.fan_modes || []).slice(0, 4);
+  return `<div class="blk ${cls}"${roomy?' style="flex:1"':''}>
+    <div class="row" style="gap:8px"><div class="lab">${svg('snow', `color:${col}`)}<b style="color:${col}">AC · ${esc(na?'Unavailable':actTxt)}</b></div>${stepper(id, off)}</div>
+    <div class="row" style="gap:6px">${modes.map(m => `<button class="btn${m===mode?' sel':''}" data-mode="${id}" data-m="${m}">${MODE[m]}</button>`).join('')}</div>
+    ${roomy && fans.length ? `<div class="row" style="gap:6px"><span class="s" style="width:44px">Fan</span>${fans.map(f => `<button class="btn${f===a.fan_mode?' sel':''}" data-fan="${id}" data-m="${esc(f)}">${esc(f)}</button>`).join('')}</div>` : ''}</div>`;
+}
+function heatBlock(id){
+  const s = st(id); const na = !real(id); const off = s.state === 'off' || na;
+  return `<div class="blk ${off?'':'heat'}"><div class="row" style="gap:8px"><div class="lab">${svg('waves', `color:${off?'var(--text2)':'var(--heat)'}`)}<div class="col" style="gap:2px"><b style="color:${off?'var(--soft)':'var(--heat)'}">${esc(heatLabel(id))}</b><span class="s ${off?'dim':'heat'}">${na?'Unavailable':off?'Off':'Heating'}</span></div></div>
+    ${stepper(id, off)}<button class="btn sq${off?'':' sel'}" data-mode="${id}" data-m="${off?'heat':'off'}" aria-label="Power">${svg('power')}</button></div></div>`;
+}
+
+function viewCurtains(){
+  const all = curtEnts(); const fOf = (r) => r.floor || '_none';
+  const rooms = M.rooms.filter(r => all.some(id => labelRoom(id) === r));
+  const fl = M.floors.filter(f => rooms.some(r => r.floor === f.floor_id)).map(f => ({ id: f.floor_id, name: f.name.replace(/\s*floor$/i, '') }));
+  if (rooms.some(r => !r.floor)) fl.push({ id: '_none', name: 'Other' });
+  if (!UI.cvFloor || !fl.find(f => f.id === UI.cvFloor)) UI.cvFloor = (fl[0] || {}).id;
+  const inF = rooms.filter(r => fOf(r) === UI.cvFloor);
+  if (!inF.find(r => r.id === UI.cvRoom)) UI.cvRoom = (inF[0] || {}).id;
+  const r = M.byId[UI.cvRoom];
+  const ids = all.filter(id => labelRoom(id) === r);
+  const { items, pager } = paged('cv_' + UI.cvRoom, ids, 6);
+  const fbtn = fl.length > 1 ? fl.map(f => `<button class="btn f${f.id === UI.cvFloor ? ' sel' : ''}" data-cvfloor="${f.id}">${esc(f.name)}</button>`).join('') : '';
+  const rbtn = inF.map(x => `<button class="btn${x.id === UI.cvRoom ? ' sel' : ''}" data-cvroom="${x.id}" style="min-width:0"><span style="white-space:normal;line-height:1.25;text-align:center">${esc(x.name)}</span></button>`).join('');
+  return `<div class="vw"><div class="bar">${fbtn}<div class="sp"></div>${pager}
+      <button class="btn f" data-cvall="open_cover" style="gap:8px">${svg('open')}Open all</button><button class="btn f" data-cvall="close_cover" style="gap:8px">${svg('close')}Close all</button></div>
+    ${inF.length > 1 ? `<div style="display:grid;grid-template-columns:repeat(${Math.max(inF.length, 6)},minmax(0,1fr));gap:12px">${rbtn}</div>` : ''}
+    <div class="grid" style="grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr))">${items.map(id => coverCard(id, r)).join('') || '<div class="empty" style="grid-column:1/-1">No curtains</div>'}</div></div>`;
+}
+/* curtain look from labels: Curtain / Roller / Shutter + Left / Right / Both Side (default both) */
+const cKind = (id) => { const dc = attr(id, 'device_class');
+  if (hasLabel(id, ['shutter']) || (!hasLabel(id, ['roller', 'curtain']) && dc === 'shutter')) return 'shutter';
+  if (hasLabel(id, ['roller']) || (!hasLabel(id, ['curtain']) && (['blind', 'shade'].includes(dc) || /blind|roller/i.test(id)))) return 'roller';
+  return hasLabel(id, ['left']) ? 'left' : hasLabel(id, ['right']) ? 'right' : 'both'; };
+const CICON = { both:'curtains', left:'c_left', right:'c_right', roller:'c_roller', shutter:'c_shutter' };
+function cwin(id, k, pos, sheer, blackout, moving){
+  const parts = k === 'both' ? '<i class="pn a"></i><i class="pn b"></i><i class="hk a"></i><i class="hk b"></i>' : k === 'left' ? '<i class="pn a"></i><i class="hk a"></i>' : k === 'right' ? '<i class="pn b"></i><i class="hk b"></i>' : '<i class="pn"></i><i class="hk"></i>';
+  return `<div class="cw ${k}${sheer?' net':''}${blackout?' blackout':''}${moving?' mv':''}" data-cover="${id}" data-k="${k}" style="--p:${pos/100}"><i class="rl"></i>${parts}</div>`;
+}
+function cbtns(id, k, moving){
+  const o = k === 'left' ? 'aleft' : k === 'right' ? 'aright' : k === 'both' ? 'open' : 'up', c = k === 'left' ? 'aright' : k === 'right' ? 'aleft' : k === 'both' ? 'close' : 'down';
+  return `<button class="btn" data-cv="${id}" data-s="open_cover" aria-label="Open">${svg(o)}</button><button class="btn${moving?' sel':''}" data-cv="${id}" data-s="stop_cover" aria-label="Stop">${svg('stop')}</button><button class="btn" data-cv="${id}" data-s="close_cover" aria-label="Close">${svg(c)}</button>`;
+}
+function coverCard(id, r){
+  const s = st(id); const a = s.attributes; const na = !real(id);
+  const pos = a.current_position != null ? a.current_position : (s.state === 'open' ? 100 : s.state === 'closed' ? 0 : 50);
+  const moving = s.state === 'opening' || s.state === 'closing';
+  const k = cKind(id); const sheer = hasLabel(id, ['net']) || /net|sheer|tulle|voile/i.test(id + NM(id)); const blackout = hasLabel(id, ['blackout']);
+  const label = { open:'Open', closed:'Closed', opening:'Opening…', closing:'Closing…' }[s.state] || (na ? 'Unavailable' : s.state);
+  const name = NM(id); const tname = k === 'shutter' ? 'Shutter' : k === 'roller' ? 'Roller' : sheer ? 'Net' : blackout ? 'Blackout' : 'Curtain';
+  const sub = (name.toLowerCase() === r.name.toLowerCase() ? tname : name) + ' · ' + label;
+  return `<div class="card${moving?' on':''}${na?' na':''}" style="padding:18px 20px;gap:14px">
+    <div class="row"><div class="d" style="width:44px;height:44px;border-radius:14px">${svg(CICON[k])}</div><div class="col"><div class="t">${esc(r.name)}</div><div class="s${moving?' amber':''}">${esc(sub)}</div></div><div class="rt">${Math.round(pos)}<span>%</span></div></div>
+    ${cwin(id, k, pos, sheer, blackout, moving)}
+    <div class="row" style="gap:8px">${cbtns(id, k, moving)}</div></div>`;
+}
+
+function hms(sec){ sec = Math.max(0, Math.round(sec)); const h = Math.floor(sec/3600), m = Math.floor(sec%3600/60), s = sec%60; return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`; }
+function timerInfo(x){
+  const t = st(x.timer); const sc = st(x.start);
+  let active = false, left = '';
+  if (t && t.state === 'active' && t.attributes.finishes_at) { active = true; left = hms((new Date(t.attributes.finishes_at) - Date.now())/1000); }
+  else if (t && t.state === 'paused') { active = true; left = t.attributes.remaining || ''; }
+  if (sc && sc.state === 'on') active = true;
+  return { active, left };
+}
+function timerIcon(x){ const n = (x.id + NM(x.timer)).toLowerCase(); return /recirc|pump|circul/.test(n) ? 'pump' : /wall|floor|heating_wall/.test(n) ? 'waves' : /water|boiler|dhw/.test(n) ? 'flame' : 'timer'; }
+
+function viewWater(){
+  const cards = [fnCard('hot_water'), fnCard('recirculation')].filter(Boolean)
+    .concat(wEnts('valve').filter(id => ['valve', 'switch'].includes(dmn(id))).map(valveCard))
+    .concat(wEnts('water_meter').filter(id => dmn(id) === 'sensor').map(meterCard));
+  const { items, pager } = paged('water', cards, 4);
+  return `<div class="vw" style="gap:${pager ? '16px' : '0'}">${pager ? `<div class="bar"><div class="sp"></div>${pager}</div>` : ''}
+    <div class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr))">${items.join('') || '<div class="empty" style="grid-column:1/-1">No water devices</div>'}</div></div>`;
+}
+
+let camTick = 0;
+function camSrc(id){ const p = attr(id, 'entity_picture'); return p ? p + (p.includes('?') ? '&' : '?') + 't=' + camTick : ''; }
+function viewCameras(){
+  const ids = avail(M.g.cams);
+  const { items, pager } = paged('cams', ids, 4);
+  return `<div class="vw" style="gap:${pager?'16px':'0'}">${pager ? `<div class="bar"><div class="sp"></div>${pager}</div>` : ''}
+    <div class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr))">${items.map(id => {
+      const s = S[id]; const live = real(id) && s.state !== 'off';
+      return `<button class="cam" data-cam="${id}">${live ? `<img data-camimg="${id}" src="${esc(camSrc(id))}" alt="">` : ''}
+        <span class="chip ${live?'mint':''}"><span class="dot"></span>${live ? 'Live' : esc(s.state)}</span>
+        <span class="camb"><span class="t" style="flex:1">${esc(NM(id))}</span><span class="s" data-camclk>${fmtClock(haNow())}</span>${svg('full')}</span></button>`; }).join('')}</div></div>`;
+}
+function openCam(id){
+  const tok = attr(id, 'access_token');
+  openOv(`<div class="dlg wide" style="padding:16px;gap:12px"><div class="row" style="height:56px;padding:0 8px"><div class="col"><div class="n">${esc(NM(id))}</div><div class="s mint">Live</div></div><button class="btn sq" data-act="close" aria-label="Close">${svg('x')}</button></div>
+    <div style="flex:1;min-height:0;border-radius:16px;overflow:hidden;background:#000"><img src="/api/camera_proxy_stream/${id}?token=${encodeURIComponent(tok||'')}" style="width:100%;height:100%;object-fit:contain" alt=""></div></div>`);
+}
+
+function viewSecurity(){
+  const al = avail(M.g.alarms), locks = avail(M.g.locks);
+  const open = M.g.openings.filter(real).sort((a,b) => isOpen(b) - isOpen(a));
+  const alarmCards = al.slice(0, 1).map(id => {
+    const s = st(id); const state = s.state; const armed = /^armed/.test(state); const trig = state === 'triggered';
+    return `<div class="card ${trig?'heat':armed?'ok':''}" style="gap:16px"><div class="row"><div class="col"><div class="e w">${esc(NM(id))}</div><div class="s">Alarm</div></div>${svg('shield', `width:30px;height:30px;color:${armed?'var(--mint)':'var(--text2)'}`)}</div>
+      <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:10px"><div class="big" style="font-size:52px">${esc(ALARM[state]||state)}</div>
+        <div class="s">${open.filter(isOpen).length ? open.filter(isOpen).length + ' open · check before arming' : 'All zones closed'}</div></div>
+      <div class="row" style="gap:8px"><button class="btn${state==='armed_away'?' sel':''}" data-arm="${id}" data-s="alarm_arm_away">Arm</button><button class="btn${state==='armed_night'?' sel':''}" data-arm="${id}" data-s="alarm_arm_night">Night</button><button class="btn${state==='disarmed'?' sel':''}" data-arm="${id}" data-s="alarm_disarm">Disarm</button></div></div>`; });
+  const lockRows = locks.map(id => { const s = st(id).state; const locked = s === 'locked';
+    return `<div class="row" style="height:72px">${svg(locked?'lock':'unlock', `color:${locked?'var(--mint)':'var(--amber)'}`)}<div class="col"><div class="n" style="font-size:18px">${esc(NM(id))}</div><div class="s ${locked?'mint':'amber'}">${esc(s.charAt(0).toUpperCase()+s.slice(1))}</div></div><button class="btn f" data-lock="${id}" data-s="${locked?'unlock':'lock'}">${locked?'Unlock':'Lock'}</button></div>`; });
+  const openRows = open.slice(0, 6).map(id => `<div class="row" style="height:56px">${svg('door', `color:${isOpen(id)?'var(--amber)':'var(--text2)'}`)}<div class="col"><div class="n" style="font-size:17px">${esc(NM(id))}</div></div><span class="s ${isOpen(id)?'amber':'dim'}">${isOpen(id) ? 'Open · ' + since(id) : 'Closed'}</span></div>`);
+  const right = `<div class="card" style="gap:4px">${lockRows.length ? `<div class="e">Doors</div>${lockRows.join('<div class="hr"></div>')}` : ''}${openRows.length ? `<div class="e" style="margin-top:${lockRows.length?'12px':'0'}">Doors &amp; windows</div>${openRows.join('<div class="hr"></div>')}` : ''}</div>`;
+  return `<div class="grid" style="height:100%;grid-template-columns:repeat(${alarmCards.length?2:1},minmax(0,1fr))">${alarmCards.join('')}${right}</div>`;
+}
+let pinBuf = '', pinTarget = null;
+function openPin(id, service){
+  pinBuf = ''; pinTarget = { id, service };
+  const title = service === 'alarm_disarm' ? 'Disarm alarm?' : service === 'alarm_arm_night' ? 'Arm night?' : 'Arm away?';
+  openOv(`<div class="dlg" style="width:560px;align-items:center"><div class="col" style="align-items:center;flex:none"><div class="n" style="font-size:28px">${title}</div><div class="s">${esc(ALARM[S[id].state]||S[id].state)}</div></div>
+    <div class="pinv" id="pinv">${'<i></i>'.repeat(4)}</div>
+    <div class="keypad">${[1,2,3,4,5,6,7,8,9,'',0,'⌫'].map(k => k === '' ? '<span></span>' : `<button class="btn" data-key="${k}">${k}</button>`).join('')}</div>
+    <div class="row" style="gap:8px;width:100%"><button class="btn" data-act="close">Cancel</button><button class="btn ${service==='alarm_disarm'?'danger':'sel'}" data-act="pinok">${service==='alarm_disarm'?'Disarm':'Arm'}</button></div></div>`);
+}
+function paintPin(){ const p = $('pinv'); if (!p) return; const n = Math.max(4, pinBuf.length); p.innerHTML = Array.from({length:n}, (_, i) => `<i class="${i < pinBuf.length ? 'f' : ''}"></i>`).join(''); }
+function confirmLock(id, service){
+  if (service === 'lock') { optimistic(id, 'locked'); call('lock', 'lock', {}, { entity_id:id }); return; }
+  openOv(`<div class="dlg" style="width:560px"><div class="col" style="flex:none"><div class="n" style="font-size:28px">Unlock ${esc(NM(id))}?</div><div class="s">Confirm to open the lock</div></div>
+    <div class="row" style="gap:8px"><button class="btn" data-act="close">Cancel</button><button class="btn danger" data-unlock="${id}">Unlock</button></div></div>`);
+}
+
+function openScenes(){
+  const all = avail(M.g.scenes); const pins = pinnedScenes();
+  const { items, pager } = paged('scenes', all, 12);
+  openOv(`<div class="dlg wide"><div class="row" style="height:56px"><div class="col"><div style="font-size:30px;font-weight:300;letter-spacing:-.02em">Scenes</div><div class="s">${all.length} scenes · ${pins.length} pinned to Home</div></div>${pager}<button class="btn sq" data-act="close" aria-label="Close">${svg('x')}</button></div>
+    <div style="flex:1;min-height:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(3,minmax(0,1fr));gap:16px">${items.map(id => `
+      <button class="sct${sceneActive(id)?' on':''}" data-${UI.sceneEdit?'pinsc':'scene'}="${id}"><div class="row" style="justify-content:space-between"><div class="d">${svg(sceneIcon(id))}</div>${pins.includes(id)?'<span class="pin">Home</span>':''}</div>
+        <div class="col" style="flex:none"><div class="t" style="font-size:19px">${esc(NM(id))}</div><div class="s${sceneActive(id)?' mint':''}">${sceneActive(id)?'Active':UI.sceneEdit?(pins.includes(id)?'Tap to unpin':'Tap to pin'):'Tap to run'}</div></div></button>`).join('')}</div>
+    <div class="row" style="justify-content:space-between"><div class="s" style="font-size:13px">${UI.sceneEdit ? `Pin up to ${SET.homeScenes} scenes to Home` : 'Tap = run'}</div>
+      <button class="btn f${UI.sceneEdit?' sel':''}" data-act="sceneedit" style="height:64px">${svg('edit')}${UI.sceneEdit?'Done':'Edit Home slots'}</button></div></div>`, 'scenes');
+}
+
+let ovKind = null;
+function openOv(html, kind){ ovKind = kind || 'dlg'; $('ov').innerHTML = html; $('ov').classList.add('show'); safe(mountRtc); }
+function closeOv(){ ovKind = null; UI.sceneEdit = false; $('ov').classList.remove('show'); $('ov').innerHTML = ''; }
+let toastT = 0;
+function toast(text){ const t = $('toast'); t.innerHTML = svg('scene') + esc(text); t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 3000); }
+const acked = store.get('acked', {});
+function checkHazards(){
+  if (!M) return;
+  const hot = [...M.g.hazards.filter(isOpen), ...M.g.alarms.filter(id => real(id) && S[id].state === 'triggered')]
+    .filter(id => acked[id] !== S[id].last_changed);
+  const c = $('crit');
+  if (!hot.length) { c.classList.remove('show'); c.innerHTML = ''; return; }
+  const id = hot[0]; const room = M.rooms.find(r => r.hazards.includes(id));
+  const what = { moisture:'Water leak detected', smoke:'Smoke detected', gas:'Gas detected', carbon_monoxide:'CO detected', safety:'Safety alert' }[attr(id,'device_class')] || 'Alarm triggered';
+  c.innerHTML = `<div class="dlg critical" style="width:720px"><div class="row">${svg('warn','width:40px;height:40px;color:var(--alert)')}<div class="col"><div class="s" style="color:#F0AFA3">Critical · ${fmtClock(haAt(Date.parse(S[id].last_changed)))}</div><div style="font-size:34px;font-weight:400">${what}</div><div class="s">${esc(room ? room.name + ' · ' : '')}${esc(NM(id))}</div></div></div>
+    <div class="row" style="gap:8px"><button class="btn danger" data-ack="${id}">Acknowledge</button></div></div>`;
+  c.classList.add('show');
+  if ($('night').classList.contains('show')) leaveNight();
+}
+function openAlerts(){
+  const a = alerts();
+  openOv(`<div class="dlg"><div class="row"><div class="col"><div class="e">Alerts</div><div class="n" style="font-size:28px">${a.length ? a.length + ' active' : 'All clear'}</div></div><button class="btn sq" data-act="close" aria-label="Close">${svg('x')}</button></div>
+    ${a.map(x => `<div class="row" style="height:56px">${svg(x.crit?'warn':'door', `color:${x.crit?'var(--alert)':'var(--amber)'}`)}<div class="col"><div class="n" style="font-size:18px">${esc(x.text)}</div></div><span class="s ${x.crit?'':'amber'}">${esc(x.sub)}</span></div>`).join('<div class="hr"></div>')}</div>`);
+}
+
+function renderNight(){
+  const d = haNow(); const on = lightsOn();
+  const al = M ? avail(M.g.alarms)[0] : null;
+  const open = M ? M.g.openings.filter(isOpen).length : 0;
+  const st2 = [];
+  if (al) st2.push(`<div class="ns" style="color:${/^armed/.test(S[al].state)?'#5E7F70':'#7A6A4C'}"><span class="dot"></span> Alarm · ${esc(ALARM[S[al].state]||S[al].state)}</div>`);
+  if (M && M.g.openings.length) st2.push(`<div class="ns" style="color:${open?'#9C8A64':'#5E7F70'}"><span class="dot"></span> ${open ? open + ' open' : 'Doors & windows closed'}</div>`);
+  st2.push(`<div class="ns" style="color:${on?'#9C8A64':'#5E7F70'}"><span class="dot"></span> ${on ? on + ' lights on' : 'All lights off'}</div>`);
+  $('night').innerHTML = `<div style="position:absolute;left:0;top:0;bottom:0;width:96px;border-right:1px solid #141311;display:flex;flex-direction:column;align-items:center;padding-top:32px;opacity:.45">${LOGO(40)}</div>
+    <div style="position:absolute;left:152px;top:72px;right:72px;display:flex;flex-direction:column;gap:12px">
+    <div class="ns" style="color:#7A6A4C">Night mode · ${esc(PANEL.villa || HA.location)}</div>
+    <div style="font-size:196px;font-weight:200;letter-spacing:-.05em;line-height:.9;color:#9A9184;font-variant-numeric:tabular-nums">${fmtClock(d)}</div>
+    <div style="font-size:26px;font-weight:300;margin-top:12px">${d.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'})}</div>
+    <div style="display:flex;gap:32px;margin-top:28px">${st2.join('')}</div></div>
+    <div style="position:absolute;left:152px;right:72px;bottom:56px;display:flex;gap:16px">
+      <button class="nb" data-act="alloff"><b>All lights off</b><span>Tap once</span></button>
+      ${M && M.rooms.some(r => avail(r.covers).length) ? `<button class="nb" data-act="nightcov"><b>Curtains</b><span>Close all</span></button>` : ''}
+      <button class="nb" data-act="wake"><b>Wake screen</b><span>Tap anywhere</span></button></div>`;
+}
+function enterNight(){ closeOv(); $('night').classList.add('show'); renderNight(); }
+function leaveNight(){ $('night').classList.remove('show'); view = 'home'; render(); }
+
+function render(){
+  safe(renderSide); safe(renderTop);
+  if (dragging && dragging.active) return;
+  if (!M) { $('view').innerHTML = `<div class="empty">${connected ? 'Loading house…' : 'Connecting…'}</div>`; return; }
+  const v = { home:viewHome, rooms:viewRooms, lights:viewLights, climate:viewClimate, curtains:viewCurtains, water:viewWater, cameras:viewCameras, security:viewSecurity, intercom:viewIntercom, heating:viewHeating, schedule:viewSchedule, room:viewRoom }[view] || viewHome;
+  $('view').innerHTML = safe(v, UNAVAILABLE);
+  if ($('night').classList.contains('show')) safe(renderNight);
+  if (ovKind === 'scenes') safe(openScenes);
+  if (ovKind === 'door') safe(refreshDoorOv);
+  safe(mountRtc);
+}
+
+const stage = $('stage');
+let lpTimer = 0, suppressClick = false;
+function paintTile(el, v){
+  el.classList.toggle('on', v > 0);
+  el.style.setProperty('--p', v / 100); const lv0 = el.querySelector('.lvl'); if (!lv0.classList.contains('pv')) lv0.style.height = v + '%';
+  const bot = el.querySelector('.bot');
+  bot.firstElementChild.outerHTML = v > 0 ? `<div class="pct">${v}<span>%</span></div>` : `<div class="st">Off</div>`;
+}
+function paintCover(el, pos){
+  el.style.setProperty('--p', pos / 100);
+  const card = el.closest('.card'); const v = card && card.querySelector('.rt'); if (v) v.innerHTML = `${pos}<span>%</span>`;
+}
+
+stage.addEventListener('pointerdown', (e) => {
+  touched(); suppressClick = false;
+  const t = e.target.closest('[data-light]');
+  if (t && real(t.dataset.light)) {
+    const id = t.dataset.light;
+    if (colorful(id)) lpTimer = setTimeout(() => { suppressClick = true; dragging = null; openColor(id); }, 550);
+    if (dimmable(id)) { const v0 = isOn(id) ? (bri(id) ?? 100) : 0;
+      dragging = { kind:'light', el:t, id, x0:e.clientX, y0:e.clientY, v0, v:v0, size:t.getBoundingClientRect().height, active:false, t:0, pid:e.pointerId }; }
+    return;
+  }
+  const w = e.target.closest('[data-cover]');
+  if (w && real(w.dataset.cover) && (attr(w.dataset.cover, 'supported_features') & 4)) {
+    const r = w.getBoundingClientRect();
+    dragging = { kind:'cover', el:w, id:w.dataset.cover, rect:r, k: w.dataset.k, x0:e.clientX, y0:e.clientY, v:null, active:false, pid:e.pointerId };
+  }
+});
+stage.addEventListener('pointermove', (e) => {
+  const d = dragging; if (!d || e.pointerId !== d.pid) return;
+  if (!d.active) {
+    if (Math.hypot(e.clientX - d.x0, e.clientY - d.y0) < 10) return;
+    d.active = true; suppressClick = true; clearTimeout(lpTimer);
+    try { d.el.setPointerCapture(e.pointerId); } catch(_){}
+  }
+  if (d.kind === 'light') {
+    let v = Math.round(d.v0 + (d.y0 - e.clientY) / d.size * 100); v = Math.max(0, Math.min(100, v));
+    if (v === d.v) return; d.v = v; paintTile(d.el, v);
+    clearTimeout(d.t); d.t = setTimeout(() => setBri(d.id, d.v), 300);
+  } else {
+    const r = d.rect; const sc = r.width / (d.el.offsetWidth || r.width); const m = 16 * sc, gp = 8 * sc; let c;
+      if (d.k === 'both') { const half = r.width / 2; c = (half - Math.abs(e.clientX - (r.left + half)) - m) / (half - m - gp); }
+      else if (d.k === 'left') c = (e.clientX - r.left - m) / (r.width - 2 * m);
+      else if (d.k === 'right') c = (r.right - e.clientX - m) / (r.width - 2 * m);
+      else { const tp = 6 * sc; c = (e.clientY - r.top - tp - m) / (r.height - tp - 2 * m); }
+      const pos = Math.max(0, Math.min(100, Math.round(100 * (1 - c)))); d.v = pos; paintCover(d.el, pos);
+  }
+});
+function endDrag(){
+  clearTimeout(lpTimer);
+  const d = dragging; dragging = null;
+  if (!d || !d.active) return;
+  if (d.kind === 'light') { clearTimeout(d.t); setBri(d.id, d.v); }
+  else if (d.v != null) { optimistic(d.id, null, { current_position:d.v }, 90000); call('cover', 'set_cover_position', { position:d.v }, { entity_id:d.id }); }
+  schedule();
+}
+['pointerup','pointercancel'].forEach(ev => stage.addEventListener(ev, endDrag));
+stage.addEventListener('contextmenu', (e) => e.preventDefault());
+
+stage.addEventListener('click', (e) => {
+  if (suppressClick) { suppressClick = false; return; }
+  const el = e.target.closest('button');
+  if ($('night').classList.contains('show')) {
+    if (el && el.dataset.act === 'alloff') { setLights(allLights(), false); return; }
+    if (el && el.dataset.act === 'nightcov') { coversAll('close_cover', 'all'); return; }
+    leaveNight(); return;
+  }
+  if (!el) { if (e.target === $('ov')) closeOv(); return; }
+  const d = el.dataset;
+  if (d.ack) { acked[d.ack] = S[d.ack] && S[d.ack].last_changed; store.set('acked', acked); checkHazards(); return; }
+  if (d.tab) { view = d.tab; closeOv(); render(); return; }
+  if (d.pg) { UI.page[d.pg] = (UI.page[d.pg] || 0) + (+d.d); ovKind === 'scenes' ? openScenes() : render(); return; }
+  if (d.goroom) { UI.room = d.goroom; view = 'room'; render(); return; }
+  if (d.goroomold) { const r = M.byId[d.goroom]; const go = d.go || 'lights';
+    if (go === 'lights' && avail(r.lights).length) { UI.lightRoom = r.id; view = 'lights'; }
+    else if (go === 'curtains') { UI.coverRoom = r.id; view = 'curtains'; }
+    else view = go;
+    render(); return; }
+  if (d.floor) { UI.roomFloor = d.floor; render(); return; }
+  if (d.cvfloor) { UI.cvFloor = d.cvfloor; UI.cvRoom = null; render(); return; }
+  if (d.cvroom) { UI.cvRoom = d.cvroom; render(); return; }
+  if (d.cvall) { curtEnts().filter(id => labelRoom(id) && labelRoom(id).id === UI.cvRoom).forEach(id => call('cover', d.cvall, {}, { entity_id: id })); return; }
+  if (d.sch) { schAct(d.sch, d); return; }
+  if (d.wtrun) { wRun(d.wtrun, +d.min); return; }
+  if (d.wtoff) { wOff(d.wtoff); return; }
+  if (d.vopen) { valveSet(d.vopen, true); return; }
+  if (d.vclose) { valveSet(d.vclose, false); return; }
+  if (d.wrun) { wallRun(d.wrun); return; }
+  if (d.wman) { wallSet(d.wman, 'heat'); return; }
+  if (d.woff) { wallSet(d.woff, 'off'); return; }
+  if (d.lfloor) { UI.lightFloor = d.lfloor; UI.lightRoom = null; render(); return; }
+  if (d.lroom) { UI.lightRoom = d.lroom; render(); return; }
+  if (d.croom) { UI.coverRoom = d.croom; render(); return; }
+  if (d.light) { toggleLight(d.light); return; }
+  if (d.homelights) { const x = homeLightGroups().find(g => g.room.id === d.homelights); if (x) setLights(x.ids, !x.ids.some(id => real(id) && isOn(id))); return; }
+  if (d.hatoggle) { call('homeassistant', 'toggle', {}, { entity_id: d.hatoggle }); return; }
+  if (d.roomlights) { const r = M.byId[d.roomlights]; setLights(r.lights, !lightsOnIn(r).length); return; }
+  if (d.scene) { runScene(d.scene); if (ovKind === 'scenes') openScenes(); return; }
+  if (d.pinsc) { let pins = pinnedScenes(); pins = pins.includes(d.pinsc) ? pins.filter(x => x !== d.pinsc) : [...pins, d.pinsc].slice(-SET.homeScenes); store.set('pins', pins); openScenes(); schedule(); return; }
+  if (d.bp != null && d.id) { setBri(d.id, +d.bp); closeOv(); return; }
+  if (d.preset) { applyPreset(d.id, d.preset); return; }
+  if (d.tmp) { stepTemp(d.tmp, +d.d); return; }
+  if (d.mode) { optimistic(d.mode, d.m); call('climate', 'set_hvac_mode', { hvac_mode:d.m }, { entity_id:d.mode }); return; }
+  if (d.fan) { optimistic(d.fan, st(d.fan).state, { fan_mode:d.m }); call('climate', 'set_fan_mode', { fan_mode:d.m }, { entity_id:d.fan }); return; }
+  if (d.cv) { call('cover', d.s, {}, { entity_id:d.cv }); return; }
+  if (d.run) { const x = M.g.timers.find(t => t.timer === d.run); call('script', 'turn_on', { variables:{ minutes:+d.min } }, { entity_id:x.start }); toast(`${NM(x.timer)} · ${d.min} min`); return; }
+  if (d.stop) { const x = M.g.timers.find(t => t.timer === d.stop); if (x.stop) call('script', 'turn_on', {}, { entity_id:x.stop }); else { call('script', 'turn_off', {}, { entity_id:x.start }); call('timer', 'cancel', {}, { entity_id:x.timer }); } return; }
+  if (d.wh) { const a = S[d.wh].attributes; const v = Math.min(a.max_temp ?? 75, Math.max(a.min_temp ?? 30, (a.temperature ?? 50) + (+d.d))); optimistic(d.wh, S[d.wh].state, { temperature:v }); clearTimeout(tempQ[d.wh]); tempQ[d.wh] = setTimeout(() => call('water_heater', 'set_temperature', { temperature:v }, { entity_id:d.wh }), 1000); return; }
+  if (d.whop) { call('water_heater', 'set_operation_mode', { operation_mode:d.m }, { entity_id:d.whop }); return; }
+  if (d.dopen) { const id = d.dopen; if (dmn(id) === 'lock') call('lock', 'unlock', {}, { entity_id: id }); else { optimistic(id, 'on'); call(dmn(id), 'turn_on', {}, { entity_id: id }); } const x = dbList().find(z => z.doors.includes(id)); toast((x ? doorName(x, id) : NM(id)) + ' · opening'); return; }
+  if (d.dbtn) { call('button', 'press', {}, { entity_id: d.dbtn }); return; }
+  if (d.cam) { openCam(d.cam); return; }
+  if (d.arm) { const cf = attr(d.arm, 'code_format'); if (cf && (d.s === 'alarm_disarm' || attr(d.arm, 'code_arm_required'))) openPin(d.arm, d.s); else call('alarm_control_panel', d.s, {}, { entity_id:d.arm }); return; }
+  if (d.key != null) { if (d.key === '⌫') pinBuf = pinBuf.slice(0, -1); else if (pinBuf.length < 12) pinBuf += d.key; paintPin(); return; }
+  if (d.lock) { confirmLock(d.lock, d.s); return; }
+  if (d.unlock) { optimistic(d.unlock, 'unlocked'); call('lock', 'unlock', {}, { entity_id:d.unlock }); closeOv(); return; }
+  switch (d.act) {
+    case 'alloff': setLights(allLights(), false); toast('All lights off'); break;
+    case 'roomoff': { const r = M.byId[UI.lightRoom]; if (r) setLights(r.lights, false); break; }
+    case 'covall': coversAll(d.s, UI.coverRoom); break;
+    case 'night': enterNight(); break;
+    case 'scenes': UI.page.scenes = 0; openScenes(); break;
+    case 'sceneedit': UI.sceneEdit = !UI.sceneEdit; openScenes(); break;
+    case 'alerts': openAlerts(); break;
+    case 'pinok': if (pinTarget) { call('alarm_control_panel', pinTarget.service, { code:pinBuf }, { entity_id:pinTarget.id }); pinTarget = null; closeOv(); } break;
+    case 'close': closeOv(); break;
+  }
+});
+function coversAll(service, roomId){
+  const rooms = roomId === 'all' ? M.rooms : [M.byId[roomId]];
+  const ids = rooms.flatMap(r => r.covers).filter(real);
+  if (ids.length) call('cover', service, {}, { entity_id:ids });
+}
+
+let lastTouch = Date.now();
+function touched(){ lastTouch = Date.now(); }
+setInterval(() => {
+  const idle = (Date.now() - lastTouch) / 60000; const h = haNow().getHours();
+  const nightHours = SET.nightFrom > SET.nightTo ? (h >= SET.nightFrom || h < SET.nightTo) : (h >= SET.nightFrom && h < SET.nightTo);
+  if ($('night').classList.contains('show') || $('crit').classList.contains('show')) return;
+  if (SET.nightIdleMinutes && nightHours && idle >= SET.nightIdleMinutes) enterNight();
+  else if (SET.homeIdleMinutes && idle >= SET.homeIdleMinutes && (view !== 'home' || ovKind)) { closeOv(); view = 'home'; render(); }
+}, 15000);
+setInterval(() => {
+  const now = haNow();
+  const c = $('clk'); if (c) c.textContent = fmtClock(now);
+  document.querySelectorAll('[data-cd]').forEach(el => { const x = M && M.g.timers.find(t => t.timer === el.dataset.cd); if (!x) return; const r = timerInfo(x); if (r.active && r.left) el.textContent = r.left; });
+  if (M && view === 'home' && M.g.timers.some(x => timerInfo(x).active)) schedule();
+  if (view === 'cameras') { camTick++; document.querySelectorAll('[data-camimg]').forEach(img => { const s = camSrc(img.dataset.camimg); if (s) img.src = s; }); document.querySelectorAll('[data-camclk]').forEach(x => x.textContent = now.toLocaleTimeString('en-GB')); }
+  if ($('night').classList.contains('show')) renderNight();
+}, 1000);
+setInterval(() => { if (M && alerts().length) schedule(); }, 60000);
+
+function fit(){ const s = Math.min(innerWidth / 1280, innerHeight / 800); stage.style.transform = `scale(${s})`; stage.style.left = ((innerWidth - 1280*s) / 2) + 'px'; stage.style.top = ((innerHeight - 800*s) / 2) + 'px'; }
+addEventListener('resize', fit); fit();
+render();
+connect();
+
+const slugL = (x) => String(x || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+function labelRoom(id){ const ls = lbl(id); for (const r of M.rooms) { if (ls.includes(r.id) || ls.includes(slugL(r.name))) return r; } return null; }
+function homeEnts(fn, domains){ return Object.keys(S).filter(id => domains.includes(id.split('.')[0]) && hasLabel(id, [fn]) && hasLabel(id, ['home']) && !hasLabel(id, SET.hideLabels) && show(id)); }
+function homeLightGroups(){
+  const g = {};
+  homeEnts('light', ['light', 'switch']).forEach(id => { const r = labelRoom(id); if (!r) return; (g[r.id] = g[r.id] || { room: r, ids: [] }).ids.push(id); });
+  return M.rooms.filter(r => g[r.id]).map(r => g[r.id]);
+}
+const hasTab = (k) => tabs().some(t => t[0] === k);
+
+const CLIM_FN = [['ac', 'Air conditioning'], ['ufh', 'Floor heating']];
+function homeClimateItems(){
+  const out = [];
+  CLIM_FN.forEach(([fn, label]) => homeEnts(fn, ['climate', 'switch']).forEach(id => { const r = labelRoom(id); if (r) out.push({ id, r, fn, label }); }));
+  const order = M.rooms.map(r => r.id);
+  return out.sort((a, b) => order.indexOf(a.r.id) - order.indexOf(b.r.id) || a.fn.localeCompare(b.fn));
+}
+function labelTemp(r){
+  const v = Object.keys(S).filter(id => id.startsWith('sensor.') && hasLabel(id, ['t_h']) && labelRoom(id) === r && real(id) && (attr(id, 'device_class') === 'temperature' || /°/.test(attr(id, 'unit_of_measurement') || ''))).map(id => parseFloat(S[id].state)).filter(x => !isNaN(x));
+  return v.length ? v[0] : null;
+}
+function homeClimateCard(){
+  const rows = homeClimateItems().slice(0, 3).map((x, i) => { const s = st(x.id); const dom = x.id.split('.')[0]; const off = s.state === 'off';
+    let t = labelTemp(x.r); if (t === null) { const v = attr(x.id, 'current_temperature'); if (v !== null && v !== undefined) t = v; }
+    const act = s.attributes.hvac_action || s.state;
+    const mode = dom === 'climate' ? (MODE[s.state] || s.state) : (off ? 'Off' : 'On');
+    const cls = off ? 'dim' : (x.fn === 'ac' && !/heat/.test(act)) ? 'cool' : 'heat';
+    const right = dom === 'climate' ? stepper(x.id, off) : `<button class="sw${off ? '' : ' on'}" data-hatoggle="${x.id}" aria-label="${esc(x.label)}"><i></i></button>`;
+    return (i ? '<div class="hr"></div>' : '') + `<div class="row" style="height:72px"><div class="col"><div class="n" style="font-size:18px">${esc(x.r.name)} · ${esc(x.label)}</div><div class="s ${cls}">${esc(mode)}${t !== null ? ' · ' + fmtT(t) + '°' : ''}</div></div>${right}</div>`; }).join('');
+  return `<section class="card" aria-label="Climate" style="padding:24px">
+    <div class="row"><div class="e" style="flex:1">Climate</div>${hasTab('climate') ? '<button class="s" data-tab="climate" style="background:none;border:0;color:var(--text2);padding:8px 0">All rooms ›</button>' : ''}</div>
+    <div style="flex:1;min-height:0;display:flex;flex-direction:column;justify-content:${rows ? 'flex-start' : 'center'}">${rows || '<div class="empty">No climate zones</div>'}</div></section>`;
+}
+const fnEnts = (fn, domains) => Object.keys(S).filter(id => domains.includes(id.split('.')[0]) && hasLabel(id, [fn]) && !hasLabel(id, SET.hideLabels) && show(id) && labelRoom(id));
+const isRunning = (id) => { const s = S[id]; if (!s || !real(id)) return false; return id.startsWith('climate.') ? s.state !== 'off' : s.state === 'on'; };
+
+/* Scenes by labels: Home buttons = Scene + Home (max 4), More = Scene */
+
+/* Lights page: floor switcher + room buttons of that floor (no horizontal scroll) */
+
+/* Climate page = label Climate + room; Heating page = label Heated Wall + room (timer: same room + Heated Wall) */
+const CL = { climate: 'climate', wall: 'heated_wall' };
+function zonesBy(fn){
+  const g = {};
+  Object.keys(S).filter(id => id.startsWith('climate.') && hasLabel(id, [fn]) && !hasLabel(id, SET.hideLabels) && show(id)).forEach(id => { const r = labelRoom(id); if (!r) return; (g[r.id] = g[r.id] || []).push(id); });
+  return M.rooms.filter(r => g[r.id]).map(r => ({ r, ids: g[r.id] }));
+}
+const waterTimers = () => M.g.timers.filter(x => !hasLabel(x.timer, [CL.wall, 'ufh']));
+
+function viewHeating(){
+  const zones = [];
+  zonesBy(CL.wall).forEach(({ r, ids }) => ids.forEach(id => zones.push({ r, id })));
+  const { items, pager } = paged('heating', zones, 4);
+  const cards = items.map(z => { const w = wallState(z.id);
+    const b = (on, attr, icon, label) => `<button class="btn${on ? ' sel' : ' ghost'}" ${attr}="${z.id}" style="gap:8px">${icon}${label}</button>`;
+    return `<div class="card${w.off ? '' : ' heat'}${w.na ? ' na' : ''}" style="gap:14px">
+      <div class="row"><div class="col"><div class="e w">${esc(z.r.name)}</div><div class="s">Heated wall</div></div>${svg('waves', `width:30px;height:30px;color:${w.off ? 'var(--text2)' : 'var(--heat)'}`)}</div>
+      <div style="flex:1;display:flex;align-items:center;justify-content:space-between;gap:16px">
+        <div class="col" style="gap:6px"><div style="font-size:64px;font-weight:200;letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums">${w.cur != null ? fmtT(w.cur) : '--'}<span style="font-size:24px;color:var(--text2);margin-left:4px">°C</span></div><div class="s${w.off ? '' : ' heat'}" style="font-size:14px">${esc(w.status)}</div></div>
+        <div class="row" style="flex:none;gap:10px">${stepper(z.id, w.off)}</div></div>
+      ${schedChip([z.id])}<div class="row" style="gap:10px">${b(w.timed, 'data-wrun', WI.run, 'Run <span style="text-transform:none">3h</span>')}${b(!w.off && !w.timed, 'data-wman', WI.hand, 'Manual on')}${b(w.off, 'data-woff', WI.off, 'Off')}</div></div>`;
+  }).join('');
+  return `<div class="vw" style="gap:${pager ? '16px' : '0'}">${pager ? `<div class="bar"><div class="sp"></div>${pager}</div>` : ''}
+    <div class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr))">${cards || '<div class="empty" style="grid-column:1/-1">No heating zones</div>'}</div></div>`;
+}
+
+/* Heated walls: standard card for every climate entity labelled Heated Wall.
+   Run 3 h = heat + timer.inex_wall_<climate object id>; SSV Dashboard turns it off when the timer ends. */
+const WALL_RUN = '03:00:00';
+const wallTimerId = (id) => 'timer.inex_wall_' + id.split('.')[1];
+const wsvg = (p) => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${p}</svg>`;
+const WI = {
+  run: wsvg('<path d="M4 12h14M13 6l6 6-6 6"/>'),
+  hand: wsvg('<path d="M8 13V6a1.5 1.5 0 0 1 3 0v5M11 11V4.5a1.5 1.5 0 0 1 3 0V11M14 11V5.5a1.5 1.5 0 0 1 3 0V12M17 10a1.5 1.5 0 0 1 3 0v4a7 7 0 0 1-7 7h-1a7 7 0 0 1-5.6-2.8L3.4 15.6a1.5 1.5 0 0 1 2.3-1.9L8 16"/>'),
+  off: wsvg('<path d="M12 3v8"/><path d="M6.3 6.6a8 8 0 1 0 11.4 0"/>'),
+};
+function wallState(id){
+  const s = st(id); const na = !real(id); const off = na || s.state === 'off';
+  const t = S[wallTimerId(id)]; let timed = false, left = '';
+  if (t && t.state === 'active' && t.attributes.finishes_at) { timed = true; left = hms((new Date(t.attributes.finishes_at) - Date.now()) / 1000); }
+  else if (t && t.state === 'paused') { timed = true; left = t.attributes.remaining || ''; }
+  if (off) timed = false;
+  const cur = attr(id, 'current_temperature');
+  return { na, off, timed, left, cur, status: off ? 'Off' : timed ? 'Run' + (left ? ' · ' + left : '') : 'Manual' };
+}
+async function ensureWallTimer(id){
+  const tid = wallTimerId(id); if (S[tid]) return tid;
+  try {
+    await send({ type: 'timer/create', name: tid.split('.')[1], duration: WALL_RUN, restore: true });
+    send({ type: 'config/entity_registry/update', entity_id: tid, name: NM(id) + ' · Run timer', labels: lbl(id).filter(l => l !== 'home') }).catch(() => {});
+    return tid;
+  } catch (e) { toast('Run timer missing · ask installer'); return null; }
+}
+async function wallRun(id){
+  optimistic(id, 'heat');
+  call('climate', 'set_hvac_mode', { hvac_mode: 'heat' }, { entity_id: id });
+  const tid = await ensureWallTimer(id);
+  if (tid) { call('timer', 'start', { duration: WALL_RUN }, { entity_id: tid }); toast(NM(id) + ' · 3h'); }
+}
+function wallSet(id, mode){
+  optimistic(id, mode);
+  const t = S[wallTimerId(id)]; if (t && t.state !== 'idle') call('timer', 'cancel', {}, { entity_id: wallTimerId(id) });
+  call('climate', 'set_hvac_mode', { hvac_mode: mode }, { entity_id: id });
+}
+function wallRows(){
+  const out = [];
+  zonesBy(CL.wall).forEach(({ r, ids }) => ids.forEach(id => { const w = wallState(id);
+    out.push(`<button class="ln" data-tab="heating">${svg('waves')}<b>${esc(r.name)} wall</b><em class="${w.off ? '' : 'heat'}">${w.cur != null ? fmtT(w.cur) + '° · ' : ''}${esc(w.status)}</em></button>`); }));
+  return out;
+}
+
+/* ===== Water page: label Water + one function label =====
+   Hot Water     -> switch / water_heater = heater, sensor (temperature) = tank temp, timer = Run countdown
+   Recirculation -> switch / fan = pump, timer = Run countdown
+   Valve         -> valve / switch = Open / Close card
+   Water Meter   -> sensor (water, total) = today + 7-day chart
+   Timer end: SSV Dashboard turns the function off. */
+const WFN = { hot_water: { name: 'Hot water', sub: 'Water heater', icon: 'boiler', runs: [60, 90, 120] }, recirculation: { name: 'Recirculation', sub: 'Circulation pump', icon: 'pumpc', runs: [10] } };
+const WCTRL = ['switch', 'fan', 'water_heater', 'input_boolean'];
+const dmn = (id) => id.split('.')[0];
+const wEnts = (fn) => Object.keys(S).filter(id => hasLabel(id, ['water']) && (!fn || hasLabel(id, [fn])) && !hasLabel(id, SET.hideLabels) && show(id));
+function wGroup(fn){
+  const ids = wEnts(fn);
+  return { fn, dev: ids.filter(id => WCTRL.includes(dmn(id))), temp: ids.find(id => dmn(id) === 'sensor' && (attr(id, 'device_class') === 'temperature' || /°/.test(attr(id, 'unit_of_measurement') || ''))), timer: ids.find(id => dmn(id) === 'timer') };
+}
+const devOn = (id) => { const s = S[id]; if (!s || !real(id)) return false; return dmn(id) === 'water_heater' ? s.state !== 'off' : s.state === 'on'; };
+const fmtMin = (m) => m < 60 ? m + 'm' : Math.floor(m / 60) + (m % 60 ? ':' + String(m % 60).padStart(2, '0') : '') + 'h';
+const durStr = (m) => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0') + ':00';
+function wState(g){
+  const on = g.dev.some(devOn); const t = g.timer && S[g.timer]; let timed = false, left = '', dur = '';
+  if (t && t.state === 'active' && t.attributes.finishes_at) { timed = true; left = hms((new Date(t.attributes.finishes_at) - Date.now()) / 1000); }
+  else if (t && t.state === 'paused') { timed = true; left = t.attributes.remaining || ''; }
+  if (t) dur = t.attributes.duration || '';
+  if (!on) timed = false;
+  let temp = g.temp && real(g.temp) ? parseFloat(S[g.temp].state) : null;
+  if (temp === null || isNaN(temp)) { const h = g.dev.find(id => dmn(id) === 'water_heater'); temp = h ? attr(h, 'current_temperature') : null; }
+  return { on, timed, left, dur, temp, na: g.dev.length && g.dev.every(id => !real(id)), status: !on ? 'Off' : timed ? 'Run' + (left ? ' · ' + left : '') : 'On' };
+}
+function devCall(ids, on){ ids.forEach(id => { const d = dmn(id); optimistic(id, on ? 'on' : 'off');
+  if (d === 'water_heater') call('water_heater', on ? 'turn_on' : 'turn_off', {}, { entity_id: id }); else call('homeassistant', on ? 'turn_on' : 'turn_off', {}, { entity_id: id }); }); }
+async function ensureFnTimer(fn){
+  const g = wGroup(fn); if (g.timer) return g.timer;
+  const name = 'inex_water_' + fn, tid = 'timer.' + name; if (S[tid]) return tid;
+  try { await send({ type: 'timer/create', name, duration: '01:00:00', restore: true }); send({ type: 'config/entity_registry/update', entity_id: tid, labels: ['water', fn] }).catch(() => {}); return tid; }
+  catch (e) { toast('Run timer missing · ask installer'); return null; }
+}
+async function wRun(fn, min){ const g = wGroup(fn); devCall(g.dev, true); const tid = await ensureFnTimer(fn); if (tid) { call('timer', 'start', { duration: durStr(min) }, { entity_id: tid }); toast(WFN[fn].name + ' · ' + fmtMin(min)); } }
+function wOff(fn){ const g = wGroup(fn); if (g.timer && S[g.timer] && S[g.timer].state !== 'idle') call('timer', 'cancel', {}, { entity_id: g.timer }); devCall(g.dev, false); }
+const valveOpen = (id) => { const s = S[id] && S[id].state; return dmn(id) === 'valve' ? (s === 'open' || s === 'opening') : s === 'on'; };
+function valveSet(id, open){ if (dmn(id) === 'valve') call('valve', open ? 'open_valve' : 'close_valve', {}, { entity_id: id }); else call('homeassistant', open ? 'turn_on' : 'turn_off', {}, { entity_id: id }); optimistic(id, dmn(id) === 'valve' ? (open ? 'open' : 'closed') : (open ? 'on' : 'off')); }
+const VI = { open: wsvg('<path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/>'), close: wsvg('<rect x="6" y="6" width="12" height="12" rx="2"/>') };
+const WSTAT = {};
+async function loadStats(id){
+  const c = WSTAT[id]; if (c && Date.now() - c.t < 600000) return; WSTAT[id] = { t: Date.now(), d: c ? c.d : null };
+  const start = new Date(); start.setHours(0, 0, 0, 0); start.setDate(start.getDate() - 6);
+  try { const r = await send({ type: 'recorder/statistics_during_period', start_time: start.toISOString(), statistic_ids: [id], period: 'day', types: ['change'] });
+    WSTAT[id].d = (r[id] || []).map(x => ({ t: new Date(x.start), v: Math.max(0, x.change || 0) })); schedule(); } catch (e) {}
+}
+function fnCard(fn){
+  const g = wGroup(fn); if (!g.dev.length) return '';
+  const w = wState(g); const F = WFN[fn];
+  const runs = F.runs.map(m => `<button class="btn${w.timed && w.dur === durStr(m).replace(/^0/, '') ? ' sel' : ' ghost'}" data-wtrun="${fn}" data-min="${m}" style="gap:8px">${WI.run}${F.runs.length > 2 ? '' : 'Run '}<span style="text-transform:none">${fmtMin(m)}</span></button>`).join('');
+  return `<div class="card${w.on ? ' heat' : ''}${w.na ? ' na' : ''}" style="gap:14px">
+    <div class="row"><div class="col"><div class="e w">${F.name}</div><div class="s">${F.sub}</div></div>${svg(F.icon, `width:30px;height:30px;color:${w.on ? 'var(--heat)' : 'var(--text2)'}`)}</div>
+    <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:6px">
+      ${w.temp != null ? `<div style="font-size:64px;font-weight:200;letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums">${fmtT(w.temp)}<span style="font-size:24px;color:var(--text2);margin-left:4px">°C</span></div>` : ''}
+      <div class="s${w.on ? ' heat' : ''}" style="font-size:14px">${esc(w.status)}</div></div>
+    ${schedChip(g.dev)}<div class="row" style="gap:10px">${runs}<button class="btn${w.on ? ' ghost' : ' sel'}" data-wtoff="${fn}" style="gap:8px">${WI.off}Off</button></div></div>`;
+}
+function valveCard(id){
+  const o = valveOpen(id); const na = !real(id);
+  return `<div class="card${na ? ' na' : ''}" style="gap:14px">
+    <div class="row"><div class="col"><div class="e w">${esc(NM(id))}</div><div class="s">Water valve</div></div>${svg('water', `width:30px;height:30px;color:${o ? 'var(--cool)' : 'var(--amber)'}`)}</div>
+    <div style="flex:1;display:flex;flex-direction:column;justify-content:center"><div style="font-size:40px;font-weight:300">${na ? 'Unavailable' : o ? 'Open' : 'Closed'}</div></div>
+    <div class="row" style="gap:10px"><button class="btn${o ? ' sel' : ' ghost'}" data-vopen="${id}" style="gap:8px">${VI.open}Open</button><button class="btn${o ? ' ghost' : ' sel'}" data-vclose="${id}" style="gap:8px">${VI.close}Close</button></div></div>`;
+}
+function meterCard(id){
+  loadStats(id);
+  const d = (WSTAT[id] && WSTAT[id].d) || []; const unit = attr(id, 'unit_of_measurement') || '';
+  const today = d.length ? d[d.length - 1].v : null; const max = Math.max(1e-9, ...d.map(x => x.v));
+  const bars = d.map((x, i) => { const hgt = Math.round(x.v / max * 100); const last = i === d.length - 1;
+    return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%"><div style="flex:1;width:100%;display:flex;align-items:flex-end"><div style="width:100%;height:${Math.max(hgt, 2)}%;border-radius:6px;background:${last ? 'var(--cool)' : 'var(--line2)'}"></div></div><div class="s" style="font-size:11px">${x.t.toLocaleDateString('en-GB', { weekday: 'short' })}</div></div>`; }).join('');
+  return `<div class="card" style="gap:12px">
+    <div class="row"><div class="col"><div class="e w">${esc(NM(id))}</div><div class="s">Water meter · ${real(id) ? esc(S[id].state) + ' ' + esc(unit) : 'unavailable'}</div></div>${svg('water', 'width:30px;height:30px;color:var(--text2)')}</div>
+    <div style="font-size:40px;font-weight:300">${today != null ? (Math.round(today * 100) / 100) + '<span style="font-size:18px;color:var(--text2);margin-left:6px">' + esc(unit) + ' today</span>' : '--'}</div>
+    <div style="flex:1;min-height:60px;display:flex;gap:8px">${bars || '<div class="empty">No history yet</div>'}</div></div>`;
+}
+
+function waterRows(){
+  const out = [];
+  ['hot_water', 'recirculation'].forEach(fn => { const g = wGroup(fn); if (!g.dev.length) return; const w = wState(g);
+    out.push(`<button class="ln" data-tab="water">${svg(WFN[fn].icon)}<b>${WFN[fn].name}</b><em class="${w.on ? 'heat' : ''}">${w.temp != null ? fmtT(w.temp) + '° · ' : ''}${esc(w.status)}</em></button>`); });
+  wEnts('valve').filter(id => ['valve', 'switch'].includes(dmn(id))).forEach(id => { const o = valveOpen(id);
+    out.push(`<button class="ln" data-tab="water">${svg('water')}<b>${esc(NM(id))}</b><em class="${o ? '' : 'amber'}">${o ? 'Open' : 'Closed'}</em></button>`); });
+  return out;
+}
+
+let SCH = [], SCH_T = 0, ED = null;
+const DAYS = [['mon','Mon'],['tue','Tue'],['wed','Wed'],['thu','Thu'],['fri','Fri'],['sat','Sat'],['sun','Sun']];
+const DPRE = { daily: ['mon','tue','wed','thu','fri','sat','sun'], workday: ['mon','tue','wed','thu','fri'], weekend: ['sat','sun'] };
+const schEnts = () => Object.keys(S).filter(id => hasLabel(id, ['schedule']) && !hasLabel(id, SET.hideLabels) && show(id) && ['climate','switch','light','fan','input_boolean','water_heater','cover','valve'].includes(dmn(id)));
+async function loadSched(force){
+  if (!force && Date.now() - SCH_T < 30000) return; SCH_T = Date.now();
+  try { SCH = (await send({ type: 'scheduler' })) || []; schedule(); } catch (e) {}
+}
+const schTarget = (it) => { for (const ts of it.timeslots || []) for (const a of ts.actions || []) { const e = a.entity_id; if (e) return Array.isArray(e) ? e[0] : e; } return null; };
+const schFor = (ids) => SCH.filter(it => ids.includes(schTarget(it)));
+const schOn = (it) => S[it.entity_id] && S[it.entity_id].state === 'on';
+function dayText(w){ const d = (w || []).flatMap(x => DPRE[x] || [x]); const k = DAYS.map(x => x[0]).filter(x => d.includes(x));
+  if (k.length === 7) return 'Every day'; if (k.join() === DPRE.workday.join()) return 'Weekdays'; if (k.join() === DPRE.weekend.join()) return 'Weekend';
+  return k.map(x => DAYS.find(y => y[0] === x)[1]).join(' '); }
+function timeText(t){ const m = /^(sunrise|sunset)(?:([+-])(\d\d):(\d\d))?/.exec(t || ''); if (m) { const off = m[3] ? (+m[3]) * 60 + (+m[4]) : 0; return (m[1] === 'sunrise' ? 'Sunrise' : 'Sunset') + (off ? ' ' + m[2] + fmtMin(off) : ''); } return (t || '').slice(0, 5); }
+function evOf(ts){ const a = (ts.actions || [])[0] || {}; const sd = a.service_data || {}; const off = /turn_off|close/.test(a.service || '') || sd.hvac_mode === 'off'; return { time: ts.start, on: !off, temp: sd.temperature }; }
+const evText = (e) => e.on ? 'On' + (e.temp != null ? ' ' + e.temp + '°' : '') : 'Off';
+function schedChip(ids){
+  loadSched(); const L = schFor(ids); if (!L.length) return '';
+  const it = L[0]; const on = schOn(it);
+  return `<button class="ln" data-sch="open" data-id="${it.entity_id}" style="min-height:40px">${svg('timer', `color:${on ? 'var(--mint)' : 'var(--text3)'}`)}<b>${esc(dayText(it.weekdays))}</b><em style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${on ? '' : 'Paused · '}${esc((it.timeslots || []).map(evOf).map(e => timeText(e.time) + ' ' + evText(e)).join(' · '))}${L.length > 1 ? ' +' + (L.length - 1) : ''}</em></button>`;
+}
+function viewSchedule(){
+  loadSched();
+  const list = SCH.filter(it => (it.tags || []).includes('inex'));
+  const cards = list.map(it => { const tgt = schTarget(it); const on = schOn(it); const r = tgt && schRoom(tgt);
+    const nx = it.timestamps && (it.next_entries || []).length ? it.timestamps[it.next_entries[0]] : null;
+    return `<div class="card" style="gap:12px">
+      <div class="row"><div class="col"><div class="e w">${esc(tgt && S[tgt] ? NM(tgt) : it.name || 'Schedule')}</div><div class="s">${esc((r ? r.name + ' · ' : '') + dayText(it.weekdays))}</div></div>
+        <button class="sw${on ? ' on' : ''}" data-sch="toggle" data-id="${it.entity_id}" aria-label="Enable schedule"><i></i></button></div>
+      <div style="flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;gap:6px;justify-content:center">${(it.timeslots || []).map(evOf).map(e => `<div class="row" style="gap:12px;justify-content:flex-start"><div style="font-size:22px;font-weight:300;min-width:150px">${esc(timeText(e.time))}</div><div class="s${e.on ? ' heat' : ''}">${esc(evText(e))}</div></div>`).join('')}</div>
+      <div class="row" style="gap:10px"><div class="s" style="flex:1">${on ? (nx ? 'Next · ' + esc(haAt(Date.parse(nx)).toLocaleString('en-GB', { weekday: 'short', hour: '2-digit', minute: '2-digit' })) : '') : 'Paused'}</div>
+        <button class="btn ghost f" data-sch="open" data-id="${it.entity_id}" style="gap:8px">${svg('edit')}Edit</button></div></div>`; });
+  const { items, pager } = paged('sched', cards, 4);
+  const anyOn = list.some(schOn);
+  return `<div class="vw"><div class="bar"><button class="btn f sel" data-sch="new" style="gap:8px">${svg('plus')}New schedule</button><div class="sp"></div>${pager}
+      ${list.length ? `<button class="btn f" data-sch="${anyOn ? 'pauseall' : 'resumeall'}" style="gap:8px">${svg(anyOn ? 'stop' : 'play')}${anyOn ? 'Pause all' : 'Resume all'}</button>` : ''}</div>
+    <div class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr))">${items.join('') || `<div class="empty" style="grid-column:1/-1">${schEnts().length ? 'No schedules yet · tap New schedule' : 'Label devices with Schedule to plan them here'}</div>`}</div></div>`;
+}
+const edDefTemp = (id) => id && dmn(id) === 'climate' ? (attr(id, 'temperature') || 22) : null;
+function edNew(id){ const t = id || schEnts()[0] || null; ED = { eid: null, ent: t, days: DPRE.daily.slice(), ev: [{ time: '07:00', sun: '', off: 0, on: true, temp: edDefTemp(t) }, { time: '09:00', sun: '', off: 0, on: false, temp: edDefTemp(t) }] }; }
+function edLoad(eid){ const it = SCH.find(x => x.entity_id === eid); if (!it) return false; const t = schTarget(it);
+  ED = { eid, ent: t, days: (it.weekdays || []).flatMap(x => DPRE[x] || [x]), ev: (it.timeslots || []).map(ts => { const e = evOf(ts); const m = /^(sunrise|sunset)(?:([+-])(\d\d):(\d\d))?/.exec(e.time || '');
+    return { time: m ? '07:00' : (e.time || '07:00').slice(0, 5), sun: m ? m[1] : '', off: m && m[2] ? (m[2] === '-' ? -1 : 1) * ((+m[3]) * 60 + (+m[4])) : 0, on: e.on, temp: e.temp != null ? e.temp : edDefTemp(t) }; }) }; return true; }
+function schEditor(){
+  if (!ED) return; const isC = ED.ent && dmn(ED.ent) === 'climate';
+  const ents = schEnts().map(id => { const r = schRoom(id); return `<button class="btn${id === ED.ent ? ' sel' : ' ghost'}" data-sch="ent" data-id="${id}" style="flex:none;padding:0 16px">${esc((r ? r.name + ' · ' : '') + NM(id))}</button>`; }).join('');
+  const days = DAYS.map(([k, n]) => `<button class="btn${ED.days.includes(k) ? ' sel' : ' ghost'}" data-sch="day" data-id="${k}">${n}</button>`).join('');
+  const pre = [['daily', 'Every day'], ['workday', 'Weekdays'], ['weekend', 'Weekend']].map(([k, n]) => `<button class="btn ghost f" data-sch="pre" data-id="${k}">${n}</button>`).join('');
+  const offs = [-120, -90, -60, -45, -30, -15, 0, 15, 30, 45, 60, 90, 120];
+  const rows = ED.ev.map((e, i) => `<div class="row" style="gap:10px;min-height:64px">
+      <button class="btn f${e.on ? ' sel' : ' ghost'}" data-sch="onoff" data-i="${i}" style="width:96px">${e.on ? 'On' : 'Off'}</button>
+      <select onchange="ED.ev[${i}].sun=this.value;schEditor()" class="btn ghost f" style="width:140px">${[['', 'Time'], ['sunrise', 'Sunrise'], ['sunset', 'Sunset']].map(([v, n]) => `<option value="${v}"${e.sun === v ? ' selected' : ''}>${n}</option>`).join('')}</select>
+      ${e.sun ? `<select onchange="ED.ev[${i}].off=+this.value" class="btn ghost f" style="width:150px">${offs.map(o => `<option value="${o}"${e.off === o ? ' selected' : ''}>${o ? (o > 0 ? '+' : '−') + fmtMin(Math.abs(o)) : 'Exact'}</option>`).join('')}</select>`
+        : `<input type="time" value="${e.time}" onchange="ED.ev[${i}].time=this.value" class="btn ghost f" style="width:150px;font-size:18px;color-scheme:dark">`}
+      ${isC && e.on ? `<button class="btn sq ghost" data-sch="tmp" data-i="${i}" data-d="-0.5" aria-label="Lower">${svg('minus')}</button><div class="spv" style="min-width:76px;text-align:center">${fmtT(e.temp)}°</div><button class="btn sq ghost" data-sch="tmp" data-i="${i}" data-d="0.5" aria-label="Higher">${svg('plus')}</button>` : ''}
+      <div class="sp"></div><button class="btn sq ghost" data-sch="del" data-i="${i}" aria-label="Remove time">${svg('x')}</button></div>`).join('<div class="hr"></div>');
+  openOv(`<div class="dlg wide" style="gap:14px"><div class="row" style="height:56px"><div class="col"><div style="font-size:30px;font-weight:300;letter-spacing:-.02em">${ED.eid ? 'Edit schedule' : 'New schedule'}</div><div class="s">Device · days · On / Off times</div></div><button class="btn sq" data-act="close" aria-label="Close">${svg('x')}</button></div>
+    <div class="row" style="gap:12px"><div class="s" style="flex:none;width:70px">Device</div>${entSelect()}</div>
+    <div class="row" style="gap:8px">${days}${pre}</div>
+    <div style="flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column">${rows || '<div class="empty">Add an On or Off time</div>'}</div>
+    <div class="row" style="gap:10px"><button class="btn ghost f" data-sch="addpair" style="gap:8px">${svg('plus')}On + Off</button><button class="btn ghost f" data-sch="addone" style="gap:8px">${svg('plus')}One time</button><div class="sp"></div>
+      ${ED.eid ? `<button class="btn ghost f" data-sch="remove" style="gap:8px">${svg('x')}Delete</button>` : ''}<button class="btn f sel" data-sch="save" style="min-width:160px">Save</button></div></div>`, 'sched');
+}
+function edAction(e){ const id = ED.ent, d = dmn(id);
+  if (d === 'climate') return e.on ? { service: 'climate.set_temperature', entity_id: id, service_data: { temperature: e.temp, hvac_mode: climateKind(id) === 'ac' ? 'cool' : 'heat' } } : { service: 'climate.set_hvac_mode', entity_id: id, service_data: { hvac_mode: 'off' } };
+  if (d === 'cover') return { service: e.on ? 'cover.open_cover' : 'cover.close_cover', entity_id: id, service_data: {} };
+  if (d === 'valve') return { service: e.on ? 'valve.open_valve' : 'valve.close_valve', entity_id: id, service_data: {} };
+  if (d === 'water_heater') return { service: e.on ? 'water_heater.turn_on' : 'water_heater.turn_off', entity_id: id, service_data: {} };
+  return { service: 'homeassistant.' + (e.on ? 'turn_on' : 'turn_off'), entity_id: id, service_data: {} };
+}
+const svc = (domain, service, data) => send({ type: 'call_service', domain, service, service_data: data });
+const evMin = (e) => e.sun ? (e.sun === 'sunrise' ? 390 : 1110) + e.off : (+e.time.slice(0, 2)) * 60 + (+e.time.slice(3, 5));
+async function edSave(){
+  if (!ED.ent) return toast('Choose a device'); if (!ED.ev.length) return toast('Add a time'); if (!ED.days.length) return toast('Choose days');
+  const ev = ED.ev.slice().sort((a, b) => evMin(a) - evMin(b));
+  const data = { weekdays: ED.days.length === 7 ? ['daily'] : DAYS.map(x => x[0]).filter(k => ED.days.includes(k)),
+    timeslots: ev.map(e => ({ start: e.sun ? e.sun + (e.off < 0 ? '-' : '+') + durStr(Math.abs(e.off)).slice(0, 5) : e.time, actions: [edAction(e)] })) };
+  try { if (ED.eid) await svc('scheduler', 'edit', Object.assign({ entity_id: ED.eid }, data));
+    else await svc('scheduler', 'add', Object.assign({ repeat_type: 'repeat', tags: ['inex'], name: NM(ED.ent) + ' ' + Date.now().toString(36).slice(-4) }, data));
+    toast('Schedule saved'); closeOv(); ED = null; setTimeout(() => loadSched(true), 800); }
+  catch (e) { toast('Could not save schedule'); }
+}
+async function edRemove(){ try { await svc('scheduler', 'remove', { entity_id: ED.eid }); toast('Schedule deleted'); closeOv(); ED = null; setTimeout(() => loadSched(true), 800); } catch (e) { toast('Could not delete'); } }
+function schAct(a, d){
+  if (a === 'new') { edNew(); return schEditor(); }
+  if (a === 'open') { if (edLoad(d.id)) schEditor(); return; }
+  if (a === 'toggle') { const on = S[d.id] && S[d.id].state === 'on'; optimistic(d.id, on ? 'off' : 'on'); call('switch', on ? 'turn_off' : 'turn_on', {}, { entity_id: d.id }); return; }
+  if (a === 'pauseall' || a === 'resumeall') { const list = SCH.filter(it => (it.tags || []).includes('inex'));
+    if (a === 'pauseall') { const ids = list.filter(schOn).map(it => it.entity_id); store.set('schPaused', ids); ids.forEach(id => { optimistic(id, 'off'); call('switch', 'turn_off', {}, { entity_id: id }); }); toast('All schedules paused'); }
+    else { const keep = store.get('schPaused', []); const ids = keep.length ? keep : list.map(it => it.entity_id); ids.forEach(id => { optimistic(id, 'on'); call('switch', 'turn_on', {}, { entity_id: id }); }); store.set('schPaused', []); toast('Schedules resumed'); }
+    return; }
+  if (!ED) return;
+  const e = d.i != null ? ED.ev[+d.i] : null;
+  if (a === 'ent') { ED.ent = d.id; ED.ev.forEach(x => { if (x.temp == null) x.temp = edDefTemp(d.id); }); }
+  else if (a === 'day') ED.days = ED.days.includes(d.id) ? ED.days.filter(x => x !== d.id) : ED.days.concat(d.id);
+  else if (a === 'pre') ED.days = DPRE[d.id].slice();
+  else if (a === 'onoff') { e.on = !e.on; if (e.temp == null) e.temp = edDefTemp(ED.ent); }
+  else if (a === 'tmp') e.temp = Math.round(((+e.temp || 22) + (+d.d)) * 2) / 2;
+  else if (a === 'del') ED.ev.splice(+d.i, 1);
+  else if (a === 'addpair') ED.ev.push({ time: '18:00', sun: '', off: 0, on: true, temp: edDefTemp(ED.ent) }, { time: '22:00', sun: '', off: 0, on: false, temp: edDefTemp(ED.ent) });
+  else if (a === 'addone') ED.ev.push({ time: '12:00', sun: '', off: 0, on: true, temp: edDefTemp(ED.ent) });
+  else if (a === 'save') return edSave();
+  else if (a === 'remove') return edRemove();
+  schEditor();
+}
+
+/* Curtains page: label Curtain + room; modifiers Net (sheer) and Blackout (solid dark fabric) */
+
+const curtEnts = () => Object.keys(S).filter(id => dmn(id) === 'cover' && hasLabel(id, ['curtain', 'roller', 'shutter']) && !hasLabel(id, SET.hideLabels) && show(id) && labelRoom(id));
+
+/* Schedule editor: device picker as a list grouped by room */
+function entSelect(){
+  const ids = schEnts(); if (!ids.length) return '<div class="empty">No devices labelled Schedule</div>';
+  const groups = {}; ids.forEach(id => { const r = schRoom(id); const k = r ? r.name : 'Other'; (groups[k] = groups[k] || []).push(id); });
+  const order = M.rooms.map(r => r.name).filter(n => groups[n]); Object.keys(groups).sort().forEach(n => { if (!order.includes(n) && n !== 'Other') order.push(n); }); if (groups.Other) order.push('Other');
+  return `<select onchange="schAct('ent',{id:this.value})" class="btn ghost" style="flex:1;justify-content:flex-start;text-align:left;font:400 18px var(--sans);letter-spacing:0;text-transform:none;padding:0 16px;color-scheme:dark">${order.map(g => `<optgroup label="${esc(g)}">${groups[g].map(id => `<option value="${id}"${id === ED.ent ? ' selected' : ''}>${esc(g + ' · ' + NM(id))}</option>`).join('')}</optgroup>`).join('')}</select>`;
+}
+
+/* Lights: count of lights on as a yellow round badge (keeps "Bedroom 1" readable) */
+const lbadge = (n, sel) => `<span style="flex:none;min-width:22px;height:22px;padding:0 6px;margin-left:8px;border-radius:11px;font:500 12px/20px var(--mono);letter-spacing:0;text-align:center;${sel ? 'background:rgba(10,32,24,.14);border:1px solid rgba(10,32,24,.35);color:inherit' : 'background:rgba(242,193,78,.12);border:1px solid rgba(242,193,78,.45);color:#F2C14E'}">${n}</span>`;
+
+/* Light order (same rule on every panel): own room first -> balcony -> WC; inside a zone: main -> cove/vanity -> other */
+const lTypeRank = (id) => lightOrder(id);
+const lName = (id) => attr(id, 'friendly_name') || id;
+const lightSort = (a, b) => lTypeRank(a) - lTypeRank(b) || lName(a).localeCompare(lName(b), undefined, { numeric: true });
+
+/* Light order on every panel: Chandelier - Spots - Track - Cove - Vanity - Hanging/Pendant - Floor lamp - Mirror - Balcony - Wardrobe - other */
+function lightOrder(id){
+  const n = ' ' + String(attr(id, 'friendly_name') || id.split('.')[1]).replace(/^(LED\s+)?[A-Z]{1,3}\d+(\.\d+)*\s+/i, '').toLowerCase().replace(/[_\-.]/g, ' ') + ' ';
+  const ORD = [
+    [/\bwardrobe\b/, 9], [/\b(balcony|terrace)\b/, 8],
+    [/\bchandelier\b/, 0], [/\b(spot|spots|spotlight|spotlights|downlight|downlights)\b/, 1], [/\btrack\b/, 2],
+    [/\bcove\b/, 3], [/\bvanity\b/, 4], [/\b(hanging|pendant)\b/, 5], [/\bfloor lamp\b|\bstanding lamp\b/, 6], [/\bmirror\b/, 7],
+  ];
+  for (const [re, r] of ORD) if (re.test(n)) return r;
+  return 10;
+}
+
+/* Schedule: device location = Home Assistant area (entity or its device), label room as fallback */
+function schRoom(id){ const a = areaName(id); return a ? { name: a } : labelRoom(id); }
+/* ===== Room page (10in): everything in one room ===== */
+function viewRoom(){
+  const r = M.byId[UI.room]; if (!r) { view = 'rooms'; return viewRooms(); }
+  const t = roomTemp(r), h = roomHum(r);
+  const L = avail(r.lights).slice().sort(lightSort); const on = lightsOnIn(r).length;
+  const ac = avail(r.ac), ht = avail(r.heat);
+  const cv = Array.from(new Set(avail(r.covers).concat(curtEnts().filter(id => labelRoom(id) === r))));
+  const op = r.openings.filter(real), lk = avail(r.locks);
+  const right = [];
+  if (ac.length || ht.length) right.push(`<section class="card" style="padding:16px 18px;gap:10px;flex:none"><div class="e">Climate</div>${ac.map(id => acBlock(id, false)).join('')}${ht.map(heatBlock).join('')}</section>`);
+  if (cv.length) { const pc = paged('rcv_' + r.id, cv, 1);
+    right.push(`<div style="flex:none;display:flex;flex-direction:column;gap:8px">${pc.pager ? `<div class="row" style="gap:8px"><div class="e" style="flex:1">Curtains</div>${pc.pager}</div>` : ''}${pc.items.map(id => coverCard(id, r)).join('')}</div>`); }
+  if (op.length || lk.length) right.push(`<section class="card" style="padding:6px 18px;gap:0;flex:none">${lk.map(id => { const lo = S[id].state === 'locked'; return `<div class="row" style="height:60px">${svg(lo ? 'lock' : 'unlock', `color:${lo ? 'var(--mint)' : 'var(--amber)'}`)}<div class="col"><div class="n" style="font-size:17px">${esc(NM(id))}</div></div><button class="btn f" data-lock="${id}" data-s="${lo ? 'unlock' : 'lock'}">${lo ? 'Unlock' : 'Lock'}</button></div>`; }).concat(op.slice(0, 4).map(id => `<div class="row" style="height:52px">${svg('door', `color:${isOpen(id) ? 'var(--amber)' : 'var(--text2)'}`)}<div class="col"><div class="n" style="font-size:17px">${esc(NM(id))}</div></div><span class="s ${isOpen(id) ? 'amber' : 'dim'}">${isOpen(id) ? 'Open · ' + since(id) : 'Closed'}</span></div>`)).join('<div class="hr"></div>')}</section>`);
+  const lp = paged('rl_' + r.id, L, right.length ? 6 : 8);
+  const cols = right.length ? 3 : 4;
+  const lights = L.length ? `<div class="grid" style="grid-template-columns:repeat(${cols},minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr))">${lp.items.map(lightTile).join('')}</div>` : (right.length ? '' : '<div class="empty">Nothing to control in this room</div>');
+  const head = `<div class="bar"><button class="btn sq" data-tab="rooms" aria-label="Back to rooms">${svg('chevl')}</button>
+    <div class="row" style="flex:none;gap:18px;align-items:baseline;padding:0 8px">${t != null ? `<div class="rt">${fmtT(t)}<span>°C</span></div>` : ''}${h != null ? `<div class="rh">${h}<span>%</span></div>` : ''}</div>
+    <div class="sp"></div>${lp.pager}${L.length ? `<button class="btn f${on ? ' lit' : ''}" data-roomlights="${r.id}">${svg('power')}${on ? 'Lights off' : 'Lights on'}</button>` : ''}</div>`;
+  const body = right.length && L.length
+    ? `<div style="flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:16px"><div style="display:flex;min-height:0">${lights}</div><div class="rcol" style="display:flex;flex-direction:column;gap:12px;min-height:0;overflow-y:auto;scrollbar-width:none">${right.join('')}</div></div>`
+    : right.length ? `<div class="rcol" style="flex:1;min-height:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-content:start;overflow-y:auto;scrollbar-width:none">${right.join('')}</div>` : lights;
+  return `<div class="vw">${head}${body}</div>`;
+}
+/* ===== INEX 2026-11-01: user scenes — create / change / delete from the panel (integration "inex_scenes") =====
+   Devices offered: entities labelled "scene_device". User scenes carry the label "user_scene";
+   scenes made by the installer can only be run. */
+const SX = { manage:false, ed:null };
+(function(){ const st = document.createElement('style'); st.textContent = `
+.sxin{height:56px;flex:1;min-width:0;border-radius:14px;background:var(--raised);border:1px solid var(--line2);color:var(--text);font:400 24px var(--sans);padding:0 18px;outline:none}
+.sxin{user-select:text;-webkit-user-select:text}
+.sxin:focus{border-color:#2A5A4A}
+.sxbody{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:12px;scrollbar-width:none}
+.sxbody::-webkit-scrollbar{display:none}
+.sxroom{display:flex;flex-wrap:wrap;gap:8px}
+.sxchip{height:52px;border-radius:14px;padding:0 16px;display:inline-flex;align-items:center;gap:10px;background:transparent;border:1px solid var(--line);color:var(--soft);font:600 15px var(--sans);flex:1 1 auto;min-width:max-content}
+.sxchip.sel{background:#12302A;border-color:#2A5A4A;color:var(--mint)}
+.sxblk{background:var(--raised);border:1px solid var(--line);border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+.sxrow{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.sxrow .lbl{font:500 11px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text2);width:84px;flex:none}
+.sxrow .btn{flex:1 1 auto;min-width:max-content;height:46px;font-size:12px;padding:0 10px}
+.sxrow .btn.sq{flex:none;width:52px;min-width:52px}
+.sxval{min-width:84px;text-align:center;font-size:24px;font-weight:300;font-variant-numeric:tabular-nums}
+.sxerr{color:#F0AFA3;font:500 13px var(--mono);letter-spacing:.06em}
+@media (max-width:700px){.dlg .sxgrid{flex:none!important;grid-template-rows:none!important}.sxin{font-size:20px}.sxchip{font-size:14px;height:48px}.sxrow .lbl{width:100%}}
+.sct .ed{position:absolute;top:12px;right:12px}
+`; document.head.appendChild(st); })();
+
+const sxDevs = () => Object.keys(S).filter(id => hasLabel(id, ['scene_device']) && ['light','switch','climate','cover','fan','input_boolean'].includes(dmn(id)) && show(id));
+const sxRoomOf = (id) => { const a = areaOf(id); if (a && M.byId[a]) return M.byId[a]; return labelRoom(id); };
+const sxName = (id) => NM(id) || attr(id, 'friendly_name') || id;
+const isUserScene = (id) => hasLabel(id, ['user_scene']);
+const sxModes = (id) => (attr(id, 'hvac_modes') || []);
+function sxCurrent(id){
+  const s = S[id]; if (!s) return { state:'off' }; const a = s.attributes, d = dmn(id), v = {};
+  if (d === 'climate') { v.state = s.state; if (a.temperature != null) v.temperature = a.temperature; ['fan_mode','swing_mode','preset_mode'].forEach(k => { if (a[k] != null) v[k] = a[k]; }); }
+  else if (d === 'cover') { if (a.current_position != null) v.current_position = a.current_position; else v.state = s.state === 'closed' ? 'closed' : 'open'; }
+  else { v.state = s.state === 'on' ? 'on' : 'off'; if (d === 'light' && v.state === 'on') { if (a.brightness != null) v.brightness = a.brightness; if (a.color_temp_kelvin != null && a.color_mode === 'color_temp') v.color_temp_kelvin = a.color_temp_kelvin; } }
+  return v;
+}
+function sxCall(service, data){
+  return send({ type:'call_service', domain:'ssv_dashboard', service: service + '_scene', service_data:data, return_response:true }).then(r => (r && r.response) || {});
+}
+const sxErr = (e) => (e && (e.message || e.translation_key)) || 'Not saved';
+
+/* ---- scenes list: run · manage (edit / delete your own) · new ---- */
+function openScenes(){
+  const all = avail(M.g.scenes); const pins = pinnedScenes();
+  const { items, pager } = paged('scenes', all, 12);
+  openOv(`<div class="dlg wide"><div class="row" style="height:56px"><div class="col"><div style="font-size:30px;font-weight:300;letter-spacing:-.02em">Scenes</div><div class="s">${all.length} scenes · ${all.filter(isUserScene).length} yours</div></div>${pager}<button class="btn sq" data-act="close" aria-label="Close">${svg('x')}</button></div>
+    <div class="sxgrid" style="flex:1;min-height:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(3,minmax(0,1fr));gap:16px">${items.map(id => { const mine = isUserScene(id);
+      const tap = SX.manage ? (mine ? `data-sxedit="${id}"` : '') : `data-scene="${id}"`;
+      const sub = SX.manage ? (mine ? 'Tap to change' : 'Made by installer') : sceneActive(id) ? 'Active' : 'Tap to run';
+      return `<button class="sct${sceneActive(id) && !SX.manage ? ' on' : ''}" ${tap} style="position:relative${SX.manage && !mine ? ';opacity:.45' : ''}"><div class="row" style="justify-content:space-between"><div class="d">${svg(sceneIcon(id))}</div>${SX.manage ? (mine ? svg('edit', 'color:var(--mint)') : svg('lock', 'color:var(--text3)')) : pins.includes(id) ? '<span class="pin">Home</span>' : ''}</div>
+        <div class="col" style="flex:none"><div class="t" style="font-size:19px">${esc(NM(id))}</div><div class="s${sceneActive(id) && !SX.manage ? ' mint' : ''}">${sub}</div></div></button>`; }).join('')}</div>
+    <div class="row" style="gap:10px"><div class="s" style="flex:1;font-size:13px">${SX.manage ? 'Your scenes can be changed or deleted' : 'Tap = run'}</div>
+      <button class="btn f${SX.manage ? ' sel' : ''}" data-sxmanage="1" style="height:60px">${svg('edit')}${SX.manage ? 'Done' : 'Manage'}</button>
+      <button class="btn f sel" data-sxnew="1" style="height:60px">${svg('plus')}New scene</button></div></div>`, 'scenes');
+}
+
+/* ---- editor ---- */
+function sxOpen(ed){ SX.ed = Object.assign({ tab:'devices', busy:false, err:'', confirm:false }, ed); ovKind = 'sceneed'; sxPaint(); }
+function sxPaint(){
+  const E = SX.ed; if (!E) return;
+  const devs = sxDevs(); const chosen = Object.keys(E.v);
+  const groups = {}; devs.forEach(id => { const r = sxRoomOf(id); const k = r ? r.id : '_'; (groups[k] = groups[k] || { name: r ? r.name : 'Other', ids: [] }).ids.push(id); });
+  const order = M.rooms.map(r => r.id).concat(['_']).filter(k => groups[k]);
+  const devTab = devs.length ? order.map(k => `<div class="col" style="flex:none;gap:8px"><div class="e">${esc(groups[k].name)}</div><div class="sxroom">${groups[k].ids.map(id => `<button class="sxchip${E.v[id] ? ' sel' : ''}" data-sxpick="${id}">${svg(E.v[id] ? 'x' : 'plus', 'width:18px;height:18px')}${esc(sxName(id))}</button>`).join('')}</div></div>`).join('')
+    : `<div class="empty">No devices can be used in scenes yet.<br>The installer marks them with the label “Scene Device”.</div>`;
+  const setTab = chosen.length ? chosen.map(sxBlock).join('') : `<div class="empty">Choose devices first</div>`;
+  const del = E.id ? (E.confirm ? `<button class="btn danger f" data-sxdelok="1">Delete “${esc(E.name || NM(E.id))}”?</button><button class="btn f" data-sxdelno="1">Keep</button>` : `<button class="btn f" data-sxdel="1" style="color:#F0AFA3">${svg('x')}Delete</button>`) : '';
+  openOv(`<div class="dlg wide" style="gap:14px">
+    <div class="row" style="gap:10px"><input class="sxin" id="sxname" maxlength="40" placeholder="Scene name" value="${esc(E.name)}" autocomplete="off"><button class="btn sq" data-sxclose="1" aria-label="Close">${svg('x')}</button></div>
+    <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn f${E.tab === 'devices' ? ' sel' : ''}" data-sxtab="devices">Devices · ${chosen.length}</button><button class="btn f${E.tab === 'settings' ? ' sel' : ''}" data-sxtab="settings" ${chosen.length ? '' : 'disabled'}>Settings</button>
+      <div class="sp"></div>${chosen.length ? `<button class="btn f" data-sxnow="1">${svg('arc')}Take current state</button><button class="btn f" data-sxtry="1">${svg('play')}Try</button>` : ''}</div>
+    <div class="sxbody">${E.tab === 'devices' ? devTab : setTab}</div>
+    ${E.err ? `<div class="sxerr">${esc(E.err)}</div>` : ''}
+    <div class="row" style="gap:10px;flex-wrap:wrap">${del}<div class="sp"></div><button class="btn f" data-sxclose="1">Cancel</button><button class="btn f sel" data-sxsave="1" ${E.busy ? 'disabled' : ''}>${E.busy ? 'Saving…' : 'Save scene'}</button></div></div>`, 'sceneed');
+  const inp = $('sxname'); if (inp) inp.addEventListener('input', () => { E.name = inp.value; });
+}
+const sxB = (id, k, val, label, cur) => `<button class="btn${String(cur) === String(val) ? ' sel' : ''}" data-sxset="${id}" data-k="${k}" data-val="${esc(val)}">${esc(label)}</button>`;
+const sxStep = (id, k, d, txt) => `<button class="btn sq" data-sxstep="${id}" data-k="${k}" data-d="-1" aria-label="Lower">${svg('minus')}</button><div class="sxval">${txt}</div><button class="btn sq" data-sxstep="${id}" data-k="${k}" data-d="1" aria-label="Raise">${svg('plus')}</button>`;
+function sxBlock(id){
+  const v = SX.ed.v[id], a = (S[id] || {}).attributes || {}, d = dmn(id); const r = sxRoomOf(id); const rows = [];
+  if (d === 'climate') {
+    rows.push(`<div class="sxrow"><span class="lbl">Mode</span>${sxModes(id).map(m => sxB(id, 'state', m, MODE[m] || m, v.state)).join('')}</div>`);
+    if (v.state !== 'off') {
+      if (a.min_temp != null || a.temperature != null) rows.push(`<div class="sxrow"><span class="lbl">Set point</span>${sxStep(id, 'temperature', 1, (v.temperature != null ? fmtT(v.temperature) : '--') + '°')}</div>`);
+      [['fan_mode','fan_modes','Fan'],['swing_mode','swing_modes','Swing'],['preset_mode','preset_modes','Preset']].forEach(([k, opts, lbl]) => { const o = a[opts] || []; if (o.length) rows.push(`<div class="sxrow"><span class="lbl">${lbl}</span>${o.map(m => sxB(id, k, m, m, v[k])).join('')}</div>`); });
+    }
+  } else if (d === 'cover') {
+    const pos = (attr(id, 'supported_features') || 0) & 4;
+    if (pos) rows.push(`<div class="sxrow"><span class="lbl">Position</span>${sxB(id, 'current_position', 100, 'Open', v.current_position)}${sxB(id, 'current_position', 0, 'Closed', v.current_position)}${sxStep(id, 'current_position', 10, (v.current_position != null ? v.current_position : '--') + ' %')}</div>`);
+    else rows.push(`<div class="sxrow"><span class="lbl">State</span>${sxB(id, 'state', 'open', 'Open', v.state)}${sxB(id, 'state', 'closed', 'Closed', v.state)}</div>`);
+  } else {
+    rows.push(`<div class="sxrow"><span class="lbl">Power</span>${sxB(id, 'state', 'on', 'On', v.state)}${sxB(id, 'state', 'off', 'Off', v.state)}</div>`);
+    if (d === 'light' && v.state === 'on') {
+      const modes = a.supported_color_modes || [];
+      if (modes.some(m => m !== 'onoff')) rows.push(`<div class="sxrow"><span class="lbl">Brightness</span>${sxStep(id, 'brightness', 1, (v.brightness != null ? Math.max(1, Math.round(v.brightness / 2.55)) : 100) + ' %')}</div>`);
+      if (modes.includes('color_temp')) { const lo = a.min_color_temp_kelvin || 2700, hi = a.max_color_temp_kelvin || 6500; const k3 = [[2700,'Warm'],[4000,'Neutral'],[5500,'Daylight']].map(([k, n]) => [Math.min(hi, Math.max(lo, k)), n]);
+        rows.push(`<div class="sxrow"><span class="lbl">Colour</span>${k3.map(([k, n]) => sxB(id, 'color_temp_kelvin', k, n, v.color_temp_kelvin)).join('')}</div>`); }
+    }
+  }
+  return `<div class="sxblk"><div class="row" style="gap:12px">${svg(d === 'climate' ? 'snow' : d === 'cover' ? 'curtains' : 'bulb', 'color:var(--text2)')}<div class="col"><div class="n" style="font-size:18px">${esc(sxName(id))}</div><div class="s">${esc(r ? r.name : '')}</div></div><button class="btn sq" data-sxpick="${id}" aria-label="Remove">${svg('x')}</button></div>${rows.join('')}</div>`;
+}
+function sxStepVal(id, k, dir){
+  const v = SX.ed.v[id], a = (S[id] || {}).attributes || {};
+  if (k === 'temperature') { const st = a.target_temp_step || 0.5; v.temperature = Math.min(a.max_temp ?? 30, Math.max(a.min_temp ?? 7, Math.round(((v.temperature ?? a.temperature ?? 22) + dir * st) * 10) / 10)); }
+  else if (k === 'brightness') { const p = Math.max(1, Math.round((v.brightness ?? 255) / 2.55)); const np = Math.min(100, Math.max(10, (p < 10 && dir > 0 ? 10 : Math.round(p / 10) * 10 + dir * 10))); v.brightness = Math.round(np * 2.55); }
+  else if (k === 'current_position') { v.current_position = Math.min(100, Math.max(0, Math.round(((v.current_position ?? 50) + dir * 10) / 10) * 10)); }
+}
+function sxPayload(){ const out = {}; Object.keys(SX.ed.v).forEach(id => { const v = Object.assign({}, SX.ed.v[id]); if (dmn(id) === 'light' && v.state !== 'on') { delete v.brightness; delete v.color_temp_kelvin; } if (dmn(id) === 'climate' && v.state === 'off') { ['temperature','fan_mode','swing_mode','preset_mode'].forEach(k => delete v[k]); } out[id] = v; }); return out; }
+async function sxSave(){
+  const E = SX.ed; const inp = $('sxname'); if (inp) E.name = inp.value;
+  E.name = (E.name || '').trim();
+  if (!E.name) { E.err = 'Give the scene a name'; sxPaint(); return; }
+  if (!Object.keys(E.v).length) { E.err = 'Choose at least one device'; sxPaint(); return; }
+  E.busy = true; E.err = ''; sxPaint();
+  try { const data = { name: E.name, entities: sxPayload() }; if (E.id) data.scene = E.id;
+    await sxCall('save', data); SX.ed = null; closeOv(); toast(`Scene “${data.name}” saved`); setTimeout(() => { if (!ovKind) { SX.manage = false; openScenes(); } }, 1500); }
+  catch (e) { E.busy = false; E.err = sxErr(e); sxPaint(); }
+}
+async function sxDelete(){
+  const E = SX.ed; E.busy = true; sxPaint();
+  try { await sxCall('delete', { scene: E.id }); const n = E.name; SX.ed = null; closeOv(); toast(`Scene “${n}” deleted`); setTimeout(() => { if (!ovKind) openScenes(); }, 1500); }
+  catch (e) { E.busy = false; E.confirm = false; E.err = sxErr(e); sxPaint(); }
+}
+async function sxEdit(id){
+  try { const r = await sxCall('get', { scene: id }); const v = {}; Object.keys(r.entities || {}).forEach(eid => { if (S[eid]) v[eid] = Object.assign({}, r.entities[eid]); });
+    sxOpen({ id, name: r.name || NM(id), v, tab: 'settings' }); }
+  catch (e) { toast('Cannot open this scene'); }
+}
+stage.addEventListener('click', (e) => {
+  const el = e.target.closest('button'); if (!el) return; const d = el.dataset;
+  if (d.sxmanage) { SX.manage = !SX.manage; openScenes(); return; }
+  if (d.sxnew) { SX.manage = false; sxOpen({ id: null, name: '', v: {} }); return; }
+  if (d.sxedit) { sxEdit(d.sxedit); return; }
+  if (!SX.ed) return;
+  const E = SX.ed; const inp = $('sxname'); if (inp) E.name = inp.value;
+  if (d.sxclose) { SX.ed = null; closeOv(); openScenes(); return; }
+  if (d.sxtab) { E.tab = d.sxtab; sxPaint(); return; }
+  if (d.sxpick) { if (E.v[d.sxpick]) delete E.v[d.sxpick]; else E.v[d.sxpick] = sxCurrent(d.sxpick); sxPaint(); return; }
+  if (d.sxset) { const v = E.v[d.sxset]; let val = d.val; if (['current_position','color_temp_kelvin'].includes(d.k)) val = +val; v[d.k] = val;
+    if (d.k === 'state' && dmn(d.sxset) === 'climate' && val !== 'off' && v.temperature == null) v.temperature = attr(d.sxset, 'temperature') ?? 22;
+    if (d.k === 'state' && dmn(d.sxset) === 'light' && val === 'on' && v.brightness == null && (attr(d.sxset, 'supported_color_modes') || []).some(m => m !== 'onoff')) v.brightness = 255;
+    sxPaint(); return; }
+  if (d.sxstep) { sxStepVal(d.sxstep, d.k, +d.d); sxPaint(); return; }
+  if (d.sxnow) { Object.keys(E.v).forEach(id => E.v[id] = sxCurrent(id)); sxPaint(); return; }
+  if (d.sxtry) { call('scene', 'apply', { entities: sxPayload() }); toast('Trying the scene'); return; }
+  if (d.sxsave) { sxSave(); return; }
+  if (d.sxdel) { E.confirm = true; sxPaint(); return; }
+  if (d.sxdelno) { E.confirm = false; sxPaint(); return; }
+  if (d.sxdelok) { sxDelete(); return; }
+});
+function closeOv(){ ovKind = null; UI.sceneEdit = false; SX.ed = null; $('ov').classList.remove('show'); $('ov').innerHTML = ''; }
+document.addEventListener('keydown', () => touched());
+
+</script>
+</body>
+</html>

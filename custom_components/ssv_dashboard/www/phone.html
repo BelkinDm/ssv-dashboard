@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SSV Dashboard · Phone</title>
+<style>html,body{margin:0;height:100%;background:#070B10;color:#7B8B9B;font:500 12px ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase}body{display:flex;align-items:center;justify-content:center}</style>
+</head>
+<body>
+Loading…
+<!-- INEX phone dashboard: loads panel.html (same logic, entities and labels as the wall panels)
+     and lays it out for a phone: bottom tabs Home · Rooms · Lights · Climate · More. -->
+<script type="text/plain" id="phcss">
+/* ===== INEX phone layout (overrides the 1280x800 wall-panel stage) ===== */
+html,body{overflow:hidden;height:100%;overscroll-behavior:none}
+#stage{position:fixed!important;inset:0!important;width:auto!important;height:auto!important;transform:none!important}
+#top{left:12px;right:12px;top:calc(10px);width:auto;height:62px;padding:0 8px 0 14px;gap:8px;border-radius:18px}
+#top .eb{font-size:10px;letter-spacing:.16em}
+#top .hd{font-size:22px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#top .pill{height:44px;padding:0 10px;gap:6px;border-radius:12px;flex:none}
+#top .pill .v{font-size:18px}
+#top .pill .l{display:none}
+#top .pill .i{width:20px!important;height:20px!important}
+#top .pill.warn,#top .pill.crit{font-size:13px}
+#top .btn.sq{width:44px;height:44px;min-width:44px;border-radius:12px;flex:none}
+.clk{padding:0 4px}
+.clk b{font-size:19px}
+.clk span{display:none}
+#view{left:0;right:0;top:calc(82px);bottom:calc(78px);width:auto;height:auto;overflow-y:auto;overflow-x:hidden;padding:2px 12px 20px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+#side{left:0;right:0;top:auto;bottom:0;width:auto;height:calc(78px);padding:8px 8px calc(8px);flex-direction:row;gap:4px;border-right:0;border-top:1px solid #1A2530;z-index:10}
+#side .tab{height:62px;flex:1;min-width:0;flex-direction:column;justify-content:center;gap:5px;padding:0;border-radius:14px}
+#side .tab span{font-size:10px;letter-spacing:.08em}
+#side .tab .i{width:22px;height:22px}
+.vw{height:auto!important;gap:12px}
+.bar{flex-wrap:wrap;height:auto;min-height:48px}
+.btn{height:48px;min-width:44px;font-size:12px;letter-spacing:.08em;padding:0 10px;border-radius:12px}
+.btn.sq{width:48px}
+.card{padding:16px;border-radius:18px;gap:10px}
+.e{font-size:11px}
+.t{font-size:17px}
+.n{font-size:18px}
+.v{font-size:38px}
+.big{font-size:44px!important}
+.rt{font-size:28px}
+.spv{width:62px;font-size:24px}
+.sc{height:54px;font-size:14px;border-radius:14px}
+.sw{width:64px;height:38px}.sw i{width:30px;height:30px}.sw.on i{left:30px}
+.ln{height:54px}.ln b{font-size:15px}
+.blk .btn{font-size:11px;padding:0 4px;letter-spacing:.04em}
+.pct{font-size:34px}.st{font-size:24px}
+.tile{padding:14px;border-radius:18px}.tile .d,.d{width:42px;height:42px;border-radius:12px}
+#view .grid{flex:none;grid-template-columns:minmax(0,1fr)!important;grid-template-rows:none!important;grid-auto-rows:auto;max-height:none!important;height:auto!important;gap:12px}
+#view .grid:has(> .tile){grid-template-columns:repeat(2,minmax(0,1fr))!important;grid-auto-rows:170px}
+#view .grid:has(> .cam){grid-auto-rows:210px}
+.grid:has(> .sct){grid-template-columns:repeat(2,minmax(0,1fr))!important;grid-template-rows:none!important;grid-auto-rows:110px}
+/* floor / room / action rows fill the whole width; a label never wraps, the row wraps instead */
+#view .bar{display:flex;flex-wrap:wrap;gap:8px;height:auto}
+#view .bar > .sp{display:block;flex:0 0 100%;height:0;margin:-4px 0}
+#view .bar > .sp:first-child{display:none}
+#view .bar > .btn{flex:1 1 0;min-width:max-content;white-space:nowrap;padding:0 8px}
+#view .btn > span[style*="min-width:22px"]{margin-left:6px!important}
+#view .bar > span.s{flex:1 1 100%;text-align:center}
+#view div[style*="grid-template-columns:repeat("]:not(.grid){display:flex!important;flex-wrap:wrap;gap:8px!important}
+#view div[style*="grid-template-columns:repeat("]:not(.grid) > .btn{flex:1 1 auto;min-width:max-content;padding:0 10px}
+#view div[style*="grid-template-columns:repeat("]:not(.grid) > .btn span{white-space:nowrap!important}
+#view .cw{flex:none;height:118px}
+#view .empty{min-height:120px}
+.scrim{padding:12px;align-items:flex-end}
+.dlg,.dlg.wide{width:100%!important;max-width:none;height:auto!important;max-height:calc(100% - 12px);overflow-y:auto;padding:18px;gap:16px;border-radius:22px}
+.dlg .btn[style*="height:96px"]{height:72px!important}
+.dlg img{min-height:220px}
+.keypad{grid-template-columns:repeat(3,76px)}.keypad .btn{height:60px}
+#toast{bottom:calc(92px);max-width:calc(100% - 24px);white-space:nowrap;overflow:hidden}
+#conn{left:12px;right:12px;bottom:calc(90px)}
+.tile{touch-action:pan-y}
+.ph-dim{position:absolute;right:0;top:0;bottom:0;width:76px;touch-action:none;z-index:1}
+.dlg div[style*="grid-template-columns:repeat("]{grid-template-columns:repeat(2,minmax(0,1fr))!important;grid-template-rows:none!important;grid-auto-rows:122px}
+.dlg .sct{padding:14px}
+/* ---- fluid type: every label fits a 320-430 px phone, nothing smaller than 10 px ---- */
+#top{padding:0 6px 0 12px;gap:6px}
+#top .hd{font-size:clamp(16px,5.2vw,21px);line-height:1.3;padding-bottom:1px}
+#top .ttl{gap:0}
+#top .eb{font-size:clamp(9px,2.6vw,10px)}
+#top .pill{height:40px;padding:0 8px;gap:4px}
+#top .pill .v{font-size:clamp(15px,4.4vw,17px)}
+.clk b{font-size:clamp(16px,4.8vw,19px);letter-spacing:.02em}
+#view .card .n,#view .card .n[style]{font-size:clamp(15px,4.4vw,18px)!important;white-space:normal;line-height:1.2}
+#view .card button.row{min-height:52px!important;gap:12px!important}
+#view .card button.row .i{width:24px!important;height:24px!important}
+.e{font-size:clamp(10px,2.9vw,11px);letter-spacing:.14em}
+.s{font-size:clamp(10px,2.9vw,12px);letter-spacing:.07em}
+.t,.t[style]{font-size:clamp(15px,4.4vw,17px)!important}
+.v{font-size:clamp(30px,9.5vw,38px)}
+.big,.big[style]{font-size:clamp(34px,11vw,44px)!important}
+.rt{font-size:clamp(22px,7vw,28px)}.rh{font-size:clamp(17px,5vw,22px)}
+.pct{font-size:clamp(26px,8.5vw,34px)}.st{font-size:clamp(20px,6.2vw,24px)}
+.spv{width:clamp(50px,15vw,62px);font-size:clamp(19px,5.8vw,24px)}
+.btn{font-size:clamp(10px,3vw,12px);letter-spacing:.05em;padding:0 8px}
+.btn.sq{width:clamp(40px,12vw,48px);min-width:clamp(40px,12vw,48px)}
+.blk .btn.sq{height:42px}
+.blk .lab b{font-size:clamp(10px,3vw,12px);letter-spacing:.06em}
+.sc{font-size:clamp(13px,3.8vw,14px);gap:8px}
+.ln{height:auto;min-height:52px;padding:6px 0;gap:12px}
+.ln b{font-size:clamp(14px,4vw,16px);white-space:normal;line-height:1.2}
+.ln em{font-size:clamp(10px,2.9vw,12px);letter-spacing:.04em;white-space:nowrap}
+.chip{font-size:clamp(10px,2.8vw,11px);letter-spacing:.06em;padding:0 10px}
+#side .tab span{font-size:clamp(9px,2.6vw,10px);letter-spacing:.04em}
+.ph-row b{font-size:clamp(15px,4.4vw,17px)}
+.ph-row em{font-size:clamp(10px,2.8vw,11px)}
+.ph-sc > :last-child:nth-child(odd){grid-column:1/-1}
+.blk > .row:first-child{gap:6px!important}.blk .lab{gap:6px}.blk .lab .i{width:20px;height:20px}.blk .btn.sq{width:36px;min-width:36px;height:38px}.blk .spv{width:50px;font-size:clamp(17px,5.2vw,21px)}
+#view [style*="font-size:64px"],#view [style*="font-size:56px"],#view [style*="font-size:52px"],#view [style*="font-size:48px"]{font-size:clamp(34px,11vw,46px)!important}
+#view [style*="font-size:40px"],#view [style*="font-size:36px"],#view [style*="font-size:34px"]{font-size:clamp(26px,8.5vw,34px)!important}
+#view [style*="font-size:30px"],#view [style*="font-size:28px"],#view [style*="font-size:26px"]{font-size:clamp(20px,6.4vw,26px)!important}
+#view span[style*="font-size:24px"]{font-size:clamp(13px,4vw,18px)!important}
+#view [style*="font-size:22px"],#view [style*="font-size:20px"]{font-size:clamp(15px,4.6vw,19px)!important}
+.btn[style*="gap:8px"]{gap:4px!important}
+.btn .i{width:clamp(18px,5.4vw,22px);height:clamp(18px,5.4vw,22px)}
+.ph-sec{font:500 11px var(--mono);letter-spacing:.18em;text-transform:uppercase;color:var(--text2);margin:8px 2px 0}
+.ph-row{display:flex;align-items:center;gap:14px;height:64px;width:100%;background:none;border:0;padding:0;color:var(--text);text-align:left}
+.ph-row .ic{width:42px;height:42px;border-radius:12px;background:#16212C;color:var(--text2);display:flex;align-items:center;justify-content:center;flex:none}
+.ph-row b{font-size:17px;font-weight:600;display:block}
+.ph-row em{font:500 11px var(--mono);letter-spacing:.1em;text-transform:uppercase;font-style:normal;color:var(--text2)}
+</script>
+<script type="text/plain" id="phjs">
+/* ===== INEX phone behaviour ===== */
+(function(){
+  SET.nightIdleMinutes = 0; SET.homeIdleMinutes = 0;           /* a phone never falls into night/home by itself */
+  const MAIN = [['home','Home','home'],['rooms','Rooms','rooms'],['lights','Lights','bulb'],['climate','Climate','climate'],['more','More','more']];
+  const MAINK = MAIN.map(x => x[0]);
+  UI.room = null;
+
+  window.paged = function(key, items){ return { items, pager: '' }; };   /* phone scrolls, no pages */
+
+  window.renderSide = function(){
+    const keys = tabs().map(x => x[0]);
+    if (M && !keys.includes('rooms') && M.rooms.some(roomHasAny)) keys.push('rooms');   /* phone: Rooms is shown even for a single room */
+    if (!keys.concat(['more','room']).includes(view)) view = 'home';
+    const nav = MAIN.filter(x => x[0] === 'home' || x[0] === 'more' || keys.includes(x[0]));
+    const cur = view === 'room' ? 'rooms' : MAINK.includes(view) ? view : 'more';
+    $('side').innerHTML = nav.map(([k, l, ic]) => `<button class="tab${k === cur ? ' sel' : ''}" data-tab="${k}">${svg(ic)}<span>${l}</span></button>`).join('');
+  };
+
+  const TITLE = { rooms:'Rooms', lights:'Lights', climate:'Climate', more:'More', heating:'Heating', curtains:'Curtains', water:'Water', cameras:'Cameras', security:'Security', schedule:'Schedule' };
+  window.renderTop = function(){
+    const now = haNow(); const villa = PANEL.villa || HA.location || '';
+    let eb = villa, hd = greet(), back = '';
+    if (view === 'room' && M && M.byId[UI.room]) { const r = M.byId[UI.room]; eb = r.floorName || 'Room'; hd = r.name; back = 'rooms'; }
+    else if (view !== 'home') { hd = TITLE[view] || view; eb = villa;
+      if (view === 'lights') eb = `${lightsOn()} on`;
+      if (!MAINK.includes(view)) back = 'more'; }
+    const al = alerts();
+    const alertBtn = al.length ? `<button class="pill ${al.some(x => x.crit) ? 'crit' : 'warn'}" data-act="alerts" aria-label="Alerts">${svg('bell')}${al.length}</button>` : '';
+    let weather = ''; const w = M && M.g.weather;
+    if (view === 'home' && !al.length && w && real(w)) weather = `<div class="pill">${svg('cloud')}<div class="v">${Math.round(S[w].attributes.temperature)}°</div></div>`;
+    $('top').innerHTML = `${back ? `<button class="btn sq" data-tab="${back}" aria-label="Back">${svg('chevl')}</button>` : ''}<div class="ttl"><div class="eb">${esc(eb)}</div><div class="hd">${esc(hd)}</div></div>${alertBtn}${weather}<div class="clk"><b id="clk">${fmtClock(now)}</b></div>`;
+  };
+
+  window.viewHome = function(){
+    const al = alerts(); const out = [];
+    if (al.length) { const c = al.some(x => x.crit);
+      out.push(`<button class="card ${c ? 'heat' : 'on'}" data-act="alerts" style="flex-direction:row;align-items:center;gap:12px;padding:14px 16px">${svg('warn', `color:${c ? 'var(--alert)' : 'var(--amber)'}`)}<div class="col"><div class="t" style="font-size:16px">${esc(al[0].text)}</div><div class="s ${c ? '' : 'amber'}">${esc(al[0].sub)}${al.length > 1 ? ' · +' + (al.length - 1) + ' more' : ''}</div></div>${svg('chev', 'width:18px;height:18px;color:var(--text3)')}</button>`); }
+    const pins = safe(pinnedScenes, []); const all = avail(M.g.scenes);
+    const btns = pins.map(id => `<button class="sc${sceneActive(id) ? ' on' : ''}" data-scene="${id}">${svg(sceneIcon(id))}<span>${esc(NM(id))}</span></button>`);
+    btns.push(`<button class="sc" data-act="alloff">${svg('power')}<span>All off</span></button>`);
+    if (all.length) btns.push(`<button class="sc" data-act="scenes">${svg('more')}<span>Scenes</span></button>`);
+    out.push(`<div class="ph-sc" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">${btns.join('')}</div>`);
+    out.push(safe(homeHouse, ''));
+    if (safe(() => homeLightGroups().length, 0)) out.push(safe(() => homeLights(8), ''));   /* an empty card is not shown on a phone */
+    if (safe(() => homeClimateItems().length, 0)) out.push(safe(homeClimateCard, ''));
+    out.push(safe(homeStatus, ''));
+    return `<div class="vw">${out.join('')}</div>`;
+  };
+
+  function moreStatus(k){
+    try {
+      if (k === 'curtains') { const ids = curtEnts().filter(real); const o = ids.filter(id => S[id].state !== 'closed').length; return o ? o + ' open' : 'All closed'; }
+      if (k === 'heating') { const n = zonesBy(CL.wall).reduce((a, z) => a + z.ids.filter(isRunning).length, 0); return n ? n + ' on' : 'Off'; }
+      if (k === 'cameras') return avail(M.g.cams).length + ' cameras';
+      if (k === 'security') { const a = avail(M.g.alarms)[0]; if (a) return ALARM[S[a].state] || S[a].state; const L = avail(M.g.locks); return L.every(l => S[l].state === 'locked') ? 'All locked' : 'Unlocked'; }
+      if (k === 'water') { const g = ['hot_water', 'recirculation'].map(wGroup).filter(Boolean); return g.some(x => x.dev && x.dev.some(devOn)) ? 'On' : 'Off'; }
+      if (k === 'schedule') return 'Timers';
+    } catch (e) {}
+    return '';
+  }
+  window.viewMore = function(){
+    const rows = tabs().filter(x => !MAINK.includes(x[0])).map(([k, l, ic]) =>
+      `<button class="ph-row" data-tab="${k}"><span class="ic">${svg(ic)}</span><span class="col"><b>${esc(l)}</b><em>${esc(moreStatus(k))}</em></span>${svg('chev', 'width:18px;height:18px;color:var(--text3)')}</button>`);
+    if (avail(M.g.scenes).length) rows.push(`<button class="ph-row" data-act="scenes"><span class="ic">${svg('scene')}</span><span class="col"><b>Scenes</b><em>${avail(M.g.scenes).length} scenes</em></span>${svg('chev', 'width:18px;height:18px;color:var(--text3)')}</button>`);
+    rows.push(`<button class="ph-row" data-act="alloff"><span class="ic">${svg('power')}</span><span class="col"><b>All lights off</b><em>${lightsOn()} on now</em></span></button>`);
+    return `<div class="vw"><section class="card" style="gap:0;padding:4px 16px">${rows.join('<div class="hr"></div>')}</section></div>`;
+  };
+
+  window.viewRoom = function(){
+    const r = M.byId[UI.room]; if (!r) { view = 'rooms'; return viewRooms(); }
+    const out = []; const t = roomTemp(r), h = roomHum(r);
+    if (t != null || h != null) out.push(`<section class="card"><div class="row" style="align-items:baseline;gap:16px">${t != null ? `<div class="v">${fmtT(t)}<span class="u">°C</span></div>` : ''}${h != null ? `<div class="s">${h} % RH</div>` : ''}</div></section>`);
+    const L = avail(r.lights).slice().sort(lightSort);
+    if (L.length) { const on = lightsOnIn(r).length;
+      out.push(`<div class="row"><div class="ph-sec" style="flex:1">Lights${on ? ' · ' + on + ' on' : ''}</div><button class="btn f${on ? ' lit' : ''}" data-roomlights="${r.id}">${svg('power')}${on ? 'All off' : 'All on'}</button></div>`);
+      out.push(`<div class="grid">${L.map(lightTile).join('')}</div>`); }
+    const ac = avail(r.ac), ht = avail(r.heat);
+    if (ac.length || ht.length) { out.push(`<div class="ph-sec">Climate</div>`);
+      out.push(`<section class="card">${ac.map(id => acBlock(id, true)).join('')}${ht.map(heatBlock).join('')}</section>`); }
+    const cv = Array.from(new Set(avail(r.covers).concat(curtEnts().filter(id => labelRoom(id) === r))));
+    if (cv.length) { out.push(`<div class="ph-sec">Curtains</div>`); out.push(`<div class="grid">${cv.map(id => coverCard(id, r)).join('')}</div>`); }
+    const op = r.openings.filter(real), lk = avail(r.locks);
+    if (op.length || lk.length) { out.push(`<div class="ph-sec">Doors &amp; windows</div>`);
+      out.push(`<section class="card" style="gap:0;padding:4px 16px">${lk.map(id => { const lo = S[id].state === 'locked'; return `<div class="row" style="height:60px">${svg(lo ? 'lock' : 'unlock', `color:${lo ? 'var(--mint)' : 'var(--amber)'}`)}<div class="col"><div class="n" style="font-size:16px">${esc(NM(id))}</div></div><button class="btn f" data-lock="${id}" data-s="${lo ? 'unlock' : 'lock'}">${lo ? 'Unlock' : 'Lock'}</button></div>`; }).concat(op.map(id => `<div class="row" style="height:54px">${svg('door', `color:${isOpen(id) ? 'var(--amber)' : 'var(--text2)'}`)}<div class="col"><div class="n" style="font-size:16px">${esc(NM(id))}</div></div><span class="s ${isOpen(id) ? 'amber' : 'dim'}">${isOpen(id) ? 'Open · ' + since(id) : 'Closed'}</span></div>`)).join('<div class="hr"></div>')}</section>`); }
+    if (!out.length) out.push('<div class="empty">Nothing to control in this room</div>');
+    return `<div class="vw">${out.join('')}</div>`;
+  };
+
+  window.render = function(){
+    safe(renderSide); safe(renderTop);
+    if (dragging && dragging.active) return;
+    const el = $('view');
+    if (!M) { el.innerHTML = `<div class="empty">${connected ? 'Loading house…' : 'Connecting…'}</div>`; return; }
+    const v = { home:viewHome, rooms:viewRooms, lights:viewLights, climate:viewClimate, curtains:viewCurtains, water:viewWater, cameras:viewCameras, security:viewSecurity, heating:viewHeating, schedule:viewSchedule, more:viewMore, room:viewRoom }[view] || viewHome;
+    const key = view + ':' + (UI.room || ''); const y = el.scrollTop;
+    el.innerHTML = safe(v, UNAVAILABLE);
+    el.scrollTop = el.dataset.k === key ? y : 0; el.dataset.k = key;
+    if (ovKind === 'scenes') safe(openScenes);
+  };
+
+  /* a room opens its own page (lights, climate, curtains, doors) instead of the Lights tab */
+  stage.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-goroom]'); if (!b || suppressClick) return;
+    e.stopPropagation(); UI.room = b.dataset.goroom; view = 'room'; render();
+  }, true);
+  /* the page scrolls with the finger; a light dims only when dragged on the right strip of its tile (where the handle is) */
+  const _lt = lightTile;
+  window.lightTile = (id) => { const h = _lt(id); return dimmable(id) && real(id) ? h.replace('<div class="top">', '<i class="ph-dim"></i><div class="top">') : h; };
+  stage.addEventListener('pointerdown', (e) => { if (dragging && dragging.kind === 'light' && !e.target.closest('.ph-dim')) dragging = null; });
+  render();
+})();
+</script>
+<script>
+(async () => {
+  /* INEX 2026-10-29: on a tablet or computer (screen at least 600 x 900) the Phone tab hands over to the Tablet dashboard.
+     Add ?stay=1 to the Phone card URL to switch this off; ?tablet=/other-dashboard/main points it elsewhere. */
+  try {
+    const T = window.top, w = T.innerWidth, h = T.innerHeight;
+    const TAB = new URLSearchParams(location.search).get('tablet') || '/ssv-tablet/main';
+    if (T !== window && Math.min(w, h) >= 600 && Math.max(w, h) >= 900 && !/[?&]stay=1/.test(location.search) && T.location.pathname.indexOf(TAB.split('/').slice(0, 2).join('/')) !== 0) {
+      T.history.replaceState(null, '', TAB);
+      T.dispatchEvent(new CustomEvent('location-changed', { detail: { replace: true } }));
+      return;
+    }
+  } catch (e) {}
+  try {
+    const r = await fetch('panel.html?t=' + Date.now(), { cache: 'no-store' });
+    if (!r.ok) throw new Error('panel.html ' + r.status);
+    let h = await r.text();
+    const css = document.getElementById('phcss').textContent, js = document.getElementById('phjs').textContent;
+    h = h.replace('</style>', css + '\n</style>')
+         .replace(/<meta name="viewport"[^>]*>/, '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">')
+         .replace(/<title>[^<]*<\/title>/, '<title>SSV Dashboard · Phone</title>')
+         .replace(/<\/body>\s*<\/html>\s*$/, '<scr' + 'ipt>' + js + '</scr' + 'ipt></body></html>');
+    document.open(); document.write(h); document.close();
+  } catch (e) { document.body.textContent = 'Cannot load the dashboard · ' + e.message; }
+})();
+</script>
+</body>
+</html>
