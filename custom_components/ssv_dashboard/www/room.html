@@ -133,10 +133,23 @@ const IC = {
 };
 const LOGO = (s=44) => `<svg viewBox="30 26.6 200.4 200.4" role="img" aria-label="INEX" style="width:${s}px;height:${s}px;flex:none"><path fill="#FFFFFF" d="M 39.67 217.17 L 39.67 145.96 L 31.96 145.96 L 31.96 224.88 L 110.87 224.88 L 110.87 217.17 Z M 91.23 71.12 L 91.23 63.39 L 69.90 63.39 L 69.90 71.12 L 76.71 71.12 L 76.71 99.59 L 69.90 99.59 L 69.90 107.31 L 91.23 107.31 L 91.23 99.59 L 84.43 99.59 L 84.43 71.12 Z M 31.96 28.39 L 31.96 107.31 L 39.67 107.31 L 39.67 36.11 L 110.87 36.11 L 110.87 28.39 Z M 220.72 145.96 L 220.72 217.17 L 149.52 217.17 L 149.52 224.88 L 228.44 224.88 L 228.44 145.96 Z M 180.62 166.53 L 193.14 149.08 L 193.14 145.96 L 185.86 145.96 L 175.85 159.91 L 165.85 145.96 L 158.58 145.96 L 158.58 149.08 L 171.11 166.53 L 156.56 186.79 L 156.56 189.90 L 163.85 189.90 L 175.86 173.16 L 187.87 189.90 L 195.15 189.90 L 195.15 186.79 Z M 149.52 28.39 L 149.52 36.10 L 220.72 36.10 L 220.72 107.31 L 228.44 107.31 L 228.44 28.39 Z M 186.04 63.37 L 186.04 91.16 L 161.87 63.37 L 157.96 63.37 L 157.96 107.31 L 165.67 107.31 L 165.67 79.53 L 189.85 107.31 L 193.75 107.31 L 193.75 63.37 Z M 94.17 153.67 L 94.17 145.96 L 68.34 145.96 L 66.63 145.99 L 66.63 189.89 L 94.17 189.89 L 94.17 182.14 L 74.33 182.14 L 74.33 171.33 L 92.97 171.33 L 92.97 163.62 L 74.33 163.62 L 74.33 153.67 Z"/></svg>`;
 const Q = new URLSearchParams(location.search);
-const ROOM = Q.get('room') || 'bedroom_1';
-const PANEL = Q.get('panel') || ('panel_' + ROOM);
-const NIGHT_FROM = +(Q.get('night_from') || 22), NIGHT_TO = +(Q.get('night_to') || 7), IDLE = 60;
-const WALL_RUN = 180, WATER_RUNS = [60, 90, 120], REC_RUN = 10;
+/* SSV 1.1: ?panel=<id> of a panel made on the SSV Dashboard page brings its room(s), night hours and run times.
+   Old addresses (?room=bedroom_1&panel=panel_bedroom_1) keep working. */
+let ROOM = Q.get('room') || 'bedroom_1';
+let PANEL = Q.get('panel') || ('panel_' + ROOM);
+let NIGHT_FROM = +(Q.get('night_from') || 22), NIGHT_TO = +(Q.get('night_to') || 7), NIGHT_ON = true; const IDLE = 60;
+let WALL_RUN = 180, RUN_PER = {}; const WATER_RUNS = [60, 90, 120], REC_RUN = 10;
+let CFG = null, CFG_AREAS = [];
+const wallRunOf = (id) => RUN_PER[id] || WALL_RUN;
+function applyCfg(c){
+  if (!c) return; CFG = c;
+  CFG_AREAS = c.areas || [];
+  if (!Q.get('room') && (c.room || CFG_AREAS[0])) ROOM = c.room || CFG_AREAS[0];
+  PANEL = 'panel_' + c.id;
+  const n = c.night || {}; if (n.enabled === false) NIGHT_ON = false;
+  if (n.from != null && !Q.get('night_from')) NIGHT_FROM = +n.from; if (n.to != null && !Q.get('night_to')) NIGHT_TO = +n.to;
+  if (c.runs) { WALL_RUN = +c.runs.wall || 180; RUN_PER = c.runs.per || {}; }
+}
 const NONROOM = new Set(['light','on_off_only','t_h','ac','ufh','heated_wall','curtain','roller','shutter','left','right','both_side','net','blackout','hot_water','recirculation','schedule','cctv','doorbell','alarm','critical','energy_solar','energy_grid','energy_battery','energy_home','scene','home','no_panel','panel_hide','climate','water','valve','water_meter','ground_floor','first_floor','outside']);
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -163,7 +176,7 @@ pumpc: '<circle cx="11" cy="13.5" r="7"/><path d="M11 13.5c1-2.2 3-3.2 4.5-3M11 
   recirc: '<path d="M20 12a8 8 0 0 1-14 5.3M4 12a8 8 0 0 1 14-5.3"/><path d="M18 3v4h-4M6 21v-4h4"/>',
 };
 /* ---------- Home Assistant connection: own WebSocket, independent of the parent page internals ---------- */
-const BUILD = '2026-10-19.1520';
+const BUILD = '1.1.0';
 const HC = { ready: false, states: {}, entities: {}, devices: {}, areas: {} };
 let ws = null, wsOk = false, msgId = 0, backoff = 1000, FC_ID = 0, lastMsg = Date.now(), downSince = Date.now(), reloading = false, regT = 0; const BOOT = Date.now();
 const waiters = {};
@@ -210,7 +223,8 @@ async function connect(){
     if (m.type === 'auth_required') s.send(JSON.stringify({ type: 'auth', access_token: token }));
     else if (m.type === 'auth_invalid') s.close();
     else if (m.type === 'auth_ok') { wsOk = true; backoff = 1000;
-      try { const states = await wsSend({ type: 'get_states' }); const S0 = {}; states.forEach(x => S0[x.entity_id] = x); HC.states = S0;
+      try { if (!CFG) { const pid = (Q.get('panel') || '').replace(/^panel_/, '') || ROOM; try { applyCfg(await wsSend({ type: 'ssv_dashboard/panel/get', panel: pid })); } catch (e) {} }
+        const states = await wsSend({ type: 'get_states' }); const S0 = {}; states.forEach(x => S0[x.entity_id] = x); HC.states = S0;
         await wsSend({ type: 'subscribe_events', event_type: 'state_changed' });
         ['entity_registry_updated', 'device_registry_updated', 'area_registry_updated', 'label_registry_updated'].forEach(t => wsSend({ type: 'subscribe_events', event_type: t }).catch(() => {}));
         await loadRegistry(); HC.ready = true; downSince = 0; setConn('');
@@ -261,8 +275,10 @@ const durStr = (m) => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String
 const hms = (s) => { s = Math.max(0, Math.round(s)); return Math.floor(s / 3600) + ':' + String(Math.floor(s % 3600 / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); };
 let LABELS = {}, FC = null;
 const pretty = (l) => LABELS[l] || l.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-const roomOf = (id) => lbl(id).find(l => !NONROOM.has(l) && !l.startsWith('panel_')) || null;
-const mine = (id) => { const L = lbl(id); return (L.includes(ROOM) || L.includes(PANEL) || L.includes(PANEL + '_wc') || (L.includes('water') && (L.includes('hot_water') || L.includes('recirculation')))) && !L.includes('no_panel') && !L.includes('panel_hide') && !!st(id) && st(id).state !== 'unavailable'; };
+function areaIdOf(id){ const e = HC.entities[id] || {}; const d = e.device_id && HC.devices[e.device_id]; return e.area_id || (d && d.area_id) || null; }
+const devLbl = (id) => { const e = HC.entities[id] || {}; const d = e.device_id && HC.devices[e.device_id]; return (d && d.labels) || []; };
+const roomOf = (id) => lbl(id).find(l => !NONROOM.has(l) && !l.startsWith('panel_')) || (CFG_AREAS.length ? areaIdOf(id) : null);
+const mine = (id) => { const L = lbl(id).concat(devLbl(id)); return (L.includes(ROOM) || L.includes(PANEL) || CFG_AREAS.includes(areaIdOf(id)) || L.includes(PANEL + '_wc') || (L.includes('water') && (L.includes('hot_water') || L.includes('recirculation')))) && !L.includes('no_panel') && !L.includes('panel_hide') && !!st(id) && st(id).state !== 'unavailable'; };
 const isWC = (room) => !!room && room !== ROOM && /bath|wc|toilet|shower/i.test(room + ' ' + pretty(room));
 function NM(id){
   let n = attr(id, 'friendly_name') || id.split('.')[1].replace(/_/g, ' ');
@@ -431,6 +447,7 @@ function vWater(){
 let lastTouch = Date.now(), forceAwake = 0;
 function nightNow(){
   const nb = st('input_boolean.inex_night_' + ROOM); const hr = haNow().getHours();
+  if (!NIGHT_ON && !nb) return false;
   const inWin = nb ? nb.state === 'on' : (NIGHT_FROM > NIGHT_TO ? (hr >= NIGHT_FROM || hr < NIGHT_TO) : (hr >= NIGHT_FROM && hr < NIGHT_TO));
   return inWin && Date.now() - lastTouch > IDLE * 1000 && Date.now() > forceAwake;
 }
@@ -479,7 +496,7 @@ async function ensureTimer(tid, labels, dur){
 }
 async function wallAct(a, id){
   const tid = wallTimerId(id); const t = st(tid);
-  if (a === 'run') { call('climate', 'set_hvac_mode', { entity_id: id, hvac_mode: 'heat' }); const ok = await ensureTimer(tid, lbl(id).filter(l => l !== 'home'), durStr(WALL_RUN)); if (ok) { call('timer', 'start', { entity_id: tid, duration: durStr(WALL_RUN) }); toast('Heated wall · ' + fmtMin(WALL_RUN)); } return; }
+  if (a === 'run') { call('climate', 'set_hvac_mode', { entity_id: id, hvac_mode: 'heat' }); const ok = await ensureTimer(tid, lbl(id).filter(l => l !== 'home'), durStr(wallRunOf(id))); if (ok) { call('timer', 'start', { entity_id: tid, duration: durStr(wallRunOf(id)) }); toast('Heated wall · ' + fmtMin(wallRunOf(id))); } return; }
   if (t && t.state !== 'idle') call('timer', 'cancel', { entity_id: tid });
   call('climate', 'set_hvac_mode', { entity_id: id, hvac_mode: a === 'man' ? 'heat' : 'off' });
 }
@@ -551,7 +568,7 @@ function start(){
 function wallCard(id){
   const off = st(id).state === 'off'; const ts = tState(wallTimerId(id)); const timed = !off && ts.on; const cur = attr(id, 'current_temperature'); const r = roomOf(id);
   return `<div class="card${off ? '' : ' heat'}"><div class="row hd">${svg('waves', 'width:18px;height:18px;color:' + (off ? 'var(--text2)' : 'var(--heat)'))}<div class="lab">Heated wall${r && r !== ROOM ? ' · ' + esc(pretty(r)) : ''}${cur != null ? ' · ' + fmtT(cur) + '°' : ''}</div><div class="sp"></div>${off ? '<div class="lab">Off</div>' : `<span class="lab heat">On</span><div class="mid" style="font-size:24px;margin-left:6px" data-left="${wallTimerId(id)}">${timed ? leftText(ts) : 'Manual'}</div>`}</div>
-    <div class="row"><button class="btn${timed ? ' sel' : ''}" data-wall="run" data-id="${id}">${svg('run')}Run <span class="t">${fmtMin(WALL_RUN)}</span></button><button class="btn${!off && !timed ? ' sel' : ''}" data-wall="man" data-id="${id}">${svg('hand')}Manual</button><button class="btn${off ? ' sel' : ''}" data-wall="off" data-id="${id}">${svg('power')}Off</button></div></div>`;
+    <div class="row"><button class="btn${timed ? ' sel' : ''}" data-wall="run" data-id="${id}">${svg('run')}Run <span class="t">${fmtMin(wallRunOf(id))}</span></button><button class="btn${!off && !timed ? ' sel' : ''}" data-wall="man" data-id="${id}">${svg('hand')}Manual</button><button class="btn${off ? ' sel' : ''}" data-wall="off" data-id="${id}">${svg('power')}Off</button></div></div>`;
 }
 
 /* Light order (same rule on every panel): own room first -> balcony -> WC; inside a zone: main -> cove/vanity -> other */

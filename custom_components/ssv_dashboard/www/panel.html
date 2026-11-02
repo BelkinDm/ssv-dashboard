@@ -206,7 +206,7 @@ button{font:inherit;color:inherit;cursor:pointer;margin:0}
 <script>
 /* INEX wall panel 10" — single consolidated file (no override blocks).
    BUILD changes on every deploy; open panels compare it every 10 min and reload themselves. */
-const BUILD = '2026-11-01.1300';
+const BUILD = '1.1.0';
 let lastMsg = Date.now(), downSince = 0, noData = 0, reloading = false; const BOOT = Date.now();
 const UNAVAILABLE = '<div class="empty">This section is temporarily unavailable</div>';
 function safe(fn, fallback = ''){ try { return fn(); } catch (e) { console.error('[panel]', e); return fallback; } }
@@ -260,6 +260,22 @@ const PANEL = {
   place: Q.get('place') || '',
   diag: Q.get('diag') === '1',
 };
+/* SSV 1.1: panel settings live in the integration (SSV Dashboard page) — the address only names the panel.
+   Old addresses with villa= / place= / room= keep working and win over the stored settings. */
+let CFG = null;
+const RUN = { wall: 180, per: {} };
+const runOf = (id) => (RUN.per && RUN.per[id]) || RUN.wall || 180;
+function applyCfg(c){
+  CFG = c || null; if (!CFG) return;
+  if (!Q.get('villa') && CFG.villa) PANEL.villa = CFG.villa;
+  if (!Q.get('place')) PANEL.place = CFG.place || CFG.name || PANEL.place;
+  if (!Q.get('room') && CFG.room) PANEL.room = CFG.room;
+  const n = CFG.night || {};
+  if (n.enabled === false) SET.nightIdleMinutes = 0;
+  if (n.from != null) SET.nightFrom = +n.from; if (n.to != null) SET.nightTo = +n.to;
+  if (CFG.runs) { RUN.wall = +CFG.runs.wall || 180; RUN.per = CFG.runs.per || {}; }
+}
+const tabOn = (k) => !CFG || !CFG.tabs || CFG.tabs[k] !== false;
 const SET = {
   onOffLabels: ['on_off_only'],
   hideLabels: ['panel_hide', 'no_panel'],
@@ -401,8 +417,11 @@ function climateKind(id){
 function buildModel(){
   const floors = [...REG.floors].sort((a,b) => (a.level ?? 99) - (b.level ?? 99));
   const panelLabel = 'panel_' + PANEL.id;
-  const tagged = REG.areas.filter(a => (a.labels||[]).includes(panelLabel));
+  const cfgAreas = (CFG && CFG.areas) || [];
+  const tagged = REG.areas.filter(a => (a.labels||[]).includes(panelLabel) || cfgAreas.includes(a.area_id));
   const allowed = new Set((tagged.length ? tagged : REG.areas).map(a => a.area_id));
+  /* a device or entity labelled panel_<id> belongs to this panel wherever it is installed */
+  const bound = (id) => { const e = REG.ents[id]; if (!e) return false; if ((e.lb || []).includes(panelLabel)) return true; const d = e.di && REG.devs[e.di]; return !!(d && (d.labels || []).includes(panelLabel)); };
   const order = [];
   floors.forEach(f => REG.areas.forEach(a => { if (a.floor_id === f.floor_id && allowed.has(a.area_id)) order.push(a); }));
   REG.areas.forEach(a => { if (!a.floor_id && allowed.has(a.area_id)) order.push(a); });
@@ -418,8 +437,9 @@ function buildModel(){
     const e = REG.ents[id];
     if (e && (e.hb || e.ec != null || e.pl === 'browser_mod')) return;
     if (hasLabel(id, SET.hideLabels)) return;
-    const aid = areaOf(id); const room = aid ? byId[aid] : null;
-    const inHouse = !aid || allowed.has(aid);
+    const aid = areaOf(id); const isBound = tagged.length && bound(id);
+    const room = aid && byId[aid] ? byId[aid] : (isBound ? (byId[PANEL.room] || rooms[0] || null) : null);
+    const inHouse = !aid || allowed.has(aid) || isBound;
     const dc = attr(id, 'device_class');
     let kind = null;
     if (dom === 'light') kind = 'light';
@@ -651,6 +671,7 @@ async function connect(){
     else if (m.type === 'auth_ok') {
       backoff = 1000; connected = true; setConn('');
       try { const c = await send({ type:'get_config' }); HA.location = c.location_name || ''; } catch(e){}
+      try { applyCfg(await send({ type:'ssv_dashboard/panel/get', panel: PANEL.id })); } catch(e){}
       let states; try { states = await send({ type:'get_states' }); } catch (e) { dropSocket(); return; }
       for (const k in S) delete S[k];
       states.forEach(s => S[s.entity_id] = s);
@@ -744,7 +765,7 @@ function tabs(){
   if (dbList().length) t.push(['intercom','Intercom','bell']);
   if (avail(M.g.alarms).length || avail(M.g.locks).length) t.push(['security','Security','shield']);
   t.push(['schedule','Schedule','timer']);
-  return t;
+  return t.filter(x => x[0] === 'home' || tabOn(x[0]));
 }
 function roomHasAny(r){ return ['lights','ac','heat','covers','temp','hum','openings','locks'].some(k => avail(r[k]).length); }
 function renderSide(){
@@ -1419,7 +1440,7 @@ function viewHeating(){
       <div style="flex:1;display:flex;align-items:center;justify-content:space-between;gap:16px">
         <div class="col" style="gap:6px"><div style="font-size:64px;font-weight:200;letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums">${w.cur != null ? fmtT(w.cur) : '--'}<span style="font-size:24px;color:var(--text2);margin-left:4px">°C</span></div><div class="s${w.off ? '' : ' heat'}" style="font-size:14px">${esc(w.status)}</div></div>
         <div class="row" style="flex:none;gap:10px">${stepper(z.id, w.off)}</div></div>
-      ${schedChip([z.id])}<div class="row" style="gap:10px">${b(w.timed, 'data-wrun', WI.run, 'Run <span style="text-transform:none">3h</span>')}${b(!w.off && !w.timed, 'data-wman', WI.hand, 'Manual on')}${b(w.off, 'data-woff', WI.off, 'Off')}</div></div>`;
+      ${schedChip([z.id])}<div class="row" style="gap:10px">${b(w.timed, 'data-wrun', WI.run, 'Run <span style="text-transform:none">' + fmtMin(runOf(z.id)) + '</span>')}${b(!w.off && !w.timed, 'data-wman', WI.hand, 'Manual on')}${b(w.off, 'data-woff', WI.off, 'Off')}</div></div>`;
   }).join('');
   return `<div class="vw" style="gap:${pager ? '16px' : '0'}">${pager ? `<div class="bar"><div class="sp"></div>${pager}</div>` : ''}
     <div class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr))">${cards || '<div class="empty" style="grid-column:1/-1">No heating zones</div>'}</div></div>`;
@@ -1447,7 +1468,7 @@ function wallState(id){
 async function ensureWallTimer(id){
   const tid = wallTimerId(id); if (S[tid]) return tid;
   try {
-    await send({ type: 'timer/create', name: tid.split('.')[1], duration: WALL_RUN, restore: true });
+    await send({ type: 'timer/create', name: tid.split('.')[1], duration: durStr(runOf(id)), restore: true });
     send({ type: 'config/entity_registry/update', entity_id: tid, name: NM(id) + ' · Run timer', labels: lbl(id).filter(l => l !== 'home') }).catch(() => {});
     return tid;
   } catch (e) { toast('Run timer missing · ask installer'); return null; }
@@ -1456,7 +1477,7 @@ async function wallRun(id){
   optimistic(id, 'heat');
   call('climate', 'set_hvac_mode', { hvac_mode: 'heat' }, { entity_id: id });
   const tid = await ensureWallTimer(id);
-  if (tid) { call('timer', 'start', { duration: WALL_RUN }, { entity_id: tid }); toast(NM(id) + ' · 3h'); }
+  if (tid) { call('timer', 'start', { duration: durStr(runOf(id)) }, { entity_id: tid }); toast(NM(id) + ' · ' + fmtMin(runOf(id))); }
 }
 function wallSet(id, mode){
   optimistic(id, mode);
