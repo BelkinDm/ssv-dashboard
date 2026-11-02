@@ -15,7 +15,8 @@
       "init": {
         "title": "SSV Dashboard",
         "data": {
-          "timer_actions": "Turn heated walls and water off when their run timer ends"
+          "timer_actions": "Turn heated walls and water off when their run timer ends",
+          "notify_service": "Push update news to (notify service, e.g. notify.mobile_app_phone)"
         }
       }
     }
