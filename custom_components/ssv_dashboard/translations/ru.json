@@ -15,7 +15,8 @@
       "init": {
         "title": "SSV Dashboard",
         "data": {
-          "timer_actions": "Выключать тёплые стены и воду, когда заканчивается таймер"
+          "timer_actions": "Выключать тёплые стены и воду, когда заканчивается таймер",
+          "notify_service": "Присылать новости об обновлении в (сервис notify, например notify.mobile_app_phone)"
         }
       }
     }
