@@ -1,15 +1,21 @@
-"""Run-for-a-while buttons: turn things off when their timer ends.
+"""Run timers: the "Run 1h / 2h / 3h" buttons on the panels.
 
-The panels start a timer when someone presses "Run 3h" on a heated wall or
-"Run 1h" on hot water. When that timer finishes, this turns the device off —
-so no automations have to be written by hand on each site.
+1.2: timers are made on purpose. The SSV Dashboard page lists what can have a run
+timer — heated walls, floor heating, hot water, recirculation — the installer ticks
+them, sets the buttons (minutes) and presses Save; only then the timers are made and
+the buttons appear on the panels. Untick + Save removes the timer again. Timers made
+by hand are never touched.
 
-  timer.inex_wall_<id> / timer.ssv_wall_<id>  → climate.<id> set to off
-  timer labelled "water" + "hot_water"        → everything labelled water + hot_water off
-  timer labelled "water" + "recirculation"    → everything labelled water + recirculation off
+  climate.<x> labelled Heated Wall      -> timer.inex_wall_<x>
+  climate / switch.<x> labelled UFH     -> timer.inex_ufh_<x>
+  devices labelled Water + Hot Water    -> timer.inex_water_hot_water (labelled Water + Hot Water)
+  devices labelled Water + Recirculation-> timer.inex_water_recirculation
+
+When a timer finishes, its device is turned off — no automations needed.
 """
 from __future__ import annotations
 
+import inspect
 import logging
 
 from homeassistant.core import Event, HomeAssistant, callback
@@ -18,6 +24,7 @@ from homeassistant.helpers import entity_registry as er
 from .const import TIMER_PREFIXES, WATER_CONTROL_DOMAINS, WATER_FUNCTIONS
 
 _LOGGER = logging.getLogger(__name__)
+DEFAULT_RUNS = {"wall": [180], "ufh": [60, 120, 180], "hot_water": [60, 90, 120], "recirculation": [10]}
 
 
 def _labels(reg: er.EntityRegistry, entity_id: str) -> set[str]:
@@ -25,9 +32,20 @@ def _labels(reg: er.EntityRegistry, entity_id: str) -> set[str]:
     return set(ent.labels) if ent else set()
 
 
+def _off(hass: HomeAssistant, eid: str, context) -> None:
+    dom = eid.split(".")[0]
+    if dom == "climate":
+        call = ("climate", "set_hvac_mode", {"entity_id": eid, "hvac_mode": "off"})
+    elif dom == "water_heater":
+        call = ("water_heater", "turn_off", {"entity_id": eid})
+    else:
+        call = ("homeassistant", "turn_off", {"entity_id": eid})
+    hass.async_create_task(hass.services.async_call(*call, context=context))
+
+
 @callback
 def async_setup_timers(hass: HomeAssistant):
-    """Listen for timer.finished. Returns the unsubscribe callback."""
+    """Listen for timer.finished and switch the device off. Returns the unsubscribe callback."""
 
     @callback
     def _finished(event: Event) -> None:
@@ -36,13 +54,15 @@ def async_setup_timers(hass: HomeAssistant):
             return
         obj = tid.split(".", 1)[1]
         for pre in TIMER_PREFIXES:
-            if obj.startswith(pre + "wall_"):
-                climate = "climate." + obj[len(pre) + 5:]
-                if hass.states.get(climate) is not None:
-                    _LOGGER.info("%s finished: turning %s off", tid, climate)
-                    hass.async_create_task(hass.services.async_call(
-                        "climate", "set_hvac_mode", {"entity_id": climate, "hvac_mode": "off"}, context=event.context))
-                return
+            for kind in ("wall", "ufh"):
+                if obj.startswith(f"{pre}{kind}_"):
+                    rest = obj[len(pre) + len(kind) + 1:]
+                    for dom in ("climate", "switch"):
+                        if hass.states.get(f"{dom}.{rest}") is not None:
+                            _LOGGER.info("%s finished: turning %s.%s off", tid, dom, rest)
+                            _off(hass, f"{dom}.{rest}", event.context)
+                            return
+                    return
         reg = er.async_get(hass)
         lab = _labels(reg, tid)
         if "water" not in lab:
@@ -50,34 +70,56 @@ def async_setup_timers(hass: HomeAssistant):
         for fn in WATER_FUNCTIONS:
             if fn not in lab:
                 continue
-            targets = [
-                s.entity_id for s in hass.states.async_all(WATER_CONTROL_DOMAINS)
-                if {"water", fn} <= _labels(reg, s.entity_id)
-            ]
+            targets = [s.entity_id for s in hass.states.async_all(WATER_CONTROL_DOMAINS)
+                       if {"water", fn} <= _labels(reg, s.entity_id)]
             _LOGGER.info("%s finished: turning %s off", tid, targets)
             for eid in targets:
-                dom = eid.split(".")[0]
-                svc = ("water_heater", "turn_off") if dom == "water_heater" else ("homeassistant", "turn_off")
-                hass.async_create_task(hass.services.async_call(svc[0], svc[1], {"entity_id": eid}, context=event.context))
+                _off(hass, eid, event.context)
 
     return hass.bus.async_listen("timer.finished", _finished)
 
 
-# ---------------------------------------------------------------- 1.1: timers made by themselves
-# Every climate labelled Heated Wall gets timer.inex_wall_<object id>; every water function
-# (devices labelled Water + Hot Water / Recirculation) gets one timer labelled the same.
-# Timers made here are remembered; when the label goes, the timer goes. Timers made by
-# hand are never touched.
+# ---------------------------------------------------------------- what can have a run timer
+@callback
+def async_candidates(hass: HomeAssistant, store) -> list[dict]:
+    """Everything that can get a run timer, with what is chosen for it now."""
+    reg = er.async_get(hass)
+    out: list[dict] = []
+
+    def name_of(eid: str) -> str:
+        st = hass.states.get(eid)
+        return (st and st.attributes.get("friendly_name")) or eid
+
+    for ent in sorted(reg.entities.values(), key=lambda e: e.entity_id):
+        labels = set(ent.labels or set())
+        if ent.domain == "climate" and "heated_wall" in labels:
+            kind, tid = "wall", f"inex_wall_{ent.entity_id.split('.', 1)[1]}"
+        elif ent.domain in ("climate", "switch") and "ufh" in labels:
+            kind, tid = "ufh", f"inex_ufh_{ent.entity_id.split('.', 1)[1]}"
+        else:
+            continue
+        out.append({"key": ent.entity_id, "kind": kind, "name": name_of(ent.entity_id), "timer": f"timer.{tid}"})
+    for fn in WATER_FUNCTIONS:
+        devs = [e.entity_id for e in reg.entities.values()
+                if {"water", fn} <= set(e.labels or set()) and e.domain in WATER_CONTROL_DOMAINS]
+        if devs:
+            out.append({"key": f"fn:{fn}", "kind": fn, "name": {"hot_water": "Hot Water", "recirculation": "Recirculation"}[fn],
+                        "devices": devs, "timer": f"timer.inex_water_{fn}"})
+    for c in out:
+        chosen = store.timers.get(c["key"])
+        c["chosen"] = chosen is not None
+        c["new"] = c["key"] not in store.seen
+        c["runs"] = (chosen or {}).get("runs") or DEFAULT_RUNS[c["kind"]]
+        c["exists"] = hass.states.get(c["timer"]) is not None
+    return out
+
 
 def _timer_collection(hass: HomeAssistant):
-    """The timer helpers' storage collection (the same one the UI uses), or None."""
-    import inspect
-
+    """The timer helpers' storage collection (the same one the HA UI uses), or None."""
     handler = (hass.data.get("websocket_api") or {}).get("timer/create")
     if not handler:
         return None
-    fn = inspect.unwrap(handler[0])
-    owner = getattr(fn, "__self__", None)
+    owner = getattr(inspect.unwrap(handler[0]), "__self__", None)
     return getattr(owner, "storage_collection", None)
 
 
@@ -85,83 +127,55 @@ def _fmt(minutes: int) -> str:
     return f"{minutes // 60:02d}:{minutes % 60:02d}:00"
 
 
-async def async_sync_timers(hass: HomeAssistant, store) -> list[str]:
-    """Create missing run timers and remove ones whose device lost its label. Returns changes."""
+def _secs(value) -> int:
+    try:
+        h, m, s = (int(float(x)) for x in str(value).split(":"))
+        return h * 3600 + m * 60 + s
+    except (TypeError, ValueError):
+        return -1
+
+
+async def async_apply_timers(hass: HomeAssistant, store) -> list[str]:
+    """Make the timers chosen on the page and remove ours that are no longer chosen."""
     coll = _timer_collection(hass)
     if coll is None:
-        _LOGGER.debug("timer helpers not loaded yet")
-        return []
+        raise RuntimeError("Timer helpers are not loaded — add 'timer:' or default_config")
     reg = er.async_get(hass)
-    changes: list[str] = []
+    cands = {c["key"]: c for c in async_candidates(hass, store)}
     want: dict[str, dict] = {}
-    for ent in list(reg.entities.values()):
-        if ent.domain == "climate" and "heated_wall" in (ent.labels or set()):
-            obj = ent.entity_id.split(".", 1)[1]
-            want[f"inex_wall_{obj}"] = {"duration": _fmt(store.runs.get("per", {}).get(ent.entity_id) or store.runs.get("wall", 180)), "labels": set()}
-    for fn in WATER_FUNCTIONS:
-        devs = [e for e in reg.entities.values() if {"water", fn} <= set(e.labels or set()) and e.domain in WATER_CONTROL_DOMAINS]
-        timers = [e for e in reg.entities.values() if e.domain == "timer" and {"water", fn} <= set(e.labels or set())]
-        if devs and (not timers or any(t.entity_id == f"timer.inex_water_{fn}" for t in timers)):
-            want[f"inex_water_{fn}"] = {"duration": "01:00:00", "labels": {"water", fn}}
+    for key, cfg in store.timers.items():
+        c = cands.get(key)
+        if not c:
+            continue
+        obj = c["timer"].split(".", 1)[1]
+        labels = {"water", c["kind"]} if key.startswith("fn:") else set()
+        want[obj] = {"duration": _fmt(max(cfg.get("runs") or DEFAULT_RUNS[c["kind"]])), "labels": labels}
 
+    changes: list[str] = []
     have = {item["id"]: item for item in coll.async_items()}
-    for tid, spec in want.items():
-        if tid in have or hass.states.get(f"timer.{tid}") is not None:
+    for obj, spec in want.items():
+        if obj in have:
+            if obj in store.managed_timers and _secs(have[obj].get("duration")) != _secs(spec["duration"]):
+                await coll.async_update_item(obj, {"name": obj, "duration": spec["duration"], "restore": True})
             continue
-        try:
-            await coll.async_create_item({"name": tid, "duration": spec["duration"], "restore": True})
-        except Exception as err:  # noqa: BLE001 — a name clash must not stop the others
-            _LOGGER.warning("Run timer %s not created: %s", tid, err)
-            continue
-        if tid not in store.managed_timers:
-            store.managed_timers.append(tid)
-        changes.append(f"+timer.{tid}")
+        if hass.states.get(f"timer.{obj}") is not None:
+            continue  # made by hand (YAML) — use it as it is
+        await coll.async_create_item({"name": obj, "duration": spec["duration"], "restore": True})
+        if obj not in store.managed_timers:
+            store.managed_timers.append(obj)
+        changes.append(f"+timer.{obj}")
         if spec["labels"]:
-            eid = reg.async_get_entity_id("timer", "timer", tid)
+            eid = reg.async_get_entity_id("timer", "timer", obj)
             if eid:
                 reg.async_update_entity(eid, labels=spec["labels"])
-    for tid in list(store.managed_timers):
-        if tid in want:
+    for obj in list(store.managed_timers):
+        if obj in want:
             continue
-        if tid in have:
-            try:
-                await coll.async_delete_item(tid)
-                changes.append(f"-timer.{tid}")
-            except Exception as err:  # noqa: BLE001
-                _LOGGER.warning("Run timer %s not removed: %s", tid, err)
-                continue
-        store.managed_timers.remove(tid)
+        if obj in have:
+            await coll.async_delete_item(obj)
+            changes.append(f"-timer.{obj}")
+        store.managed_timers.remove(obj)
+    store.async_save()
     if changes:
-        store.async_save()
         _LOGGER.info("Run timers: %s", ", ".join(changes))
     return changes
-
-
-@callback
-def async_track_timer_labels(hass: HomeAssistant, store):
-    """Re-sync after labels change (debounced). Returns the unsubscribe callback."""
-    from homeassistant.helpers.event import async_call_later
-
-    pending: dict = {"cancel": None}
-
-    @callback
-    def _later(_now=None) -> None:
-        pending["cancel"] = None
-        hass.async_create_task(async_sync_timers(hass, store))
-
-    @callback
-    def _changed(event: Event) -> None:
-        if event.data.get("action") == "update" and "labels" not in (event.data.get("changes") or {}):
-            return
-        if pending["cancel"]:
-            pending["cancel"]()
-        pending["cancel"] = async_call_later(hass, 5, _later)
-
-    unsub = hass.bus.async_listen("entity_registry_updated", _changed)
-
-    def _stop() -> None:
-        unsub()
-        if pending["cancel"]:
-            pending["cancel"]()
-
-    return _stop

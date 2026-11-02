@@ -13,8 +13,7 @@ SETUP_PANEL = "ssv-setup"
 
 # ---------------------------------------------------------------- labels
 # label_id: (name, icon). Ids are what the panels look for; names are what the
-# installer sees in Settings → Labels. Home Assistant derives the id from the
-# name, so every name below slugifies to its id.
+# installer sees in Settings → Labels, all in one style (see labels.py).
 LABELS: dict[str, tuple[str, str]] = {
     "light": ("Light", "mdi:lightbulb"),
     "on_off_only": ("On Off Only", "mdi:toggle-switch"),
@@ -22,7 +21,7 @@ LABELS: dict[str, tuple[str, str]] = {
     "ac": ("AC", "mdi:air-conditioner"),
     "ufh": ("UFH", "mdi:heating-coil"),
     "heated_wall": ("Heated Wall", "mdi:wall"),
-    "t_h": ("T H", "mdi:thermometer-water"),
+    "t_h": ("Temperature Humidity", "mdi:thermometer-water"),
     "curtain": ("Curtain", "mdi:curtains"),
     "net": ("Net", "mdi:curtains"),
     "blackout": ("Blackout", "mdi:curtains-closed"),
@@ -30,7 +29,7 @@ LABELS: dict[str, tuple[str, str]] = {
     "shutter": ("Shutter", "mdi:window-shutter"),
     "left": ("Left", "mdi:arrow-left"),
     "right": ("Right", "mdi:arrow-right"),
-    "both_side": ("Both Side", "mdi:arrow-left-right"),
+    "both_side": ("Both Sides", "mdi:arrow-left-right"),
     "scene": ("Scene", "mdi:palette"),
     "scene_device": ("Scene Device", "mdi:palette-outline"),
     "user_scene": ("User Scene", "mdi:account-star"),
@@ -63,7 +62,11 @@ STORE_VERSION = 1
 # Heated wall: timer.<prefix>wall_<climate object id>  → climate off when it ends
 # Water:       timer with labels "water" + <function>  → that function off when it ends
 TIMER_PREFIXES = ("inex_", "ssv_")
+# Run timers chosen on the SSV Dashboard page: key -> timer object id
+#   climate.<x> labelled Heated Wall -> inex_wall_<x>;  climate/switch.<x> labelled UFH -> inex_ufh_<x>
+#   fn:hot_water / fn:recirculation   -> inex_water_<fn> (labelled Water + <fn>)
 WATER_FUNCTIONS = ("hot_water", "recirculation")
 WATER_CONTROL_DOMAINS = ("switch", "fan", "water_heater", "input_boolean")
 
 CONF_TIMER_ACTIONS = "timer_actions"
+CONF_NOTIFY = "notify_service"

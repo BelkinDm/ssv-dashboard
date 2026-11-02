@@ -6,7 +6,7 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow
 from homeassistant.core import callback
 
-from .const import CONF_TIMER_ACTIONS, DOMAIN, NAME
+from .const import CONF_NOTIFY, CONF_TIMER_ACTIONS, DOMAIN, NAME
 
 
 class SSVConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -29,8 +29,11 @@ class SSVOptionsFlow(OptionsFlow):
     async def async_step_init(self, user_input=None) -> ConfigFlowResult:
         if user_input is not None:
             return self.async_create_entry(data=user_input)
-        cur = self.config_entry.options.get(CONF_TIMER_ACTIONS, True)
+        o = self.config_entry.options
         return self.async_show_form(
             step_id="init",
-            data_schema=vol.Schema({vol.Optional(CONF_TIMER_ACTIONS, default=cur): bool}),
+            data_schema=vol.Schema({
+                vol.Optional(CONF_TIMER_ACTIONS, default=o.get(CONF_TIMER_ACTIONS, True)): bool,
+                vol.Optional(CONF_NOTIFY, description={"suggested_value": o.get(CONF_NOTIFY, "")}): str,
+            }),
         )

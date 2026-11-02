@@ -4,12 +4,13 @@ What this integration does:
   * serves the panel pages at /ssv_dashboard/panel.html, room.html, phone.html;
   * creates the labels the panels read (Light, Curtain, Scene Device, ...);
   * offers user-scene services so guests can make their own scenes safely;
-  * turns heated walls / hot water / recirculation off when their run timer ends;
+  * makes the run timers chosen on the SSV Dashboard page and turns heated walls,
+    floor heating, hot water and recirculation off when their timer ends;
   * provides sensor.ssv_time so every panel clock follows Home Assistant;
-  * keeps panels (name, type, purpose, rooms, tabs) and a label per panel;
-  * creates and removes run timers by itself as labels change;
+  * keeps panels (name, screen, purpose, rooms, attached rooms, tabs) with a label each;
+  * tells the installer when a new SSV Dashboard is out;
   * adds an admin-only "SSV Dashboard" page: panels and their dashboards, start page,
-    run times, and a check of the integrations each tab needs (with HACS install).
+    run timers, and a check of the integrations each tab needs (with HACS install).
 """
 from __future__ import annotations
 
@@ -21,17 +22,18 @@ import voluptuous as vol
 from homeassistant.components import frontend, panel_custom, websocket_api
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
-from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
-from homeassistant.core import CoreState, HomeAssistant, callback
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import label_registry as lr
 from homeassistant.loader import async_get_integration
 
-from .const import CONF_TIMER_ACTIONS, DOMAIN, LABELS, NAME, SETUP_PANEL, STATIC_URL
+from .const import CONF_NOTIFY, CONF_TIMER_ACTIONS, DOMAIN, LABELS, NAME, SETUP_PANEL, STATIC_URL
 from .http import async_register_files
-from .panels import PanelStore, async_register_ws as async_register_panel_ws
+from .labels import ensure_base_labels
+from .panels import PanelStore, async_register_ws as async_register_panel_ws, restyle_panel_labels
 from .scenes import async_setup_scenes, async_unload_scenes
-from .timers import async_setup_timers, async_sync_timers, async_track_timer_labels
+from .timers import async_setup_timers
+from .updates import async_watch_updates, update_info
 
 _LOGGER = logging.getLogger(__name__)
 PLATFORMS = [Platform.SENSOR]
@@ -46,26 +48,14 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     await async_register_files(hass, version)
     websocket_api.async_register_command(hass, ws_info)
     websocket_api.async_register_command(hass, ws_create_labels)
-    websocket_api.async_register_command(hass, ws_sync_timers)
+    websocket_api.async_register_command(hass, ws_update_install)
     async_register_panel_ws(hass)
     return True
 
 
 @callback
 def _ensure_labels(hass: HomeAssistant) -> list[str]:
-    reg = lr.async_get(hass)
-    made: list[str] = []
-    for label_id, (name, icon) in LABELS.items():
-        if reg.async_get_label(label_id) or reg.async_get_label_by_name(name):
-            continue
-        try:
-            entry = reg.async_create(name, icon=icon)
-        except ValueError as err:  # name taken in another spelling
-            _LOGGER.warning("Label %s not created: %s", name, err)
-            continue
-        if entry.label_id != label_id:
-            _LOGGER.warning("Label %s got id %s (panels look for %s)", name, entry.label_id, label_id)
-        made.append(entry.label_id)
+    made = ensure_base_labels(hass)
     if made:
         _LOGGER.info("Created labels: %s", ", ".join(made))
     return made
@@ -77,20 +67,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     store = PanelStore(hass)
     await store.async_load()
     data["panels"] = store
+    restyle_panel_labels(hass, store)
     await async_setup_scenes(hass)
     unsubs = []
     if entry.options.get(CONF_TIMER_ACTIONS, True):
         unsubs.append(async_setup_timers(hass))
-    unsubs.append(async_track_timer_labels(hass, store))
-    unsubs.append(store.async_listen(lambda: hass.async_create_task(async_sync_timers(hass, store))))
-
-    async def _first_sync(_event=None) -> None:
-        await async_sync_timers(hass, store)
-
-    if hass.state is CoreState.running:
-        hass.async_create_task(_first_sync())
-    else:
-        unsubs.append(hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, _first_sync))
+    unsubs.append(async_watch_updates(hass, store, entry.options.get(CONF_NOTIFY)))
     data["unsubs"] = unsubs
     await panel_custom.async_register_panel(
         hass,
@@ -167,16 +149,21 @@ async def ws_info(hass: HomeAssistant, connection: websocket_api.ActiveConnectio
         "labels": {lid: bool(reg.async_get_label(lid)) for lid in LABELS},
         "location_name": hass.config.location_name,
         "checks": await _checks(hass),
-        "managed_timers": list(hass.data[DOMAIN]["panels"].managed_timers) if "panels" in hass.data.get(DOMAIN, {}) else [],
+        "update": update_info(hass),
     })
 
 
-@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/sync_timers"})
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/update/install"})
 @websocket_api.require_admin
 @websocket_api.async_response
-async def ws_sync_timers(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
-    """Create / remove run timers now instead of waiting for a label change."""
-    connection.send_result(msg["id"], {"changes": await async_sync_timers(hass, hass.data[DOMAIN]["panels"])})
+async def ws_update_install(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
+    """Install the new version through HACS' update entity (a restart is needed afterwards)."""
+    info = update_info(hass)
+    if not info["entity_id"] or not info["available"]:
+        connection.send_error(msg["id"], "no_update", "No update available")
+        return
+    await hass.services.async_call("update", "install", {"entity_id": info["entity_id"]}, blocking=True)
+    connection.send_result(msg["id"], {"installed": info["latest"]})
 
 
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/create_labels"})
