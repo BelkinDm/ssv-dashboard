@@ -162,17 +162,17 @@ async def test_panels_and_labels(hass, hass_ws_client, hass_read_only_user):
     assert r["success"], r
     assert r["result"]["label"] == "panel_gym"
     lab = lr.async_get(hass).async_get_label("panel_gym")
-    assert lab is not None and lab.name == "Panel · Gym"
+    assert lab is not None and lab.name == "Panel Gym"
 
     await ws.send_json({"id": 2, "type": "ssv_dashboard/panel/get", "panel": "gym"})
     r = await ws.receive_json()
     assert r["result"]["areas"] == ["gym"] and r["result"]["tabs"] == {"water": False}
-    assert r["result"]["runs"]["wall"] == 180
+    assert r["result"]["runs"] == {}
 
     # rename keeps the label id
     await ws.send_json({"id": 3, "type": "ssv_dashboard/panels/save", "panel": {**panel, "name": "Fitness"}})
     assert (await ws.receive_json())["success"]
-    assert lr.async_get(hass).async_get_label("panel_gym").name == "Panel · Fitness"
+    assert lr.async_get(hass).async_get_label("panel_gym").name == "Panel Fitness"
 
     # bad id refused
     await ws.send_json({"id": 4, "type": "ssv_dashboard/panels/save", "panel": {**panel, "id": "Bad Id"}})
@@ -188,29 +188,93 @@ async def test_panels_and_labels(hass, hass_ws_client, hass_read_only_user):
     assert keys["scene_yaml"] is True and keys["scheduler"] is False
 
 
-async def test_timers_follow_labels(hass, hass_ws_client):
+async def test_timers_made_on_save(hass, hass_ws_client):
     assert await async_setup_component(hass, "timer", {})
     await _setup(hass)
     reg = er.async_get(hass)
-    e = reg.async_get_or_create("climate", "test", "wall1", suggested_object_id="bath_wall")
-    reg.async_update_entity(e.entity_id, labels={"heated_wall"})
+    wall = reg.async_get_or_create("climate", "test", "wall1", suggested_object_id="bath_wall")
+    reg.async_update_entity(wall.entity_id, labels={"heated_wall"})
+    ufh = reg.async_get_or_create("climate", "test", "ufh1", suggested_object_id="bed_floor")
+    reg.async_update_entity(ufh.entity_id, labels={"ufh"})
     sw = reg.async_get_or_create("switch", "test", "boiler", suggested_object_id="boiler")
     reg.async_update_entity(sw.entity_id, labels={"water", "hot_water"})
-    ws = await hass_ws_client(hass)
-    await ws.send_json({"id": 1, "type": "ssv_dashboard/runs/save", "runs": {"wall": 120, "per": {}}})
-    assert (await ws.receive_json())["success"]
-    await ws.send_json({"id": 2, "type": "ssv_dashboard/sync_timers"})
-    r = await ws.receive_json()
     await hass.async_block_till_done()
-    assert hass.states.get("timer.inex_wall_bath_wall") is not None, r
+    # nothing is made until Save
+    assert hass.states.get("timer.inex_wall_bath_wall") is None
+    ws = await hass_ws_client(hass)
+    await ws.send_json({"id": 1, "type": "ssv_dashboard/timers/list"})
+    items = {c["key"]: c for c in (await ws.receive_json())["result"]["items"]}
+    assert set(items) == {"climate.bath_wall", "climate.bed_floor", "fn:hot_water"}
+    assert all(c["new"] and not c["chosen"] for c in items.values())
+    assert items["climate.bed_floor"]["kind"] == "ufh"
+
+    await ws.send_json({"id": 2, "type": "ssv_dashboard/timers/save", "timers": {
+        "climate.bath_wall": {"runs": [60, 120]}, "climate.bed_floor": {"runs": [30]}, "fn:hot_water": {"runs": [60, 90]}}})
+    r = await ws.receive_json()
+    assert r["success"], r
+    await hass.async_block_till_done()
     assert hass.states.get("timer.inex_wall_bath_wall").attributes["duration"] == "2:00:00"
+    assert hass.states.get("timer.inex_ufh_bed_floor") is not None
     t = reg.async_get("timer.inex_water_hot_water")
     assert t is not None and {"water", "hot_water"} <= set(t.labels)
 
-    # label removed -> its timer goes; a hand-made timer stays
-    reg.async_update_entity(e.entity_id, labels=set())
-    await ws.send_json({"id": 3, "type": "ssv_dashboard/sync_timers"})
-    await ws.receive_json()
+    # the panels get the buttons
+    await ws.send_json({"id": 3, "type": "ssv_dashboard/panels/save", "panel": {"id": "bed", "name": "Bedroom 3", "type": "room", "areas": ["bedroom_3"]}})
+    assert (await ws.receive_json())["success"]
+    await ws.send_json({"id": 4, "type": "ssv_dashboard/panel/get", "panel": "bed"})
+    runs = (await ws.receive_json())["result"]["runs"]
+    assert runs["climate.bath_wall"] == [60, 120] and runs["fn:hot_water"] == [60, 90]
+
+    # untick + Save removes our timer; seen candidates are no longer "new"
+    await ws.send_json({"id": 5, "type": "ssv_dashboard/timers/save", "timers": {"fn:hot_water": {"runs": [60]}}})
+    assert (await ws.receive_json())["success"]
     await hass.async_block_till_done()
     assert hass.states.get("timer.inex_wall_bath_wall") is None
     assert hass.states.get("timer.inex_water_hot_water") is not None
+    await ws.send_json({"id": 6, "type": "ssv_dashboard/timers/list"})
+    items = {c["key"]: c for c in (await ws.receive_json())["result"]["items"]}
+    assert not items["climate.bath_wall"]["new"] and not items["climate.bath_wall"]["chosen"]
+
+
+async def test_ufh_timer_turns_off(hass):
+    await _setup(hass)
+    hvac = async_mock_service(hass, "climate", "set_hvac_mode")
+    hass.states.async_set("climate.bed_floor", "heat")
+    hass.bus.async_fire("timer.finished", {"entity_id": "timer.inex_ufh_bed_floor"})
+    await hass.async_block_till_done()
+    assert hvac and hvac[0].data == {"entity_id": "climate.bed_floor", "hvac_mode": "off"}
+
+
+async def test_label_style_and_attached_rooms(hass, hass_ws_client):
+    reg = lr.async_get(hass)
+    old = reg.async_create("T H")  # made by 1.0 / by hand
+    assert old.label_id == "t_h"
+    await _setup(hass)
+    assert reg.async_get_label("t_h").name == "Temperature Humidity"
+    assert reg.async_get_label("ac").name == "AC"
+    for lab in reg.async_list_labels():
+        assert "_" not in lab.name and "·" not in lab.name, lab.name
+    ws = await hass_ws_client(hass)
+    await ws.send_json({"id": 1, "type": "ssv_dashboard/panels/save", "panel": {
+        "id": "bedroom_3", "name": "bedroom 3", "type": "room", "areas": ["bedroom_3"],
+        "attached": [{"key": "wc", "name": "wc"}, {"key": "shower", "name": "Shower", "area": "shower_3"}]}})
+    r = await ws.receive_json()
+    assert r["success"], r
+    assert r["result"]["labels"] == ["panel_bedroom_3", "panel_bedroom_3_wc", "panel_bedroom_3_shower"]
+    assert reg.async_get_label("panel_bedroom_3").name == "Panel Bedroom 3"
+    assert reg.async_get_label("panel_bedroom_3_wc").name == "Panel Bedroom 3 WC"
+
+
+async def test_update_notice(hass, hass_ws_client):
+    from homeassistant.components import persistent_notification as pn
+    await _setup(hass)
+    ereg = er.async_get(hass)
+    e = ereg.async_get_or_create("update", "hacs", "123", suggested_object_id="ssv_dashboard_update")
+    hass.states.async_set(e.entity_id, "on", {"installed_version": "1.1.0", "latest_version": "1.2.0"})
+    await hass.async_block_till_done()
+    notes = pn._async_get_or_create_notifications(hass) if hasattr(pn, "_async_get_or_create_notifications") else hass.data.get(pn.DOMAIN, {})
+    ws = await hass_ws_client(hass)
+    await ws.send_json({"id": 1, "type": "ssv_dashboard/info"})
+    info = (await ws.receive_json())["result"]["update"]
+    assert info == {"entity_id": e.entity_id, "available": True, "installed": "1.1.0", "latest": "1.2.0"}
+    assert any("ssv_dashboard_update" in str(k) for k in notes), notes
