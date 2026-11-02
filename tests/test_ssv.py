@@ -149,3 +149,68 @@ async def test_timers(hass):
     await hass.async_block_till_done()
     assert [c.data["entity_id"] for c in off] == [sw]
     assert [c.data["entity_id"] for c in wh_off] == [wh]
+
+
+# ---------------------------------------------------------------- 1.1
+async def test_panels_and_labels(hass, hass_ws_client, hass_read_only_user):
+    await _setup(hass)
+    ws = await hass_ws_client(hass)
+    panel = {"id": "gym", "name": "Gym", "type": "wall", "purpose": "gym", "areas": ["gym"],
+             "tabs": {"water": False}, "night": {"enabled": False}}
+    await ws.send_json({"id": 1, "type": "ssv_dashboard/panels/save", "panel": panel})
+    r = await ws.receive_json()
+    assert r["success"], r
+    assert r["result"]["label"] == "panel_gym"
+    lab = lr.async_get(hass).async_get_label("panel_gym")
+    assert lab is not None and lab.name == "Panel · Gym"
+
+    await ws.send_json({"id": 2, "type": "ssv_dashboard/panel/get", "panel": "gym"})
+    r = await ws.receive_json()
+    assert r["result"]["areas"] == ["gym"] and r["result"]["tabs"] == {"water": False}
+    assert r["result"]["runs"]["wall"] == 180
+
+    # rename keeps the label id
+    await ws.send_json({"id": 3, "type": "ssv_dashboard/panels/save", "panel": {**panel, "name": "Fitness"}})
+    assert (await ws.receive_json())["success"]
+    assert lr.async_get(hass).async_get_label("panel_gym").name == "Panel · Fitness"
+
+    # bad id refused
+    await ws.send_json({"id": 4, "type": "ssv_dashboard/panels/save", "panel": {**panel, "id": "Bad Id"}})
+    assert not (await ws.receive_json())["success"]
+
+    await ws.send_json({"id": 5, "type": "ssv_dashboard/panels/list"})
+    r = await ws.receive_json()
+    assert [p["id"] for p in r["result"]["panels"]] == ["gym"]
+
+    await ws.send_json({"id": 6, "type": "ssv_dashboard/info"})
+    r = await ws.receive_json()
+    keys = {c["key"]: c["ok"] for c in r["result"]["checks"]}
+    assert keys["scene_yaml"] is True and keys["scheduler"] is False
+
+
+async def test_timers_follow_labels(hass, hass_ws_client):
+    assert await async_setup_component(hass, "timer", {})
+    await _setup(hass)
+    reg = er.async_get(hass)
+    e = reg.async_get_or_create("climate", "test", "wall1", suggested_object_id="bath_wall")
+    reg.async_update_entity(e.entity_id, labels={"heated_wall"})
+    sw = reg.async_get_or_create("switch", "test", "boiler", suggested_object_id="boiler")
+    reg.async_update_entity(sw.entity_id, labels={"water", "hot_water"})
+    ws = await hass_ws_client(hass)
+    await ws.send_json({"id": 1, "type": "ssv_dashboard/runs/save", "runs": {"wall": 120, "per": {}}})
+    assert (await ws.receive_json())["success"]
+    await ws.send_json({"id": 2, "type": "ssv_dashboard/sync_timers"})
+    r = await ws.receive_json()
+    await hass.async_block_till_done()
+    assert hass.states.get("timer.inex_wall_bath_wall") is not None, r
+    assert hass.states.get("timer.inex_wall_bath_wall").attributes["duration"] == "2:00:00"
+    t = reg.async_get("timer.inex_water_hot_water")
+    assert t is not None and {"water", "hot_water"} <= set(t.labels)
+
+    # label removed -> its timer goes; a hand-made timer stays
+    reg.async_update_entity(e.entity_id, labels=set())
+    await ws.send_json({"id": 3, "type": "ssv_dashboard/sync_timers"})
+    await ws.receive_json()
+    await hass.async_block_till_done()
+    assert hass.states.get("timer.inex_wall_bath_wall") is None
+    assert hass.states.get("timer.inex_water_hot_water") is not None
