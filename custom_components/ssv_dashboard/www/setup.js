@@ -1,6 +1,7 @@
 /* SSV Dashboard — installer page (admin only). Version __SSV_VERSION__
    1.1: panels are objects (name, screen type, purpose, rooms, tabs, night) kept by the integration;
-   each gets its own label "Panel · <name>" and its own dashboard. The page also checks the
+   each gets its own label "Panel <Name>" and its own dashboard; a room panel can have attached rooms
+   (WC, Shower ...) with labels "Panel <Name> <Room>". Run timers are chosen here and made on Save. The page also checks the
    integrations every tab needs and can install the missing ones through HACS. */
 const FILES = '/ssv_dashboard/';
 const KIOSK_GUEST = { kiosk: false, hide_header: true, hide_sidebar: true, hide_menubutton: true, hide_overflow: true,
@@ -54,7 +55,10 @@ function ssvCard(cfg) {
   if (!m) return null;
   return { legacy: m[1] !== FILES, file: m[2], query: new URLSearchParams(m[3] || ''), url: c.url };
 }
-function newPanel() { return { id: '', name: '', type: 'wall', purpose: 'residential', areas: [], room: '', tabs: {}, night: { enabled: true, from: 22, to: 7 }, villa: '', place: '' }; }
+function newPanel() { return { id: '', name: '', type: 'wall', purpose: 'residential', areas: [], room: '', attached: [], tabs: {}, night: { enabled: true, from: 22, to: 7 }, villa: '', place: '' }; }
+const KIND = { wall: 'Heated wall', ufh: 'Floor heating', hot_water: 'Hot water', recirculation: 'Recirculation' };
+const parseRuns = (t) => [...new Set(String(t || '').split(/[\s,;]+/).map(x => parseInt(x, 10)).filter(x => x >= 5 && x <= 1440))].sort((a, b) => a - b).slice(0, 4);
+const nice = (t) => String(t || '').split(/[\s_\-·&\/]+/).filter(Boolean).map(w => /^(ac|ufh|cctv|wc|tv|ups|ev|hvac|led|rgb|spa|bbq)$/i.test(w) ? w.toUpperCase() : w[0].toUpperCase() + w.slice(1)).join(' ');
 
 class SSVSetup extends HTMLElement {
   constructor() {
@@ -75,7 +79,7 @@ class SSVSetup extends HTMLElement {
   async load() {
     const S = this.st;
     try {
-      const [info, dashes, areas, ents, resources, sys, panels, hacs] = await Promise.all([
+      const [info, dashes, areas, ents, resources, sys, panels, hacs, timers] = await Promise.all([
         this.ws({ type: 'ssv_dashboard/info' }),
         this.ws({ type: 'lovelace/dashboards/list' }),
         this.ws({ type: 'config/area_registry/list' }),
@@ -84,10 +88,12 @@ class SSVSetup extends HTMLElement {
         this.ws({ type: 'frontend/get_system_data', key: 'core' }).catch(() => null),
         this.ws({ type: 'ssv_dashboard/panels/list' }),
         this.ws({ type: 'hacs/repositories/list' }).catch(() => null),
+        this.ws({ type: 'ssv_dashboard/timers/list' }).catch(() => ({ items: [] })),
       ]);
       S.info = info; S.areas = areas.sort((a, b) => a.name.localeCompare(b.name));
       S.resources = resources; S.defaultPanel = (sys && sys.value && sys.value.default_panel) || null;
-      S.ents = ents.entities || []; S.panels = panels.panels || []; S.runs = panels.runs || { wall: 180, per: {} };
+      S.ents = ents.entities || []; S.panels = panels.panels || [];
+      if (!S.tdirty) S.timers = (timers.items || []).map(c => Object.assign({}, c, { on: c.chosen || c.new, text: (c.runs || []).join(', ') }));
       S.hacs = hacs; S.dashList = dashes;
       S.legacy = [];
       for (const d of dashes) {
@@ -121,13 +127,15 @@ class SSVSetup extends HTMLElement {
     p.id = p.id || slug(p.name);
     if (!/^[a-z0-9][a-z0-9_]{0,40}$/.test(p.id)) throw new Error('Id: latin letters, digits and _ only');
     if (p.type === 'room' && !p.areas.length) throw new Error('A room panel needs its room');
-    const body = { id: p.id, name: p.name.trim(), type: p.type, purpose: p.purpose, areas: p.areas, room: p.room || p.areas[0] || null,
+    const att = (p.attached || []).filter(a => a.name.trim()).map(a => ({ key: slug(a.name), name: nice(a.name.trim()), area: a.area || null }));
+    if (new Set(att.map(a => a.key)).size !== att.length) throw new Error('Two attached rooms have the same name');
+    const body = { id: p.id, name: p.name.trim(), type: p.type, purpose: p.purpose, areas: p.areas, room: p.room || p.areas[0] || null, attached: att,
       tabs: p.tabs, night: { enabled: !!p.night.enabled, from: +p.night.from, to: +p.night.to },
       villa: p.villa || null, place: p.place || null, dashboard: dashPath(p.id) };
     const r = await this.ws({ type: 'ssv_dashboard/panels/save', panel: body });
     const path = await this.writeDash(body);
     this.st.ed = null;
-    return `${body.name} saved · dashboard /${path} · label ${r.label}`;
+    return `${body.name} saved · dashboard /${path} · labels ${(r.labels || [r.label]).join(', ')}`;
   }
   async moveLegacy(x) {
     /* old dashboard → same page from the integration's files, same parameters */
@@ -153,15 +161,20 @@ class SSVSetup extends HTMLElement {
 
   /* ---------------------------------------------------------------- events */
   input(e) {
-    const ed = this.st.ed; if (!ed) return; const f = e.target.dataset.f; if (!f) return;
+    const f = e.target.dataset.f; if (!f) return;
+    if (f === 'truns') { const c = this.st.timers[+e.target.dataset.i]; c.text = e.target.value; this.st.tdirty = true; return; }
+    if (f === 'attname') { const ed = this.st.ed; if (ed) ed.attached[+e.target.dataset.i].name = e.target.value; return; }
+    const ed = this.st.ed; if (!ed) return;
     if (f === 'name') { ed.name = e.target.value; if (!ed._idTouched && !ed._existing) { ed.id = slug(ed.name); const el = this.shadowRoot.getElementById('pid'); if (el) el.value = ed.id; } }
     else if (f === 'id') { ed.id = e.target.value.trim().toLowerCase(); ed._idTouched = true; }
     else if (f === 'villa' || f === 'place') ed[f] = e.target.value;
     else if (f === 'from' || f === 'to') ed.night[f] = +e.target.value;
-    else if (f === 'run') { const v = +e.target.value; if (e.target.dataset.eid) { if (v) this.st.runs.per[e.target.dataset.eid] = v; else delete this.st.runs.per[e.target.dataset.eid]; } else this.st.runs.wall = v || 180; }
   }
   change(e) {
-    const ed = this.st.ed; const t = e.target; const f = t.dataset.f; if (!f || !ed) return;
+    const t = e.target; const f = t.dataset.f; if (!f) return;
+    if (f === 'ton') { this.st.timers[+t.dataset.i].on = t.checked; this.st.tdirty = true; return this.render(); }
+    const ed = this.st.ed; if (!ed) return;
+    if (f === 'attarea') { ed.attached[+t.dataset.i].area = t.value || null; return; }
     if (f === 'type') { ed.type = t.value; }
     else if (f === 'purpose') { ed.purpose = t.value; const P = PURPOSES[t.value]; ed.tabs = {}; P.off.forEach(k => ed.tabs[k] = false); ed.night.enabled = P.night; }
     else if (f === 'area') { const a = t.value; ed.areas = t.checked ? [...new Set([...ed.areas, a])] : ed.areas.filter(x => x !== a); if (!ed.areas.includes(ed.room)) ed.room = ed.areas[0] || ''; }
@@ -175,8 +188,12 @@ class SSVSetup extends HTMLElement {
     const b = e.target.closest('button,a[data-act]'); if (!b || b.disabled) return;
     const a = b.dataset, S = this.st;
     if (a.act === 'labels') return this.run('Labels', async () => { const r = await this.ws({ type: 'ssv_dashboard/create_labels' }); return r.created.length ? 'created ' + r.created.join(', ') : 'nothing to create'; });
-    if (a.act === 'sync') return this.run('Run timers', async () => { const r = await this.ws({ type: 'ssv_dashboard/sync_timers' }); return r.changes.length ? r.changes.join(', ') : 'nothing to change'; });
-    if (a.act === 'runs') return this.run('Run times', async () => { await this.ws({ type: 'ssv_dashboard/runs/save', runs: S.runs }); return 'saved'; });
+    if (a.act === 'tsave') return this.run('Run timers', async () => {
+      const timers = {}; for (const c of S.timers) { if (!c.on) continue; const runs = parseRuns(c.text); if (!runs.length) throw new Error(c.name + ': type minutes, e.g. 60, 120, 180'); timers[c.key] = { runs }; }
+      const r = await this.ws({ type: 'ssv_dashboard/timers/save', timers }); S.tdirty = false; return r.changes.length ? r.changes.join(', ') : 'saved, nothing to add or remove'; });
+    if (a.act === 'attadd') { S.ed.attached.push({ name: '', area: null }); return this.render(); }
+    if (a.attdel != null) { S.ed.attached.splice(+a.attdel, 1); return this.render(); }
+    if (a.act === 'update') return this.run('Update', async () => { const r = await this.ws({ type: 'ssv_dashboard/update/install' }); S.restart = true; return 'SSV Dashboard ' + r.installed + ' downloaded · restart Home Assistant'; });
     if (a.hacs) return this.run('HACS', () => this.hacsInstall(a.hacs));
     if (a.act === 'restart') return this.run('Restart', async () => { await this._hass.callService('homeassistant', 'restart', {}); return 'Home Assistant is restarting'; });
     if (a.act === 'new') { S.ed = newPanel(); return this.render(); }
@@ -220,9 +237,10 @@ class SSVSetup extends HTMLElement {
     const legacyRows = (S.legacy || []).map((x, i) => `<tr><td><a href="/${esc(x.d.url_path)}/main" target="_top">${esc(x.d.title)}</a></td><td>${esc(x.c.file)}.html</td><td class="mono" colspan="2">${esc(x.c.url)}</td>
         <td class="act">${x.c.legacy ? `<button class="warn" data-legacy="${i}">Move to SSV files</button>` : ''}<button data-default="${esc(x.d.url_path)}"${S.defaultPanel === x.d.url_path ? ' disabled' : ''}>Start page</button></td></tr>`).join('');
 
-    const walls = Object.keys(this._hass.states).filter(id => id.startsWith('climate.') && ((S.ents || []).find(e => e.ei === id) || {}).lb && S.ents.find(e => e.ei === id).lb.includes('heated_wall'));
-    const runRows = walls.map(id => `<tr><td>${esc(this._hass.states[id].attributes.friendly_name || id)}</td><td class="mono">timer.inex_wall_${esc(id.split('.')[1])}</td><td>${ok(!!this._hass.states['timer.inex_wall_' + id.split('.')[1]])}</td><td><input type="number" min="5" step="5" data-f="run" data-eid="${esc(id)}" placeholder="${S.runs ? S.runs.wall : 180}" value="${S.runs && S.runs.per[id] ? S.runs.per[id] : ''}"></td></tr>`).join('')
-      || '<tr><td colspan="4" class="dim">No climate labelled Heated Wall yet.</td></tr>';
+    const runRows = (S.timers || []).map((c, i) => `<tr><td><label class="chk"><input type="checkbox" data-f="ton" data-i="${i}"${c.on ? ' checked' : ''}>${esc(c.name)}</label>${c.new ? ' <span class="tag">new</span>' : ''}<div class="mono dim">${esc(c.key.startsWith('fn:') ? (c.devices || []).join(', ') : c.key)}</div></td>
+      <td>${esc(KIND[c.kind] || c.kind)}</td><td><input data-f="truns" data-i="${i}" value="${esc(c.text)}" placeholder="60, 120, 180"${c.on ? '' : ' disabled'} style="width:100%;box-sizing:border-box"></td>
+      <td class="mono">${esc(c.timer)}</td><td>${c.chosen ? ok(c.exists) : '<span class="dim">—</span>'}</td></tr>`).join('')
+      || '<tr><td colspan="5" class="dim">Nothing found yet. Label climates Heated Wall or UFH, and water devices Water + Hot Water / Recirculation, then reload this page.</td></tr>';
 
     this.shadowRoot.innerHTML = `<style>
       :host{display:block;min-height:100vh;background:var(--primary-background-color,#fafafa);color:var(--primary-text-color,#212121);font-family:var(--paper-font-body1_-_font-family, Roboto, sans-serif)}
@@ -251,6 +269,7 @@ class SSVSetup extends HTMLElement {
       .note{background:var(--warning-color,#f39c12);color:#fff;padding:10px 12px;border-radius:8px;margin-bottom:12px;display:flex;gap:12px;align-items:center;justify-content:space-between}
     </style><div class="wrap">
       <h1>SSV Dashboard <span class="dim">v${esc(I.version || '?')}</span></h1>
+      ${I.update && I.update.available ? `<div class="note">SSV Dashboard ${esc(I.update.latest)} is available (installed ${esc(I.update.installed)}).<button data-act="update">Update now</button></div>` : ''}
       ${S.restart ? '<div class="note">An integration was downloaded. Restart Home Assistant, then come back and press Add.<button data-act="restart">Restart now</button></div>' : ''}
 
       <div class="card"><h2>Integrations</h2>
@@ -260,7 +279,7 @@ class SSVSetup extends HTMLElement {
       </div>
 
       <div class="card"><h2>Panels</h2>
-        <p>A panel is one screen: what it is, where it hangs, which rooms it controls and which tabs it shows. Each panel gets its own dashboard and its own label <span class="mono">Panel · name</span> — put that label on a room or on a single device to add it to this panel.</p>
+        <p>A panel is one screen: what it is, where it hangs, which rooms it controls and which tabs it shows. Each panel gets its own dashboard and its own label <span class="mono">Panel Name</span> — put that label on a room or on a single device to add it to this panel.</p>
         <table><tr><th style="width:24%">Panel</th><th style="width:13%">Screen</th><th style="width:18%">Purpose</th><th>Rooms</th><th style="width:27%"></th></tr>${panelRows}</table>
         <div class="row" style="margin-top:12px"><button data-act="new">New panel</button></div>
         ${this.editor()}
@@ -270,10 +289,9 @@ class SSVSetup extends HTMLElement {
         <table><tr><th style="width:24%">Dashboard</th><th style="width:13%">Page</th><th colspan="2">Address</th><th style="width:27%"></th></tr>${legacyRows}</table></div>` : ''}
 
       <div class="card"><h2>Run timers</h2>
-        <p>Every climate labelled Heated Wall and every water function (Water + Hot Water / Recirculation) gets its run timer by itself; when the label is removed, the timer is removed. SSV Dashboard turns the device off when the timer ends.</p>
-        <div class="row" style="margin-bottom:10px"><label class="chk">Heated wall run, minutes <input type="number" min="5" step="5" data-f="run" value="${S.runs ? S.runs.wall : 180}"></label></div>
-        <table><tr><th>Heated wall</th><th>Timer entity</th><th style="width:8%">Exists</th><th style="width:18%">Own run, min</th></tr>${runRows}</table>
-        <div class="row" style="margin-top:12px"><button data-act="runs">Save run times</button><button class="sec" data-act="sync">Check timers now</button></div>
+        <p>Everything that can run for a while: heated walls, floor heating, hot water, recirculation. Tick what should have Run buttons and type the buttons in minutes (up to 4, e.g. 60, 120, 180). Nothing is made until you press Save; untick + Save removes the timer. SSV Dashboard turns the device off when the timer ends.</p>
+        <table><tr><th style="width:30%">Device</th><th style="width:14%">Kind</th><th style="width:20%">Buttons, minutes</th><th>Timer</th><th style="width:8%">Made</th></tr>${runRows}</table>
+        <div class="row" style="margin-top:12px"><button data-act="tsave">Save run timers</button>${S.tdirty ? '<span class="dim">not saved yet</span>' : ''}</div>
       </div>
 
       <div class="card"><h2>Log</h2><div class="log">${S.log.map(l => `<div class="${l.bad ? 'bad' : ''}">${esc(l.t)} · ${esc(l.m)}</div>`).join('') || '<span class="dim">—</span>'}</div></div>
@@ -292,11 +310,14 @@ class SSVSetup extends HTMLElement {
       <div class="grid">
         <label>Name<input data-f="name" value="${esc(ed.name)}" placeholder="Gym, Office, Kitchen…"></label>
         <label>Id (address and label)<input id="pid" data-f="id" value="${esc(ed.id)}"${ed._existing ? ' disabled' : ''} placeholder="gym"></label>
-        <label>Screen<select data-f="type">${Object.entries(TYPES).map(([k, v]) => `<option value="${k}"${k === ed.type ? ' selected' : ''}>${v.label}</option>`).join('')}</select></label>
+        <label>Screen<select data-f="type">${Object.entries(TYPES).map(([k, v]) => `<option value="${k}"${k === ed.type ? ' selected' : ''}>${v.label}</option>`).join('')}<option disabled>5.5″ Main (coming soon)</option><option disabled>5.5″ Room (coming soon)</option></select></label>
         <label>Purpose<select data-f="purpose">${Object.entries(PURPOSES).map(([k, v]) => `<option value="${k}"${k === ed.purpose ? ' selected' : ''}>${v.label}</option>`).join('')}</select></label>
       </div>
       <p style="margin-top:12px">Rooms this panel controls ${ed.type === 'room' ? '(a room panel needs at least one)' : '(none = whole house)'}:</p>
       <div class="box">${areaBoxes}</div>
+      ${ed.type === 'room' ? `<p style="margin-top:12px">Attached rooms (WC, Shower, Balcony…) — each gets a tab on the panel and the label <span class="mono">Panel ${esc(nice(ed.name) || 'Name')} &lt;Room&gt;</span>; devices go there by that label or by the room's area:</p>
+      <div style="display:flex;flex-direction:column;gap:8px">${(ed.attached || []).map((a, i) => `<div class="row"><input data-f="attname" data-i="${i}" value="${esc(a.name)}" placeholder="WC" style="flex:1"><select data-f="attarea" data-i="${i}" style="flex:1"><option value="">Area: none (label only)</option>${areas.map(x => `<option value="${esc(x.area_id)}"${x.area_id === a.area ? ' selected' : ''}>${esc(x.name)}</option>`).join('')}</select><button class="sec" data-attdel="${i}">Remove</button></div>`).join('')}
+        <div class="row"><button class="sec" data-act="attadd">Add attached room</button></div></div>` : ''}
       <div class="grid" style="margin-top:12px">
         <label>Room shown big on Home<select data-f="room"><option value="">—</option>${roomOpts}</select></label>
         <label>Villa name (header)<input data-f="villa" value="${esc(ed.villa || '')}" placeholder="${esc((this.st.info || {}).location_name || '')}"></label>

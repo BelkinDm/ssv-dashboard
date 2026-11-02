@@ -23,7 +23,22 @@ header{height:66px;flex:none;display:flex;align-items:center;gap:12px;margin:8px
 .hv span{font:400 13px var(--sans);color:var(--text2);margin-left:7px;letter-spacing:0}
 .card .row.hd{height:30px;flex:none}
 #clock{font:600 20px var(--mono);letter-spacing:.04em}
-main{flex:1;min-height:0;display:flex;flex-direction:column;gap:8px;padding:8px 10px 8px}
+main{flex:1;min-height:0;display:flex;flex-direction:column;gap:8px;padding:8px}
+.row.eq>.btn,.row.eq>.pill{flex:1 1 0;min-width:0;padding:0 6px}
+.row.eq{gap:8px}
+.card{gap:8px}
+/* Home: everything fits one 480 px screen — same 8 px gap between all buttons and cards */
+#view.home .card{padding:10px 12px;gap:8px}
+#view.home .btn{height:40px;min-width:40px}
+#view.home .btn.sq{width:40px}
+#view.home .spv{font-size:22px;min-width:64px}
+#view.home .pill{height:50px;gap:8px;padding:0 8px}
+#view.home .pill .ico{width:30px;height:30px;border-radius:8px}
+.pill .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pill .lab{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#view.home .row.n4 .pill .ico{display:none}
+#view.home .row.n4 .pill{padding:0 10px}
+.pill>span:last-child{min-width:0;overflow:hidden}
 nav{height:64px;flex:none;border-top:1px solid var(--line);display:flex;gap:6px;padding:4px 8px}
 nav button{flex:1;height:56px;border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--text2);font:500 9px var(--mono);letter-spacing:.12em;text-transform:uppercase;border:1px solid transparent}
 nav button.on{background:#12302A;border-color:#2A5A4A;color:var(--mint)}
@@ -138,9 +153,11 @@ const Q = new URLSearchParams(location.search);
 let ROOM = Q.get('room') || 'bedroom_1';
 let PANEL = Q.get('panel') || ('panel_' + ROOM);
 let NIGHT_FROM = +(Q.get('night_from') || 22), NIGHT_TO = +(Q.get('night_to') || 7), NIGHT_ON = true; const IDLE = 60;
-let WALL_RUN = 180, RUN_PER = {}; const WATER_RUNS = [60, 90, 120], REC_RUN = 10;
+let WALL_RUN = 180, RUNS = {}, ATT = []; const WATER_RUNS = [60, 90, 120], REC_RUN = 10;
 let CFG = null, CFG_AREAS = [];
-const wallRunOf = (id) => RUN_PER[id] || WALL_RUN;
+/* run buttons chosen on the SSV Dashboard page: key (entity id or fn:<function>) -> minutes */
+const runsOf = (key, def) => { const r = RUNS[key]; return Array.isArray(r) && r.length ? r.slice(0, 3) : (typeof r === 'number' ? [r] : def); };
+const wallRunOf = (id) => Math.max(...runsOf(id, [WALL_RUN]));
 function applyCfg(c){
   if (!c) return; CFG = c;
   CFG_AREAS = c.areas || [];
@@ -148,9 +165,10 @@ function applyCfg(c){
   PANEL = 'panel_' + c.id;
   const n = c.night || {}; if (n.enabled === false) NIGHT_ON = false;
   if (n.from != null && !Q.get('night_from')) NIGHT_FROM = +n.from; if (n.to != null && !Q.get('night_to')) NIGHT_TO = +n.to;
-  if (c.runs) { WALL_RUN = +c.runs.wall || 180; RUN_PER = c.runs.per || {}; }
+  if (c.runs) { RUNS = c.runs; if (c.runs.wall) WALL_RUN = +c.runs.wall; if (c.runs.per) Object.assign(RUNS, c.runs.per); }
+  ATT = (c.attached || []).slice(0, 3);
 }
-const NONROOM = new Set(['light','on_off_only','t_h','ac','ufh','heated_wall','curtain','roller','shutter','left','right','both_side','net','blackout','hot_water','recirculation','schedule','cctv','doorbell','alarm','critical','energy_solar','energy_grid','energy_battery','energy_home','scene','home','no_panel','panel_hide','climate','water','valve','water_meter','ground_floor','first_floor','outside']);
+const NONROOM = new Set(['light','on_off_only','t_h','ac','ufh','heated_wall','curtain','roller','shutter','left','right','both_side','net','blackout','hot_water','recirculation','schedule','cctv','doorbell','alarm','critical','energy_solar','energy_grid','energy_battery','energy_home','scene','scene_device','user_scene','home','no_panel','panel_hide','climate','water','valve','water_meter','ground_floor','first_floor','outside']);
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const svg = (n, st) => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true"${st ? ` style="${st}"` : ''}>${IC[n] || EXTRA[n] || IC.bulb}</svg>`;
@@ -170,13 +188,14 @@ ceiling: '<path d="M3 4h18"/><path d="M5 4a7 7 0 0 0 14 0"/><path d="M12 14v3M7.
 boiler: '<path d="M12 8s5.5 5.4 5.5 9a5.5 5.5 0 0 1-11 0C6.5 13.4 12 8 12 8z"/><path d="M8.5 2.5c-.8.9.8 1.8 0 2.7M12 2c-.8.9.8 1.8 0 2.7M15.5 2.5c-.8.9.8 1.8 0 2.7"/><path d="M10 16.5a2 2 0 0 0 2 2"/>',
 pumpc: '<circle cx="11" cy="13.5" r="7"/><path d="M11 13.5c1-2.2 3-3.2 4.5-3M11 13.5c1.4 1.9 1.3 4.2.2 5.5M11 13.5c-2.4.3-4.3-.8-5-2.3"/><path d="M13.5 7V3.5H21v5h-3.5"/>',
   balcony: '<path d="M7 13V5a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v8"/><path d="M4 13h16"/><path d="M5 13v7M19 13v7M9.5 13v7M14.5 13v7"/><path d="M4 20h16"/>',
+  fan: '<circle cx="12" cy="12" r="2"/><path d="M12 10c0-4 1-7 4-7 2 0 3 2 2 4l-4 4M14 12c4 0 7 1 7 4 0 2-2 3-4 2l-4-4M12 14c0 4-1 7-4 7-2 0-3-2-2-4l4-4M10 12c-4 0-7-1-7-4 0-2 2-3 4-2l4 4"/>',
   bath: '<path d="M4 12h16v3a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z"/><path d="M6 12V6a2 2 0 0 1 3.5-1.3"/><path d="M7 19l-1 2M17 19l1 2"/>',
   run: '<path d="M4 12h14M13 6l6 6-6 6"/>',
   hand: '<path d="M8 13V6a1.5 1.5 0 0 1 3 0v5M11 11V4.5a1.5 1.5 0 0 1 3 0V11M14 11V5.5a1.5 1.5 0 0 1 3 0V12M17 10a1.5 1.5 0 0 1 3 0v4a7 7 0 0 1-7 7h-1a7 7 0 0 1-5.6-2.8L3.4 15.6a1.5 1.5 0 0 1 2.3-1.9L8 16"/>',
   recirc: '<path d="M20 12a8 8 0 0 1-14 5.3M4 12a8 8 0 0 1 14-5.3"/><path d="M18 3v4h-4M6 21v-4h4"/>',
 };
 /* ---------- Home Assistant connection: own WebSocket, independent of the parent page internals ---------- */
-const BUILD = '1.1.0';
+const BUILD = '1.2.0';
 const HC = { ready: false, states: {}, entities: {}, devices: {}, areas: {} };
 let ws = null, wsOk = false, msgId = 0, backoff = 1000, FC_ID = 0, lastMsg = Date.now(), downSince = Date.now(), reloading = false, regT = 0; const BOOT = Date.now();
 const waiters = {};
@@ -278,7 +297,17 @@ const pretty = (l) => LABELS[l] || l.replace(/_/g, ' ').replace(/\b\w/g, c => c.
 function areaIdOf(id){ const e = HC.entities[id] || {}; const d = e.device_id && HC.devices[e.device_id]; return e.area_id || (d && d.area_id) || null; }
 const devLbl = (id) => { const e = HC.entities[id] || {}; const d = e.device_id && HC.devices[e.device_id]; return (d && d.labels) || []; };
 const roomOf = (id) => lbl(id).find(l => !NONROOM.has(l) && !l.startsWith('panel_')) || (CFG_AREAS.length ? areaIdOf(id) : null);
-const mine = (id) => { const L = lbl(id).concat(devLbl(id)); return (L.includes(ROOM) || L.includes(PANEL) || CFG_AREAS.includes(areaIdOf(id)) || L.includes(PANEL + '_wc') || (L.includes('water') && (L.includes('hot_water') || L.includes('recirculation')))) && !L.includes('no_panel') && !L.includes('panel_hide') && !!st(id) && st(id).state !== 'unavailable'; };
+function attKey(id){
+  const L = lbl(id).concat(devLbl(id)); const a = areaIdOf(id);
+  for (const x of ATT) if (L.includes(PANEL + '_' + x.key) || (x.area && a === x.area)) return x.key;
+  if (L.includes(PANEL + '_wc')) return ATT.length ? (ATT.find(x => /wc|bath|toilet|shower/i.test(x.key + ' ' + x.name)) || ATT[0]).key : 'wc';
+  const an = areaOf(id); const wcLike = (x) => !!x && zslug(x) !== ROOM && /bath|wc|toilet|shower/i.test(x + ' ' + pretty(x));
+  if (wcLike(roomOf(id)) || (!roomOf(id) && wcLike(an)) || (an && wcLike(an) && !lbl(id).includes(ROOM) && !CFG_AREAS.includes(a))) { if (!ATT.length) return 'wc'; const w = ATT.find(x => /wc|bath|toilet|shower/i.test(x.key + ' ' + x.name)); return w ? w.key : null; }
+  return null;
+}
+const ZONES = () => ATT.length ? ATT : [{ key: 'wc', name: 'WC' }];
+const zoneIcon = (z) => /balcon|terrace/i.test(z.key + ' ' + z.name) ? 'balcony' : 'bath';
+const mine = (id) => { const L = lbl(id).concat(devLbl(id)); return (L.includes(ROOM) || L.includes(PANEL) || CFG_AREAS.includes(areaIdOf(id)) || ATT.some(x => L.includes(PANEL + '_' + x.key) || (x.area && areaIdOf(id) === x.area)) || L.includes(PANEL + '_wc') || (L.includes('water') && (L.includes('hot_water') || L.includes('recirculation')))) && !L.includes('no_panel') && !L.includes('panel_hide') && !!st(id) && st(id).state !== 'unavailable'; };
 const isWC = (room) => !!room && room !== ROOM && /bath|wc|toilet|shower/i.test(room + ' ' + pretty(room));
 function NM(id){
   let n = attr(id, 'friendly_name') || id.split('.')[1].replace(/_/g, ' ');
@@ -320,7 +349,7 @@ function model(){
     const tt = t.find(id => attr(id, 'device_class') === 'temperature' || /°/.test(attr(id, 'unit_of_measurement') || ''));
     const hh = t.find(id => attr(id, 'device_class') === 'humidity' || attr(id, 'unit_of_measurement') === '%');
     return { t: tt ? parseFloat(st(tt).state) : null, h: hh ? Math.round(parseFloat(st(hh).state)) : null }; };
-  const inWC = (id) => has(id, PANEL + '_wc') || isWC(roomOf(id)), inRoom = (id) => !inWC(id);
+  const inWC = (id) => attKey(id) != null, inRoom = (id) => !inWC(id);
   const climates = ids.filter(id => dmn(id) === 'climate' && !has(id, 'heated_wall'));
   const acKind = (id) => (attr(id, 'hvac_modes') || []).some(m => ['cool', 'heat_cool', 'auto', 'dry', 'fan_only'].includes(m));
   const isAc = (id) => has(id, 'ac') || (!has(id, 'ufh') && acKind(id));
@@ -335,6 +364,9 @@ function model(){
     wcWalls: ids.filter(id => dmn(id) === 'climate' && has(id, 'heated_wall') && inWC(id)),
     covers: ids.filter(id => dmn(id) === 'cover' && ['curtain', 'roller', 'shutter'].some(l => has(id, l))),
     roomTH: temp(inRoom), wcTH: temp(inWC),
+    att: Object.fromEntries(ZONES().map(z => { const inZ = (id) => attKey(id) === z.key;
+      return [z.key, { z, lights: lights.filter(inZ), ufh: climates.filter(id => isUfh(id) && inZ(id))[0] || null, walls: ids.filter(id => dmn(id) === 'climate' && has(id, 'heated_wall') && inZ(id)), th: temp(inZ) }]; })),
+    scenes: ids.filter(id => ['scene', 'script'].includes(dmn(id)) && has(id, 'scene')),
     hot: ids.filter(id => has(id, 'water') && has(id, 'hot_water')),
     rec: ids.filter(id => has(id, 'water') && has(id, 'recirculation')),
   };
@@ -349,7 +381,8 @@ function tabs(){
   const t = [['home', 'Home', 'home']];
   if (M.lights.length) t.push(['light', 'Light', 'bulb']);
   if (M.covers.length) t.push(['curtains', 'Curtains', 'curtains']);
-  t.push(['wc', 'WC', 'bath'], ['water', 'Water', 'water']);
+  ZONES().forEach(z => t.push(['att:' + z.key, z.name, zoneIcon(z)]));
+  t.push(['water', 'Water', 'water']);
   return t;
 }
 
@@ -366,26 +399,43 @@ function tState(tid){ const t = tid && st(tid); if (t && t.state === 'active' &&
 const leftText = (ts) => ts.left != null ? hms(ts.left) : (ts.rem || '');
 
 /* ---------- views ---------- */
+const FAN_NAME = { auto: 'Auto', low: 'Low', mid: 'Mid', middle: 'Mid', medium: 'Mid', high: 'High', quiet: 'Quiet', turbo: 'Turbo', silent: 'Quiet', strong: 'High' };
 function vHome(){
 const out = [];
 safe(() => { if (M.ac){ const s = st(M.ac); const off = s.state === 'off'; const act = attr(M.ac, 'hvac_action') || s.state;
     const modes = ['off', 'cool', 'heat', 'auto', 'heat_cool'].filter(m => (attr(M.ac, 'hvac_modes') || []).includes(m)).slice(0, 4);
-    out.push(`<div class="card${off ? '' : /heat/.test(act) ? ' heat' : ' cool'}"><div class="row"><div><div class="nm" style="color:${off ? 'var(--text)' : /heat/.test(act) ? 'var(--heat)' : 'var(--cool)'}">Air conditioning</div><div class="lab">${esc(off ? 'Off' : String(act).replace(/_/g, ' '))}</div></div><div class="sp"></div>${stepper(M.ac, off)}</div>
-      <div class="row">${modes.map(m => `<button class="btn${s.state === m ? ' sel' : ''}" data-mode="${M.ac}" data-m="${m}">${m === 'heat_cool' ? 'Auto' : m}</button>`).join('')}</div></div>`); } });
-safe(() => { if (M.ufh) out.push(ufhCard(M.ufh, 'Floor heating', null)); });
-safe(() => { /* Home: Main of the room, Balcony, Main of the WC. Label 'home' picks them explicitly; without it the automatic rule applies. Other lights live on the Light tab */
+    const fans = (attr(M.ac, 'fan_modes') || []).slice(0, 4); const fan = attr(M.ac, 'fan_mode');
+    out.push(`<div class="card ac${off ? '' : /heat/.test(act) ? ' heat' : ' cool'}"><div class="row"><div style="min-width:0"><div class="nm" style="color:${off ? 'var(--text)' : /heat/.test(act) ? 'var(--heat)' : 'var(--cool)'}">Air conditioning</div><div class="lab">${esc(off ? 'Off' : String(act).replace(/_/g, ' '))}</div></div><div class="sp"></div>${stepper(M.ac, off)}</div>
+      <div class="row eq">${modes.map(m => `<button class="btn${s.state === m ? ' sel' : ''}" data-mode="${M.ac}" data-m="${m}">${m === 'heat_cool' ? 'Auto' : m}</button>`).join('')}</div>
+      ${fans.length ? `<div class="row eq">${fans.map(f => `<button class="btn${!off && fan === f ? ' sel' : ''}${off ? ' dim' : ''}" data-fan="${M.ac}" data-f="${esc(f)}">${svg('fan', 'width:16px;height:16px')}${esc(FAN_NAME[String(f).toLowerCase()] || f)}</button>`).join('')}</div>` : ''}</div>`); } });
+safe(() => { const z = Object.values(M.att).find(x => x.ufh); const id = M.ufh || (z && z.ufh); if (id) out.push(ufhLine(id, M.ufh ? 'Floor heating' : 'Floor heating · ' + z.z.name)); });
+safe(() => { /* up to 4 buttons: Main of the room, Balcony, Main of each attached room, then scenes with this room's labels.
+   Label 'home' picks lights explicitly; without it the automatic rule applies. Other lights live on the Light tab */
 const isMain = (id) => /\bmain\b/i.test(attr(id, 'friendly_name') || '') || ['chandelier', 'downlight', 'track', 'ceiling'].includes(lightIcon(id));
 const byHome = (list) => { const h = list.filter(id => has(id, 'home')); return h.length ? h : null; };
 const pickMain = (list) => { const hh = byHome(list); if (hh) return hh; const m = list.filter(isMain); return m.length ? m : (list.length ? [list.slice().sort(lightSort)[0]] : []); };
-const own = M.lights.filter(id => lightRank(id) === 0 && (has(id, 'home') || !/wardrobe/i.test(attr(id, 'friendly_name') || '')));
-const main = pickMain(own), balcAll = M.lights.filter(id => lightRank(id) === 1), balc = byHome(balcAll) || balcAll, wcl = pickMain(M.lights.filter(id => lightRank(id) === 2));
-out.push(`<div class="sp"></div><div class="row">${pills([...main, ...balc, ...wcl], [{ name: 'Main', icon: 'bulb', ids: main }, { name: 'Balcony', icon: 'balcony', ids: balc }, { name: 'WC', icon: 'bath', ids: wcl }])}</div>`); });
+const own = M.roomLights.filter(id => lightRank(id) === 0 && (has(id, 'home') || !/wardrobe/i.test(attr(id, 'friendly_name') || '')));
+const balcAll = M.roomLights.filter(id => lightRank(id) === 1), balc = byHome(balcAll) || balcAll;
+const groups = [{ name: 'Main', icon: 'bulb', ids: pickMain(own) }, { name: 'Balcony', icon: 'balcony', ids: balc }]
+  .concat(Object.values(M.att).map(x => ({ name: x.z.name, icon: zoneIcon(x.z), ids: pickMain(x.lights) }))).filter(g => g.ids.length);
+const btns = pills([], groups).split('</button>').filter(Boolean).map(x => x + '</button>');
+M.scenes.forEach(id => btns.push(`<button class="pill" data-scene="${id}"><span class="ico">${svg('scene')}</span><span style="min-width:0"><div class="nm">${esc(NM(id))}</div><div class="lab">Scene</div></span></button>`));
+if (btns.length) out.push(`<div class="sp"></div><div class="row eq${btns.length >= 4 ? ' n4' : ''}">${btns.slice(0, 4).join('')}</div>`); });
 return out.join('');
+}
+function ufhLine(id, title){
+  const s = st(id); const off = s.state === 'off'; const cur = attr(id, 'current_temperature');
+  return `<div class="card${off ? '' : ' heat'}"><div class="row"><div style="min-width:0"><div class="nm">${esc(title)}</div><div class="lab${off ? '' : ' heat'}">${off ? 'Off' : 'On'}${cur != null ? ' · ' + fmtT(cur) + '°' : ''}</div></div><div class="sp"></div>${stepper(id, off)}<button class="btn sq${off ? '' : ' sel'}" data-mode="${id}" data-m="${off ? 'heat' : 'off'}" aria-label="Power">${svg('power')}</button></div>${ufhRunRow(id)}</div>`;
+}
+function ufhRunRow(id){
+  const r = runsOf(id, []); const tid = 'timer.inex_ufh_' + id.split('.')[1]; if (!r.length || !st(tid)) return '';
+  const ts = tState(tid);
+  return `<div class="row eq">${r.map((m, i) => `<button class="btn${ts.on && String(ts.dur || '').replace(/^0/, '') === durStr(m).replace(/^0/, '') ? ' sel' : ''}" data-urun="${id}" data-min="${m}">${i ? '' : svg('run')}<span class="t">${fmtMin(m)}</span></button>`).join('')}${ts.on ? `<div class="mid" style="font-size:20px;flex:none" data-left="${tid}">${leftText(ts)}</div>` : ''}</div>`;
 }
 function ufhCard(id, title, th){
   const s = st(id); const off = s.state === 'off'; const cur = th && th.t != null ? th.t : attr(id, 'current_temperature');
   return `<div class="card${off ? '' : ' heat'}"><div class="row"><div class="lab">${title}${off ? '' : ' <span class="lab heat">On</span>'}</div><div class="sp"></div>${cur != null ? `<div class="mid" style="font-size:22px">${fmtT(cur)}<small>°C</small></div>` : ''}${th && th.h != null ? `<div class="mid" style="font-size:22px;margin-left:8px">${th.h}<small>%</small></div>` : ''}</div>
-    <div class="row">${stepper(id, off)}<div class="sp"></div><button class="btn sq${off ? '' : ' sel'}" data-mode="${id}" data-m="${off ? 'heat' : 'off'}" aria-label="Power">${svg('power')}</button></div></div>`;
+    <div class="row">${stepper(id, off)}<div class="sp"></div><button class="btn sq${off ? '' : ' sel'}" data-mode="${id}" data-m="${off ? 'heat' : 'off'}" aria-label="Power">${svg('power')}</button></div>${ufhRunRow(id)}</div>`;
 }
 let lpage = 0;
 function vLight(){
@@ -421,12 +471,13 @@ function vCurtains(){
 }
 
 const wallTimerId = (id) => 'timer.inex_wall_' + id.split('.')[1];
-function vWC(){
+function vWC(key){
+  const Z = M.att[key] || M.att[Object.keys(M.att)[0]]; if (!Z) return '<div class="empty">Nothing here</div>';
   const out = [];
-  if (M.wcUfh) out.push(ufhCard(M.wcUfh, 'Floor heating', M.wcTH));
-  M.wcWalls.slice(0, 1).forEach(id => out.push(wallCard(id)));
-  if (M.wcLights.length) out.push(`<div class="sp"></div><div class="row">${pills(M.wcLights, M.wcLights.slice().sort(lightSort).slice(0, 2).map(id => ({ name: NM(id), icon: lightIcon(id), ids: [id] })))}</div>`);
-  return out.join('') || '<div class="empty">Add WC devices with label ' + esc(PANEL) + '_wc</div>';
+  if (Z.ufh) out.push(ufhCard(Z.ufh, 'Floor heating', Z.th));
+  Z.walls.slice(0, 1).forEach(id => out.push(wallCard(id)));
+  if (Z.lights.length) out.push(`<div class="sp"></div><div class="row">${pills(Z.lights, Z.lights.slice().sort(lightSort).slice(0, 2).map(id => ({ name: NM(id), icon: lightIcon(id), ids: [id] })))}</div>`);
+  return out.join('') || '<div class="empty">Add devices with label ' + esc(PANEL + '_' + Z.z.key) + '</div>';
 }
 function vWater(){
   const out = M.walls.slice(0, 1).map(wallCard);
@@ -435,11 +486,11 @@ function vWater(){
     const tid = timerOf(['water', 'hot_water']); const ts = tState(tid); const timed = on && ts.on;
     const sid = M.hot.find(id => dmn(id) === 'sensor'); let t = sid ? parseFloat(st(sid).state) : null; if (t == null || isNaN(t)) { const wh = hotDev.find(id => dmn(id) === 'water_heater'); t = wh ? attr(wh, 'current_temperature') : null; }
     out.push(`<div class="card${on ? ' heat' : ''}"><div class="row hd">${svg('boiler', 'width:18px;height:18px;color:' + (on ? 'var(--heat)' : 'var(--text2)'))}<div class="lab">Hot water</div>${t != null ? `<div class="mid" style="font-size:24px;margin-left:8px">${Math.round(t)}<small>°C</small></div>` : ''}<div class="sp"></div>${on ? `<span class="lab heat">On</span><div class="mid" style="font-size:24px;margin-left:6px" data-left="${tid || ''}">${timed ? leftText(ts) : 'Manual'}</div>` : '<div class="lab">Off</div>'}</div>
-      <div class="row">${WATER_RUNS.map(m => `<button class="btn${timed && String(ts.dur || '').replace(/^0/, '') === durStr(m).replace(/^0/, '') ? ' sel' : ''}" data-wrun="hot_water" data-min="${m}">${svg('run')}<span class="t">${fmtMin(m)}</span></button>`).join('')}<button class="btn${on ? '' : ' sel'}" data-woff="hot_water">${svg('power')}Off</button></div></div>`); }
+      <div class="row">${runsOf('fn:hot_water', WATER_RUNS).map(m => `<button class="btn${timed && String(ts.dur || '').replace(/^0/, '') === durStr(m).replace(/^0/, '') ? ' sel' : ''}" data-wrun="hot_water" data-min="${m}">${svg('run')}<span class="t">${fmtMin(m)}</span></button>`).join('')}<button class="btn${on ? '' : ' sel'}" data-woff="hot_water">${svg('power')}Off</button></div></div>`); }
   const recDev = M.rec.filter(id => ['switch', 'fan', 'input_boolean'].includes(dmn(id)));
   if (recDev.length){ const on = recDev.some(isOn); const tid = timerOf(['water', 'recirculation']); const ts = tState(tid);
     out.push(`<div class="card${on ? ' cool' : ''}"><div class="row hd">${svg('pumpc', 'width:18px;height:18px;color:' + (on ? 'var(--cool)' : 'var(--text2)'))}<div class="lab">Recirculation</div><div class="sp"></div>${on ? `<span class="lab cool">On</span>${ts.on ? `<div class="mid" style="font-size:24px;margin-left:6px" data-left="${tid || ''}">${leftText(ts)}</div>` : ''}` : '<div class="lab">Off</div>'}</div>
-      <div class="row"><button class="btn${on && ts.on ? ' sel' : ''}" data-wrun="recirculation" data-min="${REC_RUN}">${svg('run')}Run <span class="t">${fmtMin(REC_RUN)}</span></button><button class="btn${on ? '' : ' sel'}" data-woff="recirculation">${svg('power')}Off</button></div></div>`); }
+      <div class="row"><button class="btn${on && ts.on ? ' sel' : ''}" data-wrun="recirculation" data-min="${runsOf('fn:recirculation', [REC_RUN])[0]}">${svg('run')}Run <span class="t">${fmtMin(runsOf('fn:recirculation', [REC_RUN])[0])}</span></button><button class="btn${on ? '' : ' sel'}" data-woff="recirculation">${svg('power')}Off</button></div></div>`); }
   return out.join('') || '<div class="empty">Label the heated wall with ' + esc(PANEL) + '</div>';
 }
 
@@ -471,7 +522,8 @@ function render(){
   if (dragging) return;
   M = safe(model, M); if (!M) return; safe(renderHead); const T = safe(tabs, [['home', 'Home', 'home']]); if (!T.some(t => t[0] === view)) view = 'home';
   $('nav').innerHTML = T.map(([k, n, ic]) => `<button class="${k === view ? 'on' : ''}" data-tab="${k}">${svg(ic)}<span>${n}</span></button>`).join('');
-  $('view').innerHTML = safe({ home: vHome, light: vLight, curtains: vCurtains, wc: vWC, water: vWater }[view] || vHome, '<div class="empty">This section is temporarily unavailable</div>');
+  $('view').classList.toggle('home', view === 'home');
+  $('view').innerHTML = safe(view.startsWith('att:') ? () => vWC(view.slice(4)) : ({ home: vHome, light: vLight, curtains: vCurtains, wc: () => vWC('wc'), water: vWater }[view] || vHome), '<div class="empty">This section is temporarily unavailable</div>');
   const night = safe(nightNow, false); $('night').classList.toggle('show', night); if (night) safe(renderNight);
 }
 function tick(){
@@ -494,9 +546,9 @@ async function ensureTimer(tid, labels, dur){
     await HA().callWS({ type: 'config/entity_registry/update', entity_id: tid, labels }).catch(() => {}); return tid; }
   catch (e) { toast('Run timer missing'); return null; }
 }
-async function wallAct(a, id){
+async function wallAct(a, id, min){
   const tid = wallTimerId(id); const t = st(tid);
-  if (a === 'run') { call('climate', 'set_hvac_mode', { entity_id: id, hvac_mode: 'heat' }); const ok = await ensureTimer(tid, lbl(id).filter(l => l !== 'home'), durStr(wallRunOf(id))); if (ok) { call('timer', 'start', { entity_id: tid, duration: durStr(wallRunOf(id)) }); toast('Heated wall · ' + fmtMin(wallRunOf(id))); } return; }
+  if (a === 'run') { call('climate', 'set_hvac_mode', { entity_id: id, hvac_mode: 'heat' }); const ok = await ensureTimer(tid, lbl(id).filter(l => l !== 'home'), durStr(min || wallRunOf(id))); if (ok) { call('timer', 'start', { entity_id: tid, duration: durStr(min || wallRunOf(id)) }); toast('Heated wall · ' + fmtMin(min || wallRunOf(id))); } return; }
   if (t && t.state !== 'idle') call('timer', 'cancel', { entity_id: tid });
   call('climate', 'set_hvac_mode', { entity_id: id, hvac_mode: a === 'man' ? 'heat' : 'off' });
 }
@@ -527,7 +579,11 @@ document.addEventListener('click', (e) => {
   if (d.tmp) { stepTemp(d.tmp, +d.d); return; }
   if (d.mode) { call('climate', 'set_hvac_mode', { entity_id: d.mode, hvac_mode: d.m }); return; }
   if (d.cv) { call('cover', d.cv, { entity_id: d.id }); return; }
-  if (d.wall) { wallAct(d.wall, d.id); return; }
+  if (d.wall) { wallAct(d.wall, d.id, +d.min || 0); return; }
+  if (d.fan) { call('climate', 'set_fan_mode', { entity_id: d.fan, fan_mode: d.f }); return; }
+  if (d.scene) { call(dmn(d.scene) === 'script' ? 'script' : 'scene', 'turn_on', { entity_id: d.scene }); toast(NM(d.scene)); return; }
+  if (d.urun) { const id = d.urun, tid = 'timer.inex_ufh_' + id.split('.')[1]; if (dmn(id) === 'climate') call('climate', 'set_hvac_mode', { entity_id: id, hvac_mode: 'heat' }); else call('homeassistant', 'turn_on', { entity_id: id });
+    if (st(tid)) { call('timer', 'start', { entity_id: tid, duration: durStr(+d.min) }); toast('Floor heating · ' + fmtMin(+d.min)); } return; }
   if (d.wrun) { waterRun(d.wrun, +d.min); return; }
   if (d.woff) { waterOff(d.woff); return; }
 });
@@ -568,7 +624,7 @@ function start(){
 function wallCard(id){
   const off = st(id).state === 'off'; const ts = tState(wallTimerId(id)); const timed = !off && ts.on; const cur = attr(id, 'current_temperature'); const r = roomOf(id);
   return `<div class="card${off ? '' : ' heat'}"><div class="row hd">${svg('waves', 'width:18px;height:18px;color:' + (off ? 'var(--text2)' : 'var(--heat)'))}<div class="lab">Heated wall${r && r !== ROOM ? ' · ' + esc(pretty(r)) : ''}${cur != null ? ' · ' + fmtT(cur) + '°' : ''}</div><div class="sp"></div>${off ? '<div class="lab">Off</div>' : `<span class="lab heat">On</span><div class="mid" style="font-size:24px;margin-left:6px" data-left="${wallTimerId(id)}">${timed ? leftText(ts) : 'Manual'}</div>`}</div>
-    <div class="row"><button class="btn${timed ? ' sel' : ''}" data-wall="run" data-id="${id}">${svg('run')}Run <span class="t">${fmtMin(wallRunOf(id))}</span></button><button class="btn${!off && !timed ? ' sel' : ''}" data-wall="man" data-id="${id}">${svg('hand')}Manual</button><button class="btn${off ? ' sel' : ''}" data-wall="off" data-id="${id}">${svg('power')}Off</button></div></div>`;
+    <div class="row">${runsOf(id, [WALL_RUN]).map((m, i) => `<button class="btn${timed && String(ts.dur || '').replace(/^0/, '') === durStr(m).replace(/^0/, '') ? ' sel' : ''}" data-wall="run" data-id="${id}" data-min="${m}">${i ? '' : svg('run')}<span class="t">${fmtMin(m)}</span></button>`).join('')}<button class="btn${!off && !timed ? ' sel' : ''}" data-wall="man" data-id="${id}">${svg('hand')}Manual</button><button class="btn${off ? ' sel' : ''}" data-wall="off" data-id="${id}">${svg('power')}Off</button></div></div>`;
 }
 
 /* Light order (same rule on every panel): own room first -> balcony -> WC; inside a zone: main -> cove/vanity -> other */

@@ -206,7 +206,7 @@ button{font:inherit;color:inherit;cursor:pointer;margin:0}
 <script>
 /* INEX wall panel 10" — single consolidated file (no override blocks).
    BUILD changes on every deploy; open panels compare it every 10 min and reload themselves. */
-const BUILD = '1.1.0';
+const BUILD = '1.2.0';
 let lastMsg = Date.now(), downSince = 0, noData = 0, reloading = false; const BOOT = Date.now();
 const UNAVAILABLE = '<div class="empty">This section is temporarily unavailable</div>';
 function safe(fn, fallback = ''){ try { return fn(); } catch (e) { console.error('[panel]', e); return fallback; } }
@@ -263,8 +263,9 @@ const PANEL = {
 /* SSV 1.1: panel settings live in the integration (SSV Dashboard page) — the address only names the panel.
    Old addresses with villa= / place= / room= keep working and win over the stored settings. */
 let CFG = null;
-const RUN = { wall: 180, per: {} };
-const runOf = (id) => (RUN.per && RUN.per[id]) || RUN.wall || 180;
+/* run buttons chosen on the SSV Dashboard page: key (entity id or fn:<function>) -> minutes */
+const runsOf = (key, def) => { const r = CFG && CFG.runs && CFG.runs[key]; return (Array.isArray(r) && r.length) ? r.slice(0, 4) : (Array.isArray(r) ? def : (typeof r === 'number' ? [r] : def)); };
+const runOf = (id) => Math.max(...runsOf(id, [180]));
 function applyCfg(c){
   CFG = c || null; if (!CFG) return;
   if (!Q.get('villa') && CFG.villa) PANEL.villa = CFG.villa;
@@ -273,7 +274,6 @@ function applyCfg(c){
   const n = CFG.night || {};
   if (n.enabled === false) SET.nightIdleMinutes = 0;
   if (n.from != null) SET.nightFrom = +n.from; if (n.to != null) SET.nightTo = +n.to;
-  if (CFG.runs) { RUN.wall = +CFG.runs.wall || 180; RUN.per = CFG.runs.per || {}; }
 }
 const tabOn = (k) => !CFG || !CFG.tabs || CFG.tabs[k] !== false;
 const SET = {
@@ -1033,7 +1033,14 @@ function acBlock(id, roomy){
 function heatBlock(id){
   const s = st(id); const na = !real(id); const off = s.state === 'off' || na;
   return `<div class="blk ${off?'':'heat'}"><div class="row" style="gap:8px"><div class="lab">${svg('waves', `color:${off?'var(--text2)':'var(--heat)'}`)}<div class="col" style="gap:2px"><b style="color:${off?'var(--soft)':'var(--heat)'}">${esc(heatLabel(id))}</b><span class="s ${off?'dim':'heat'}">${na?'Unavailable':off?'Off':'Heating'}</span></div></div>
-    ${stepper(id, off)}<button class="btn sq${off?'':' sel'}" data-mode="${id}" data-m="${off?'heat':'off'}" aria-label="Power">${svg('power')}</button></div></div>`;
+    ${stepper(id, off)}<button class="btn sq${off?'':' sel'}" data-mode="${id}" data-m="${off?'heat':'off'}" aria-label="Power">${svg('power')}</button></div>${ufhRuns(id)}</div>`;
+}
+function ufhRuns(id){
+  const r = CFG && CFG.runs && CFG.runs[id]; const tid = 'timer.inex_ufh_' + id.split('.')[1];
+  if (!Array.isArray(r) || !r.length || !S[tid]) return '';
+  const t = S[tid]; const on = t.state === 'active' || t.state === 'paused';
+  const left = on && t.attributes.finishes_at ? hms((new Date(t.attributes.finishes_at) - Date.now()) / 1000) : '';
+  return `<div class="row" style="gap:8px;margin-top:8px">${r.slice(0, 4).map((m, i) => `<button class="btn f${on && t.attributes.duration === durStr(m).replace(/^0/, '') ? ' sel' : ' ghost'}" data-urun="${id}" data-min="${m}" style="flex:1;gap:6px">${i ? '' : WI.run}<span style="text-transform:none">${fmtMin(m)}</span></button>`).join('')}${left ? `<span class="s heat" style="flex:none">${left}</span>` : ''}</div>`;
 }
 
 function viewCurtains(){
@@ -1309,7 +1316,8 @@ stage.addEventListener('click', (e) => {
   if (d.wtoff) { wOff(d.wtoff); return; }
   if (d.vopen) { valveSet(d.vopen, true); return; }
   if (d.vclose) { valveSet(d.vclose, false); return; }
-  if (d.wrun) { wallRun(d.wrun); return; }
+  if (d.wrun) { wallRun(d.wrun, +d.min || runOf(d.wrun)); return; }
+  if (d.urun) { ufhRun(d.urun, +d.min); return; }
   if (d.wman) { wallSet(d.wman, 'heat'); return; }
   if (d.woff) { wallSet(d.woff, 'off'); return; }
   if (d.lfloor) { UI.lightFloor = d.lfloor; UI.lightRoom = null; render(); return; }
@@ -1434,13 +1442,13 @@ function viewHeating(){
   zonesBy(CL.wall).forEach(({ r, ids }) => ids.forEach(id => zones.push({ r, id })));
   const { items, pager } = paged('heating', zones, 4);
   const cards = items.map(z => { const w = wallState(z.id);
-    const b = (on, attr, icon, label) => `<button class="btn${on ? ' sel' : ' ghost'}" ${attr}="${z.id}" style="gap:8px">${icon}${label}</button>`;
+    const b = (on, attr, icon, label) => `<button class="btn${on ? ' sel' : ' ghost'}" ${attr}="${z.id}" style="gap:8px;flex:${label ? '1 1 0' : 'none'};min-width:${label ? '0' : '56px'}">${icon}${label}</button>`;
     return `<div class="card${w.off ? '' : ' heat'}${w.na ? ' na' : ''}" style="gap:14px">
       <div class="row"><div class="col"><div class="e w">${esc(z.r.name)}</div><div class="s">Heated wall</div></div>${svg('waves', `width:30px;height:30px;color:${w.off ? 'var(--text2)' : 'var(--heat)'}`)}</div>
       <div style="flex:1;display:flex;align-items:center;justify-content:space-between;gap:16px">
         <div class="col" style="gap:6px"><div style="font-size:64px;font-weight:200;letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums">${w.cur != null ? fmtT(w.cur) : '--'}<span style="font-size:24px;color:var(--text2);margin-left:4px">°C</span></div><div class="s${w.off ? '' : ' heat'}" style="font-size:14px">${esc(w.status)}</div></div>
         <div class="row" style="flex:none;gap:10px">${stepper(z.id, w.off)}</div></div>
-      ${schedChip([z.id])}<div class="row" style="gap:10px">${b(w.timed, 'data-wrun', WI.run, 'Run <span style="text-transform:none">' + fmtMin(runOf(z.id)) + '</span>')}${b(!w.off && !w.timed, 'data-wman', WI.hand, 'Manual on')}${b(w.off, 'data-woff', WI.off, 'Off')}</div></div>`;
+      ${schedChip([z.id])}<div class="row" style="gap:10px">${runsOf(z.id, [180]).map((m, i) => `<button class="btn${w.timed && w.dur === durStr(m).replace(/^0/, '') ? ' sel' : ' ghost'}" data-wrun="${z.id}" data-min="${m}" style="gap:8px;flex:1 1 0;min-width:0">${i ? '' : WI.run}${i ? '' : 'Run '}<span style="text-transform:none">${fmtMin(m)}</span></button>`).join('')}${runsOf(z.id, [180]).length > 1 ? b(!w.off && !w.timed, 'data-wman', WI.hand, '') + b(w.off, 'data-woff', WI.off, '') : b(!w.off && !w.timed, 'data-wman', WI.hand, 'Manual on') + b(w.off, 'data-woff', WI.off, 'Off')}</div></div>`;
   }).join('');
   return `<div class="vw" style="gap:${pager ? '16px' : '0'}">${pager ? `<div class="bar"><div class="sp"></div>${pager}</div>` : ''}
     <div class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr))">${cards || '<div class="empty" style="grid-column:1/-1">No heating zones</div>'}</div></div>`;
@@ -1473,11 +1481,18 @@ async function ensureWallTimer(id){
     return tid;
   } catch (e) { toast('Run timer missing · ask installer'); return null; }
 }
-async function wallRun(id){
+async function ufhRun(id, min){
+  const tid = 'timer.inex_ufh_' + id.split('.')[1]; if (!S[tid]) { toast('Run timer missing · SSV Dashboard → Run timers'); return; }
+  if (dmn(id) === 'climate') { optimistic(id, 'heat'); call('climate', 'set_hvac_mode', { hvac_mode: 'heat' }, { entity_id: id }); }
+  else { optimistic(id, 'on'); call('homeassistant', 'turn_on', {}, { entity_id: id }); }
+  call('timer', 'start', { duration: durStr(min) }, { entity_id: tid }); toast(NM(id) + ' · ' + fmtMin(min));
+}
+async function wallRun(id, min){
+  min = min || runOf(id);
   optimistic(id, 'heat');
   call('climate', 'set_hvac_mode', { hvac_mode: 'heat' }, { entity_id: id });
   const tid = await ensureWallTimer(id);
-  if (tid) { call('timer', 'start', { duration: durStr(runOf(id)) }, { entity_id: tid }); toast(NM(id) + ' · ' + fmtMin(runOf(id))); }
+  if (tid) { call('timer', 'start', { duration: durStr(min) }, { entity_id: tid }); toast(NM(id) + ' · ' + fmtMin(min)); }
 }
 function wallSet(id, mode){
   optimistic(id, mode);
@@ -1540,7 +1555,7 @@ async function loadStats(id){
 }
 function fnCard(fn){
   const g = wGroup(fn); if (!g.dev.length) return '';
-  const w = wState(g); const F = WFN[fn];
+  const w = wState(g); const F = Object.assign({}, WFN[fn], { runs: runsOf('fn:' + fn, WFN[fn].runs) });
   const runs = F.runs.map(m => `<button class="btn${w.timed && w.dur === durStr(m).replace(/^0/, '') ? ' sel' : ' ghost'}" data-wtrun="${fn}" data-min="${m}" style="gap:8px">${WI.run}${F.runs.length > 2 ? '' : 'Run '}<span style="text-transform:none">${fmtMin(m)}</span></button>`).join('');
   return `<div class="card${w.on ? ' heat' : ''}${w.na ? ' na' : ''}" style="gap:14px">
     <div class="row"><div class="col"><div class="e w">${F.name}</div><div class="s">${F.sub}</div></div>${svg(F.icon, `width:30px;height:30px;color:${w.on ? 'var(--heat)' : 'var(--text2)'}`)}</div>
