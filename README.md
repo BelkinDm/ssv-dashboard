@@ -10,9 +10,9 @@ Everything on the panels is built from Home Assistant itself: floors → rooms �
 | Room panel 4″ (`room.html`) | Light, curtains, climate, WC and water of one room, night mode |
 | Phone (`phone.html`) | Same logic with bottom tabs Home · Rooms · Lights · Climate · More; on a screen of 600 × 900 or more it switches to the Tablet dashboard |
 | User scenes | Guests create, change and delete their own scenes from devices labelled **Scene Device** — only with values the device supports |
-| Run timers | “Run 3h” on heated walls and hot water / recirculation; the integration turns the device off when the timer ends |
+| Run timers | Run buttons (e.g. 1h / 2h / 3h) for heated walls, floor heating, hot water and recirculation — chosen on the SSV Dashboard page; the integration turns the device off when the timer ends |
 | `sensor.ssv_time` | Panel clocks follow Home Assistant time, not the tablet's clock |
-| Panels | Each screen is a panel with a name, screen type (10″, 4″, Tablet, Phone), purpose (residential, hotel room, office, gym, common area), rooms and tabs; each gets its own dashboard and label `Panel · <name>` |
+| Panels | Each screen is a panel with a name, screen type (10″, 4″, Tablet, Phone; 5.5″ Main / Room coming), purpose (residential, hotel room, office, gym, common area), rooms, attached rooms (WC, Shower…) and tabs; each gets its own dashboard and labels `Panel <Name>`, `Panel <Name> <Room>` |
 | SSV Dashboard page | Admin page in the sidebar: panels, start page, run times, and a check of the integrations each tab needs with install through HACS |
 
 ## Install
@@ -22,11 +22,12 @@ Everything on the panels is built from Home Assistant itself: floors → rooms �
 3. **Settings → Devices & services → Add integration → SSV Dashboard**.
 4. Open **SSV Dashboard** in the sidebar:
    - **Integrations** shows what every tab needs; missing ones from HACS (Scheduler, WebRTC Camera, kiosk-mode, card-mod) install with one button, then restart and press **Add**;
-   - **New panel** — name, screen, purpose, rooms, tabs, night screen; saving creates the dashboard `/ssv-<id>/main` and the label `Panel · <name>`;
+   - **New panel** — name, screen, purpose, rooms, attached rooms (room panel), tabs, night screen; saving creates the dashboard `/ssv-<id>/main` and the labels `Panel <Name>` / `Panel <Name> <Room>`;
    - **Start page** makes a dashboard the start page for everyone;
-   - **Run timers** are created and removed by themselves as labels change; set the run time here.
+   - **Run timers** — tick heated walls, floor heating, hot water, recirculation, type the buttons in minutes, press Save;
+   - when a new SSV Dashboard is out, the page shows **Update now** and Home Assistant shows a notification (push to a phone: integration options → notify service).
 
-Then put labels on your entities (Settings → Entities → select → Add label). The labels are created by the integration.
+Then put labels on your entities (Settings → Entities → select → Add label). The labels are created by the integration, all named in one style: every word capitalised, spaces between words, abbreviations in capitals (AC, UFH, CCTV, WC).
 
 | Label | Put it on |
 | --- | --- |
@@ -37,7 +38,7 @@ Then put labels on your entities (Settings → Entities → select → Add label
 | `water`, `hot_water`, `recirculation`, `valve`, `water_meter` | Water functions |
 | `cctv`, `alarm`, `doorbell`, `critical` | Cameras, alarm, intercom, leak / smoke sensors |
 | `home`, `schedule`, `no_panel` | Tile on Home, Scheduler entities, hide from all panels |
-| `panel_<id>` | Made with each panel. On an area: the whole room goes to that panel. On a device or entity: just that device, wherever it is installed |
+| `panel_<id>`, `panel_<id>_<room>` | Made with each panel and attached room (names in one style: Panel Bedroom 3, Panel Bedroom 3 WC). On an area: the whole room goes to that panel. On a device or entity: just that device, wherever it is installed |
 
 ## Panel address parameters
 
