@@ -302,3 +302,20 @@ async def test_room_panel_wc_and_labels_list(hass, hass_ws_client):
     assert rows["panel_master_wc"]["group"] == "panel" and rows["panel_master_wc"]["entities"] == 1
     assert rows["panel_master"]["name"] == "Panel Master Bedroom"
     assert rows["light"]["entities"] >= 1
+
+
+async def test_room_labels_made_with_panel(hass, hass_ws_client):
+    """Saving a panel makes the room labels of its areas (id = area id) and lists them."""
+    from homeassistant.helpers import area_registry as ar
+    await _setup(hass)
+    area = ar.async_get(hass).async_create("Bedroom 1")
+    ws = await hass_ws_client(hass)
+    await ws.send_json({"id": 1, "type": "ssv_dashboard/panels/save", "panel": {
+        "id": "bedroom_1", "name": "Bedroom 1", "type": "room", "areas": [area.id]}})
+    r = await ws.receive_json()
+    assert r["success"], r
+    assert area.id in r["result"]["labels"]
+    assert lr.async_get(hass).async_get_label(area.id).name == "Bedroom 1"
+    await ws.send_json({"id": 2, "type": "ssv_dashboard/labels/list"})
+    rows = {x["id"]: x for x in (await ws.receive_json())["result"]["labels"]}
+    assert rows[area.id]["group"] == "room"
