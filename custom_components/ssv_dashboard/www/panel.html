@@ -206,7 +206,7 @@ button{font:inherit;color:inherit;cursor:pointer;margin:0}
 <script>
 /* INEX wall panel 10" — single consolidated file (no override blocks).
    BUILD changes on every deploy; open panels compare it every 10 min and reload themselves. */
-const BUILD = '1.2.0';
+const BUILD = '1.2.1';
 let lastMsg = Date.now(), downSince = 0, noData = 0, reloading = false; const BOOT = Date.now();
 const UNAVAILABLE = '<div class="empty">This section is temporarily unavailable</div>';
 function safe(fn, fallback = ''){ try { return fn(); } catch (e) { console.error('[panel]', e); return fallback; } }
@@ -235,9 +235,10 @@ function watchdog(){
    and reports a real state. Nothing is listed by hand.
 
    URL parameters
-     ?panel=living        panel id. If any area carries the label
-                          "panel_<id>" (e.g. panel_living), this panel shows
-                          only those areas; otherwise the whole house.
+     ?panel=<id>          panel made on the SSV Dashboard page: its rooms, tabs,
+                          night hours and Run buttons come from there.
+                          The label "Panel <Name>" (id panel_<id>) adds a room
+                          (on its area) or a single device to this panel.
      ?room=living_room    room shown big on Home (default: first room with
                           climate / temperature on the lowest floor)
      ?villa=Morea 1       name in the sidebar (default: HA location name)
@@ -249,7 +250,7 @@ function watchdog(){
      panel_hide    entity never shown on panels
      light         switch.* that drives a light → shown as a light
      scene         script.* shown as a scene (all scene.* are scenes)
-     panel_<id>    on an AREA: bind that room to panel <id>
+     Panel <Name>  (id panel_<id>) on an area: that room; on a device: just it
    Timer loads (Water tab): timer.X + script.X_timer (+ script.X_stop)
    ===================================================================== */
 const Q = new URLSearchParams(location.search);

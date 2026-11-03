@@ -1,7 +1,7 @@
 /* SSV Dashboard — installer page (admin only). Version __SSV_VERSION__
    1.1: panels are objects (name, screen type, purpose, rooms, tabs, night) kept by the integration;
    each gets its own label "Panel <Name>" and its own dashboard; a room panel can have attached rooms
-   (WC, Shower ...) with labels "Panel <Name> <Room>". Run timers are chosen here and made on Save. The page also checks the
+   (WC, Shower ...) with labels "Panel <Name> <Room>" (a room panel always has Panel <Name> WC). Run timers are chosen here and made on Save. The page also checks the
    integrations every tab needs and can install the missing ones through HACS. */
 const FILES = '/ssv_dashboard/';
 const KIOSK_GUEST = { kiosk: false, hide_header: true, hide_sidebar: true, hide_menubutton: true, hide_overflow: true,
@@ -56,6 +56,12 @@ function ssvCard(cfg) {
   return { legacy: m[1] !== FILES, file: m[2], query: new URLSearchParams(m[3] || ''), url: c.url };
 }
 function newPanel() { return { id: '', name: '', type: 'wall', purpose: 'residential', areas: [], room: '', attached: [], tabs: {}, night: { enabled: true, from: 22, to: 7 }, villa: '', place: '' }; }
+/* labels a panel owns, as Home Assistant shows them: Panel <Name>, Panel <Name> <Room>; a room panel always has Panel <Name> WC */
+function panelLabels(p) {
+  const n = nice(p.name), att = (p.attached || []).map(a => nice(a.name));
+  if (p.type === 'room' && !(p.attached || []).some(a => a.key === 'wc' || /^wc$/i.test(a.name))) att.push('WC');
+  return ['Panel ' + n].concat(att.map(a => 'Panel ' + n + ' ' + a));
+}
 const KIND = { wall: 'Heated wall', ufh: 'Floor heating', hot_water: 'Hot water', recirculation: 'Recirculation' };
 const parseRuns = (t) => [...new Set(String(t || '').split(/[\s,;]+/).map(x => parseInt(x, 10)).filter(x => x >= 5 && x <= 1440))].sort((a, b) => a - b).slice(0, 4);
 const nice = (t) => String(t || '').split(/[\s_\-·&\/]+/).filter(Boolean).map(w => /^(ac|ufh|cctv|wc|tv|ups|ev|hvac|led|rgb|spa|bbq)$/i.test(w) ? w.toUpperCase() : w[0].toUpperCase() + w.slice(1)).join(' ');
@@ -79,7 +85,7 @@ class SSVSetup extends HTMLElement {
   async load() {
     const S = this.st;
     try {
-      const [info, dashes, areas, ents, resources, sys, panels, hacs, timers] = await Promise.all([
+      const [info, dashes, areas, ents, resources, sys, panels, hacs, timers, labels] = await Promise.all([
         this.ws({ type: 'ssv_dashboard/info' }),
         this.ws({ type: 'lovelace/dashboards/list' }),
         this.ws({ type: 'config/area_registry/list' }),
@@ -89,7 +95,9 @@ class SSVSetup extends HTMLElement {
         this.ws({ type: 'ssv_dashboard/panels/list' }),
         this.ws({ type: 'hacs/repositories/list' }).catch(() => null),
         this.ws({ type: 'ssv_dashboard/timers/list' }).catch(() => ({ items: [] })),
+        this.ws({ type: 'ssv_dashboard/labels/list' }).catch(() => ({ labels: [] })),
       ]);
+      S.labels = labels.labels || [];
       S.info = info; S.areas = areas.sort((a, b) => a.name.localeCompare(b.name));
       S.resources = resources; S.defaultPanel = (sys && sys.value && sys.value.default_panel) || null;
       S.ents = ents.entities || []; S.panels = panels.panels || [];
@@ -135,7 +143,7 @@ class SSVSetup extends HTMLElement {
     const r = await this.ws({ type: 'ssv_dashboard/panels/save', panel: body });
     const path = await this.writeDash(body);
     this.st.ed = null;
-    return `${body.name} saved · dashboard /${path} · labels ${(r.labels || [r.label]).join(', ')}`;
+    return `${body.name} saved · dashboard /${path} · labels ${panelLabels(body).join(', ')}`;
   }
   async moveLegacy(x) {
     /* old dashboard → same page from the integration's files, same parameters */
@@ -175,7 +183,7 @@ class SSVSetup extends HTMLElement {
     if (f === 'ton') { this.st.timers[+t.dataset.i].on = t.checked; this.st.tdirty = true; return this.render(); }
     const ed = this.st.ed; if (!ed) return;
     if (f === 'attarea') { ed.attached[+t.dataset.i].area = t.value || null; return; }
-    if (f === 'type') { ed.type = t.value; }
+    if (f === 'type') { ed.type = t.value; if (ed.type === 'room' && !ed._existing && !(ed.attached || []).length) ed.attached = [{ name: 'WC', area: null }]; }
     else if (f === 'purpose') { ed.purpose = t.value; const P = PURPOSES[t.value]; ed.tabs = {}; P.off.forEach(k => ed.tabs[k] = false); ed.night.enabled = P.night; }
     else if (f === 'area') { const a = t.value; ed.areas = t.checked ? [...new Set([...ed.areas, a])] : ed.areas.filter(x => x !== a); if (!ed.areas.includes(ed.room)) ed.room = ed.areas[0] || ''; }
     else if (f === 'room') ed.room = t.value;
@@ -230,7 +238,7 @@ class SSVSetup extends HTMLElement {
     const panelRows = (S.panels || []).map(p => {
       const path = dashPath(p.id), def = S.defaultPanel === path;
       const rooms = (p.areas || []).length ? p.areas.map(areaName).join(', ') : 'Whole house';
-      return `<tr><td><a href="/${esc(path)}/main" target="_top">${esc(p.name)}</a>${def ? ' <span class="tag">start page</span>' : ''}<div class="mono dim">panel_${esc(p.id)}</div></td>
+      return `<tr><td><a href="/${esc(path)}/main" target="_top">${esc(p.name)}</a>${def ? ' <span class="tag">start page</span>' : ''}<div class="dim">${esc(panelLabels(p).join(' · '))}</div></td>
         <td>${esc(TYPES[p.type] ? TYPES[p.type].label : p.type)}</td><td>${esc((PURPOSES[p.purpose] || {}).label || p.purpose)}</td><td>${esc(rooms)}</td>
         <td class="act"><button data-edit="${esc(p.id)}">Edit</button><button data-default="${esc(path)}"${def ? ' disabled' : ''}>Start page</button><button class="sec" data-del="${esc(p.id)}">Remove</button></td></tr>`;
     }).join('') || '<tr><td colspan="5" class="dim">No panels yet — press “New panel”.</td></tr>';
@@ -241,6 +249,11 @@ class SSVSetup extends HTMLElement {
       <td>${esc(KIND[c.kind] || c.kind)}</td><td><input data-f="truns" data-i="${i}" value="${esc(c.text)}" placeholder="60, 120, 180"${c.on ? '' : ' disabled'} style="width:100%;box-sizing:border-box"></td>
       <td class="mono">${esc(c.timer)}</td><td>${c.chosen ? ok(c.exists) : '<span class="dim">—</span>'}</td></tr>`).join('')
       || '<tr><td colspan="5" class="dim">Nothing found yet. Label climates Heated Wall or UFH, and water devices Water + Hot Water / Recirculation, then reload this page.</td></tr>';
+
+    const used = (l) => [l.areas && l.areas + (l.areas > 1 ? ' areas' : ' area'), l.devices && l.devices + (l.devices > 1 ? ' devices' : ' device'), l.entities && l.entities + (l.entities > 1 ? ' entities' : ' entity')].filter(Boolean).join(', ');
+    const labelRows = (S.labels || []).map((l, i, all) => `${l.group === 'panel' && (i === 0 || all[i - 1].group !== 'panel') ? '<tr><th colspan="4">Made with the panels</th></tr>' : ''}<tr><td>${esc(l.name)}${l.exists ? '' : ' <span class="bad">missing</span>'}<div class="mono dim">${esc(l.id)}</div></td>
+      <td>${esc(l.use)}</td><td>${used(l) || '<span class="dim">not used yet</span>'}</td></tr>`).join('')
+      || '<tr><td colspan="3" class="dim">—</td></tr>';
 
     this.shadowRoot.innerHTML = `<style>
       :host{display:block;min-height:100vh;background:var(--primary-background-color,#fafafa);color:var(--primary-text-color,#212121);font-family:var(--paper-font-body1_-_font-family, Roboto, sans-serif)}
@@ -279,7 +292,7 @@ class SSVSetup extends HTMLElement {
       </div>
 
       <div class="card"><h2>Panels</h2>
-        <p>A panel is one screen: what it is, where it hangs, which rooms it controls and which tabs it shows. Each panel gets its own dashboard and its own label <span class="mono">Panel Name</span> — put that label on a room or on a single device to add it to this panel.</p>
+        <p>A panel is one screen: what it is, where it hangs, which rooms it controls and which tabs it shows. Each panel gets its own dashboard and its own label <span class="mono">Panel &lt;Name&gt;</span> (a room panel also <span class="mono">Panel &lt;Name&gt; WC</span>) — put that label on a room or on a single device to add it to this panel.</p>
         <table><tr><th style="width:24%">Panel</th><th style="width:13%">Screen</th><th style="width:18%">Purpose</th><th>Rooms</th><th style="width:27%"></th></tr>${panelRows}</table>
         <div class="row" style="margin-top:12px"><button data-act="new">New panel</button></div>
         ${this.editor()}
@@ -295,6 +308,11 @@ class SSVSetup extends HTMLElement {
       </div>
 
       <div class="card"><h2>Log</h2><div class="log">${S.log.map(l => `<div class="${l.bad ? 'bad' : ''}">${esc(l.t)} · ${esc(l.m)}</div>`).join('') || '<span class="dim">—</span>'}</div></div>
+
+      <div class="card"><h2>Labels</h2>
+        <p>Every label SSV Dashboard reads. The panels look for the id; Settings → Labels shows the name. Labels of each panel and its attached rooms are added here when the panel is saved.</p>
+        <table><tr><th style="width:30%">Label</th><th>What for</th><th style="width:24%">Used on</th></tr>${labelRows.replace(/colspan="4"/g, 'colspan="3"')}</table>
+      </div>
     </div>`;
     if (S.busy) this.shadowRoot.querySelectorAll('button').forEach(b => b.disabled = true);
   }
@@ -315,7 +333,7 @@ class SSVSetup extends HTMLElement {
       </div>
       <p style="margin-top:12px">Rooms this panel controls ${ed.type === 'room' ? '(a room panel needs at least one)' : '(none = whole house)'}:</p>
       <div class="box">${areaBoxes}</div>
-      ${ed.type === 'room' ? `<p style="margin-top:12px">Attached rooms (WC, Shower, Balcony…) — each gets a tab on the panel and the label <span class="mono">Panel ${esc(nice(ed.name) || 'Name')} &lt;Room&gt;</span>; devices go there by that label or by the room's area:</p>
+      ${ed.type === 'room' ? `<p style="margin-top:12px">Attached rooms (WC, Shower, Balcony…) — each gets a tab on the panel and the label <span class="mono">Panel ${nice(ed.name) ? esc(nice(ed.name)) : '&lt;Name&gt;'} &lt;Room&gt;</span> (WC is always there on a room panel); devices go there by that label or by the room's area:</p>
       <div style="display:flex;flex-direction:column;gap:8px">${(ed.attached || []).map((a, i) => `<div class="row"><input data-f="attname" data-i="${i}" value="${esc(a.name)}" placeholder="WC" style="flex:1"><select data-f="attarea" data-i="${i}" style="flex:1"><option value="">Area: none (label only)</option>${areas.map(x => `<option value="${esc(x.area_id)}"${x.area_id === a.area ? ' selected' : ''}>${esc(x.name)}</option>`).join('')}</select><button class="sec" data-attdel="${i}">Remove</button></div>`).join('')}
         <div class="row"><button class="sec" data-act="attadd">Add attached room</button></div></div>` : ''}
       <div class="grid" style="margin-top:12px">
