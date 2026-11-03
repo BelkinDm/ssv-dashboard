@@ -139,11 +139,40 @@ def panel_label_specs(panel: dict) -> list[tuple[str, str, str, str]]:
     return out
 
 
+def panel_areas(hass: HomeAssistant, panel: dict) -> list:
+    """Areas a panel controls: its rooms, its home room and the areas of attached rooms (none listed = whole house)."""
+    areg = ar.async_get(hass)
+    ids = list(panel.get("areas") or [])
+    if panel.get("room"):
+        ids.append(panel["room"])
+    ids += [a["area"] for a in panel.get("attached") or [] if a.get("area")]
+    if not ids:
+        return sorted(areg.async_list_areas(), key=lambda a: a.name.lower())
+    out = []
+    for i in dict.fromkeys(ids):
+        a = areg.async_get_area(i)
+        if a:
+            out.append(a)
+    return out
+
+
+@callback
+def ensure_room_labels(hass: HomeAssistant, panel: dict) -> list[str]:
+    """Room labels (<room>) for the panel's areas: id = area id, name = area name — Bedroom 1 (bedroom_1)."""
+    made = []
+    for a in panel_areas(hass, panel):
+        lid = ensure_label(hass, a.id, nice(a.name), "mdi:door")
+        if lid:
+            made.append(lid)
+    return made
+
+
 @callback
 def ensure_panel_labels(hass: HomeAssistant, panel: dict) -> list[str]:
-    """Make all labels of a panel (see panel_label_specs). Returns their ids."""
+    """Make all labels of a panel (see panel_label_specs) and the room labels of its areas. Returns their ids."""
     made = [ensure_label(hass, lid, name, icon) for lid, name, icon, _ in panel_label_specs(panel)]
-    return [m for m in made if m]
+    made += ensure_room_labels(hass, panel)
+    return list(dict.fromkeys(m for m in made if m))
 
 
 @callback
@@ -177,6 +206,13 @@ def labels_overview(hass: HomeAssistant, store: "PanelStore") -> list[dict]:
     for p in sorted(store.panels.values(), key=lambda x: x["name"].lower()):
         for lid, name, icon, what in panel_label_specs(p):
             row(lid, name, icon, what, "panel")
+    seen = {r["id"] for r in rows}
+    for p in sorted(store.panels.values(), key=lambda x: x["name"].lower()):
+        for a in panel_areas(hass, p):
+            if a.id in seen:
+                continue
+            seen.add(a.id)
+            row(a.id, nice(a.name), "mdi:door", f"Room {a.name}: puts a device in this room on the panels (<room> label)", "room")
     return rows
 
 

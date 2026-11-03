@@ -77,7 +77,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await panel_custom.async_register_panel(
         hass,
         frontend_url_path=SETUP_PANEL,
-        webcomponent_name="ssv-setup",
+        webcomponent_name="ssv-setup-" + re.sub(r"[^a-z0-9]+", "-", data["version"].lower()),  # new name per version: an open browser loads the new page after an update
         sidebar_title=NAME,
         sidebar_icon="mdi:tablet-dashboard",
         module_url=f"{STATIC_URL}/setup.js?v={data['version']}",
