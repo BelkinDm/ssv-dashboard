@@ -202,7 +202,7 @@ pumpc: '<circle cx="11" cy="13.5" r="7"/><path d="M11 13.5c1-2.2 3-3.2 4.5-3M11 
   recirc: '<path d="M20 12a8 8 0 0 1-14 5.3M4 12a8 8 0 0 1 14-5.3"/><path d="M18 3v4h-4M6 21v-4h4"/>',
 };
 /* ---------- Home Assistant connection: own WebSocket, independent of the parent page internals ---------- */
-const BUILD = '1.2.1';
+const BUILD = '1.2.2';
 const HC = { ready: false, states: {}, entities: {}, devices: {}, areas: {} };
 let ws = null, wsOk = false, msgId = 0, backoff = 1000, FC_ID = 0, lastMsg = Date.now(), downSince = Date.now(), reloading = false, regT = 0; const BOOT = Date.now();
 const waiters = {};
@@ -427,7 +427,7 @@ const groups = [{ name: 'Main', icon: 'bulb', ids: pickMain(own) }, { name: 'Bal
   .concat(Object.values(M.att).map(x => ({ name: x.z.name, icon: zoneIcon(x.z), ids: pickMain(x.lights) }))).filter(g => g.ids.length);
 const btns = pills([], groups).split('</button>').filter(Boolean).map(x => x + '</button>');
 M.scenes.forEach(id => btns.push(`<button class="pill" data-scene="${id}"><span class="ico">${svg('scene')}</span><span style="min-width:0"><div class="nm">${esc(NM(id))}</div><div class="lab">Scene</div></span></button>`));
-if (btns.length) out.push(`<div class="sp"></div><div class="row eq${btns.length >= 4 ? ' n4' : ''}">${btns.slice(0, 4).join('')}</div>`); });
+if (btns.length) out.push(`<div class="row eq${btns.length >= 4 ? ' n4' : ''}">${btns.slice(0, 4).join('')}</div>`); });
 return out.join('');
 }
 function ufhLine(id, title){
@@ -483,7 +483,7 @@ function vWC(key){
   const out = [];
   if (Z.ufh) out.push(ufhCard(Z.ufh, 'Floor heating', Z.th));
   Z.walls.slice(0, 1).forEach(id => out.push(wallCard(id)));
-  if (Z.lights.length) out.push(`<div class="sp"></div><div class="row">${pills(Z.lights, Z.lights.slice().sort(lightSort).slice(0, 2).map(id => ({ name: NM(id), icon: lightIcon(id), ids: [id] })))}</div>`);
+  if (Z.lights.length) out.push(`<div class="row">${pills(Z.lights, Z.lights.slice().sort(lightSort).slice(0, 2).map(id => ({ name: NM(id), icon: lightIcon(id), ids: [id] })))}</div>`);
   return out.join('') || '<div class="empty">Put the label ' + esc(pretty(PANEL + '_' + Z.z.key)) + ' on devices of ' + esc(Z.z.name || Z.z.key) + '</div>';
 }
 function vWater(){

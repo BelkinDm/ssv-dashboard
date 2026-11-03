@@ -251,7 +251,7 @@ class SSVSetup extends HTMLElement {
       || '<tr><td colspan="5" class="dim">Nothing found yet. Label climates Heated Wall or UFH, and water devices Water + Hot Water / Recirculation, then reload this page.</td></tr>';
 
     const used = (l) => [l.areas && l.areas + (l.areas > 1 ? ' areas' : ' area'), l.devices && l.devices + (l.devices > 1 ? ' devices' : ' device'), l.entities && l.entities + (l.entities > 1 ? ' entities' : ' entity')].filter(Boolean).join(', ');
-    const labelRows = (S.labels || []).map((l, i, all) => `${l.group === 'panel' && (i === 0 || all[i - 1].group !== 'panel') ? '<tr><th colspan="4">Made with the panels</th></tr>' : ''}<tr><td>${esc(l.name)}${l.exists ? '' : ' <span class="bad">missing</span>'}<div class="mono dim">${esc(l.id)}</div></td>
+    const labelRows = (S.labels || []).map((l, i, all) => `${l.group !== 'base' && (i === 0 || all[i - 1].group !== l.group) ? `<tr><th colspan="3">${l.group === 'panel' ? 'Made with the panels' : 'Rooms of the panels'}</th></tr>` : ''}<tr><td>${esc(l.name)}${l.exists ? '' : ' <span class="bad">missing</span>'}<div class="mono dim">${esc(l.id)}</div></td>
       <td>${esc(l.use)}</td><td>${used(l) || '<span class="dim">not used yet</span>'}</td></tr>`).join('')
       || '<tr><td colspan="3" class="dim">—</td></tr>';
 
@@ -310,8 +310,8 @@ class SSVSetup extends HTMLElement {
       <div class="card"><h2>Log</h2><div class="log">${S.log.map(l => `<div class="${l.bad ? 'bad' : ''}">${esc(l.t)} · ${esc(l.m)}</div>`).join('') || '<span class="dim">—</span>'}</div></div>
 
       <div class="card"><h2>Labels</h2>
-        <p>Every label SSV Dashboard reads. The panels look for the id; Settings → Labels shows the name. Labels of each panel and its attached rooms are added here when the panel is saved.</p>
-        <table><tr><th style="width:30%">Label</th><th>What for</th><th style="width:24%">Used on</th></tr>${labelRows.replace(/colspan="4"/g, 'colspan="3"')}</table>
+        <p>Every label SSV Dashboard reads. The panels look for the id; Settings → Labels shows the name. When a panel is saved, its labels (Panel &lt;Name&gt;, Panel &lt;Name&gt; WC…) and the labels of its rooms (Bedroom 1, Kitchen… — id = the area id) are made and added here.</p>
+        <table><tr><th style="width:30%">Label</th><th>What for</th><th style="width:24%">Used on</th></tr>${labelRows}</table>
       </div>
     </div>`;
     if (S.busy) this.shadowRoot.querySelectorAll('button').forEach(b => b.disabled = true);
@@ -349,4 +349,8 @@ class SSVSetup extends HTMLElement {
     </div>`;
   }
 }
-if (!customElements.get('ssv-setup')) customElements.define('ssv-setup', SSVSetup);
+/* the element name carries the version (ssv-setup-1-2-2): after an update an open browser tab gets the new page
+   instead of the class it already defined */
+const TAG = 'ssv-setup-' + '__SSV_VERSION__'.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+if (!customElements.get(TAG)) customElements.define(TAG, SSVSetup);
+if (!customElements.get('ssv-setup')) customElements.define('ssv-setup', class extends SSVSetup {});
