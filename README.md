@@ -106,5 +106,6 @@ Made with each panel on the SSV Dashboard page (the live list with every panel's
 | Panel &lt;Name&gt; | `panel_<id>` | On an area: the whole room goes to that panel. On a device or entity: just that device, wherever it is installed |
 | Panel &lt;Name&gt; WC | `panel_<id>_wc` | WC tab of a room panel — every room panel has it |
 | Panel &lt;Name&gt; &lt;Room&gt; | `panel_<id>_<room>` | Tab of another attached room (Shower, Balcony…) |
+| &lt;Room&gt; (e.g. Bedroom 1) | area id (`bedroom_1`) | Room label for each area of a panel: puts a device in that room on the panels (Home, Climate…) |
 
 Example: panel **Bedroom 3** → Panel Bedroom 3 (`panel_bedroom_3`), Panel Bedroom 3 WC (`panel_bedroom_3_wc`), Panel Bedroom 3 Shower (`panel_bedroom_3_shower`).
