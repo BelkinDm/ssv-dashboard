@@ -47,6 +47,40 @@ LABELS: dict[str, tuple[str, str]] = {
     "no_panel": ("No Panel", "mdi:eye-off"),
 }
 
+# What each label does — shown in the Labels list at the bottom of the SSV Dashboard page
+LABEL_USE: dict[str, str] = {
+    "light": "Lights shown on the panels (also a switch that drives a light)",
+    "on_off_only": "Dimmable light shown as a plain On / Off switch",
+    "climate": "Climate tab: room thermostats",
+    "ac": "Air conditioners (with fan speed buttons on room panels)",
+    "ufh": "Floor heating (climate or switch); can get Run buttons",
+    "heated_wall": "Heated walls; can get Run buttons",
+    "t_h": "Temperature / humidity sensors for the room header",
+    "curtain": "Curtains",
+    "net": "Curtain look: sheer",
+    "blackout": "Curtain look: blackout",
+    "roller": "Roller blinds",
+    "shutter": "Shutters",
+    "left": "Curtain opens to the left",
+    "right": "Curtain opens to the right",
+    "both_side": "Curtain opens to both sides",
+    "scene": "Ready scenes (script.* shown as a scene)",
+    "scene_device": "Devices guests may use in their own scenes",
+    "user_scene": "Put by SSV on scenes made by guests",
+    "home": "Light or tile picked for the Home page",
+    "water": "Water tab (together with a function label)",
+    "hot_water": "Water function: hot water / boiler; can get Run buttons",
+    "recirculation": "Water function: recirculation; can get Run buttons",
+    "valve": "Water function: main valves",
+    "water_meter": "Water function: meters",
+    "schedule": "Devices offered on the Schedule tab",
+    "cctv": "Cameras on the Cameras tab",
+    "alarm": "Alarm panel on the Security tab",
+    "critical": "Leak / smoke / gas sensors: alert on every panel",
+    "doorbell": "Intercom device (and its camera)",
+    "no_panel": "Never shown on any panel",
+}
+
 # ---------------------------------------------------------------- user scenes
 SCENES_FILE = "scenes.yaml"
 ID_PREFIX = "ssv_user_"

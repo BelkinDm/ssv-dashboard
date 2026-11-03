@@ -16,8 +16,9 @@ address, so it can be changed later without touching the tablet:
   villa, place, dashboard
 
 Every panel gets a label "Panel <Name>" (id panel_<id>), and every attached room
-"Panel <Name> <Room>" (id panel_<id>_<key>): put it on an area to add the whole room,
-or on a device / entity to show just that device there, wherever it is installed.
+"Panel <Name> <Room>" (id panel_<id>_<key>); a room panel always gets "Panel <Name> WC".
+Put it on an area to add the whole room, or on a device / entity to show just that
+device there, wherever it is installed.
 """
 from __future__ import annotations
 
@@ -31,7 +32,9 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.storage import Store
 from homeassistant.util import slugify
 
-from .const import DOMAIN
+from homeassistant.helpers import area_registry as ar, device_registry as dr, entity_registry as er, label_registry as lr
+
+from .const import DOMAIN, LABEL_USE, LABELS
 from .labels import ensure_label, nice
 from .timers import async_apply_timers, async_candidates
 
@@ -119,13 +122,62 @@ class PanelStore:
         return {**p, "runs": {k: v["runs"] for k, v in self.timers.items()}}
 
 
+def panel_label_specs(panel: dict) -> list[tuple[str, str, str, str]]:
+    """(id, name, icon, what for) of every label a panel owns.
+
+    Panel <Name> (panel_<id>), Panel <Name> <Room> (panel_<id>_<key>) for each attached room,
+    and for a room panel always Panel <Name> WC (panel_<id>_wc)."""
+    pid, name = panel["id"], nice(panel["name"])
+    out = [(f"panel_{pid}", f"Panel {name}", "mdi:tablet-dashboard",
+            f"Panel {name}: on an area — the whole room, on a device — just that device")]
+    att = list(panel.get("attached") or [])
+    if panel.get("type") == "room" and not any(a["key"] == "wc" for a in att):
+        att.append({"key": "wc", "name": "WC"})
+    for a in att:
+        out.append((f"panel_{pid}_{a['key']}", f"Panel {name} {nice(a['name'])}", "mdi:door",
+                    f"{nice(a['name'])} tab of panel {name}"))
+    return out
+
+
 @callback
 def ensure_panel_labels(hass: HomeAssistant, panel: dict) -> list[str]:
-    """Panel <Name> (panel_<id>) and Panel <Name> <Room> (panel_<id>_<key>) for attached rooms."""
-    made = [ensure_label(hass, f"panel_{panel['id']}", f"Panel {nice(panel['name'])}", "mdi:tablet-dashboard")]
-    for a in panel.get("attached") or []:
-        made.append(ensure_label(hass, f"panel_{panel['id']}_{a['key']}", f"Panel {nice(panel['name'])} {nice(a['name'])}", "mdi:door"))
+    """Make all labels of a panel (see panel_label_specs). Returns their ids."""
+    made = [ensure_label(hass, lid, name, icon) for lid, name, icon, _ in panel_label_specs(panel)]
     return [m for m in made if m]
+
+
+@callback
+def labels_overview(hass: HomeAssistant, store: "PanelStore") -> list[dict]:
+    """Every label SSV Dashboard reads, with what it is for and where it is used now."""
+    lreg = lr.async_get(hass)
+    use: dict[str, dict[str, int]] = {}
+
+    def bump(lid: str, kind: str) -> None:
+        use.setdefault(lid, {"areas": 0, "devices": 0, "entities": 0})[kind] += 1
+
+    for a in ar.async_get(hass).async_list_areas():
+        for lid in a.labels or ():
+            bump(lid, "areas")
+    for d in dr.async_get(hass).devices.values():
+        for lid in d.labels or ():
+            bump(lid, "devices")
+    for e in er.async_get(hass).entities.values():
+        for lid in e.labels or ():
+            bump(lid, "entities")
+
+    rows: list[dict] = []
+
+    def row(lid: str, name: str, icon: str, what: str, group: str) -> None:
+        entry = lreg.async_get_label(lid)
+        rows.append({"id": lid, "name": entry.name if entry else name, "icon": icon, "use": what, "group": group,
+                     "exists": entry is not None, **use.get(lid, {"areas": 0, "devices": 0, "entities": 0})})
+
+    for lid, (name, icon) in LABELS.items():
+        row(lid, name, icon, LABEL_USE.get(lid, ""), "base")
+    for p in sorted(store.panels.values(), key=lambda x: x["name"].lower()):
+        for lid, name, icon, what in panel_label_specs(p):
+            row(lid, name, icon, what, "panel")
+    return rows
 
 
 @callback
@@ -184,6 +236,14 @@ def ws_panels_delete(hass: HomeAssistant, connection: websocket_api.ActiveConnec
     connection.send_result(msg["id"], {"deleted": bool(removed)})
 
 
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/labels/list"})
+@websocket_api.require_admin
+@callback
+def ws_labels_list(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
+    """All labels of SSV Dashboard: the base set plus the ones made with each panel."""
+    connection.send_result(msg["id"], {"labels": labels_overview(hass, _store(hass))})
+
+
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/timers/list"})
 @websocket_api.require_admin
 @callback
@@ -216,5 +276,5 @@ async def ws_timers_save(hass: HomeAssistant, connection: websocket_api.ActiveCo
 
 @callback
 def async_register_ws(hass: HomeAssistant) -> None:
-    for cmd in (ws_panel_get, ws_panels_list, ws_panels_save, ws_panels_delete, ws_timers_list, ws_timers_save):
+    for cmd in (ws_panel_get, ws_panels_list, ws_panels_save, ws_panels_delete, ws_labels_list, ws_timers_list, ws_timers_save):
         websocket_api.async_register_command(hass, cmd)
