@@ -278,3 +278,27 @@ async def test_update_notice(hass, hass_ws_client):
     info = (await ws.receive_json())["result"]["update"]
     assert info == {"entity_id": e.entity_id, "available": True, "installed": "1.1.0", "latest": "1.2.0"}
     assert any("ssv_dashboard_update" in str(k) for k in notes), notes
+
+
+async def test_room_panel_wc_and_labels_list(hass, hass_ws_client):
+    """A room panel always gets Panel <Name> WC; the Labels list shows base and panel labels."""
+    await _setup(hass)
+    reg = lr.async_get(hass)
+    ws = await hass_ws_client(hass)
+    await ws.send_json({"id": 1, "type": "ssv_dashboard/panels/save", "panel": {
+        "id": "master", "name": "Master Bedroom", "type": "room", "areas": ["master"],
+        "attached": [{"key": "balcony", "name": "Balcony"}]}})
+    r = await ws.receive_json()
+    assert r["success"], r
+    assert r["result"]["labels"] == ["panel_master", "panel_master_balcony", "panel_master_wc"]
+    assert reg.async_get_label("panel_master_wc").name == "Panel Master Bedroom WC"
+    ent = er.async_get(hass).async_get_or_create("light", "demo", "wc1", suggested_object_id="master_wc")
+    er.async_get(hass).async_update_entity(ent.entity_id, labels={"light", "panel_master_wc"})
+    await ws.send_json({"id": 2, "type": "ssv_dashboard/labels/list"})
+    r = await ws.receive_json()
+    assert r["success"], r
+    rows = {x["id"]: x for x in r["result"]["labels"]}
+    assert rows["heated_wall"]["name"] == "Heated Wall" and rows["heated_wall"]["group"] == "base" and rows["heated_wall"]["use"]
+    assert rows["panel_master_wc"]["group"] == "panel" and rows["panel_master_wc"]["entities"] == 1
+    assert rows["panel_master"]["name"] == "Panel Master Bedroom"
+    assert rows["light"]["entities"] >= 1
