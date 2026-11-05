@@ -67,6 +67,11 @@ PANEL_SCHEMA = vol.Schema({
         vol.Required("name"): vol.All(str, vol.Strip, vol.Length(min=1, max=30)),
         vol.Optional("area"): vol.Any(None, str),
     })],
+    # scenes on this panel: how many places on Home (10″) or in the button row (4″), and their order
+    vol.Optional("scenes"): vol.Schema({
+        vol.Optional("places"): vol.All(int, vol.Range(0, 4)),
+        vol.Optional("order", default=list): vol.All([vol.Match(r"^(scene|script)\.[a-z0-9_]+$")], vol.Length(max=60)),
+    }),
 })
 MINUTES = vol.All(int, vol.Range(5, 24 * 60))
 TIMERS_SCHEMA = vol.Schema({str: vol.Schema({vol.Required("runs"): vol.All([MINUTES], vol.Length(min=1, max=4))})})
@@ -129,7 +134,7 @@ def panel_label_specs(panel: dict) -> list[tuple[str, str, str, str]]:
     and for a room panel always Panel <Name> WC (panel_<id>_wc)."""
     pid, name = panel["id"], nice(panel["name"])
     out = [(f"panel_{pid}", f"Panel {name}", "mdi:tablet-dashboard",
-            f"Panel {name}: on an area — the whole room, on a device — just that device")]
+            f"Panel {name}: on an area — the whole room, on a device — just that device; on a scene — the scene is shown on this panel")]
     att = list(panel.get("attached") or [])
     if panel.get("type") == "room" and not any(a["key"] == "wc" for a in att):
         att.append({"key": "wc", "name": "WC"})
@@ -235,6 +240,15 @@ def ws_panel_get(hass: HomeAssistant, connection: websocket_api.ActiveConnection
     connection.send_result(msg["id"], st.public(slugify(msg["panel"])) if st else None)
 
 
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/panels/names"})
+@callback
+def ws_panels_names(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
+    """Names of the panels — any signed-in user: the scene editor on a panel offers "show on these panels"."""
+    st = hass.data.get(DOMAIN, {}).get("panels")
+    items = [{"id": p["id"], "name": p["name"], "type": p["type"]} for p in (st.panels.values() if st else [])]
+    connection.send_result(msg["id"], {"panels": sorted(items, key=lambda x: x["name"].lower())})
+
+
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/panels/list"})
 @websocket_api.require_admin
 @callback
@@ -312,5 +326,5 @@ async def ws_timers_save(hass: HomeAssistant, connection: websocket_api.ActiveCo
 
 @callback
 def async_register_ws(hass: HomeAssistant) -> None:
-    for cmd in (ws_panel_get, ws_panels_list, ws_panels_save, ws_panels_delete, ws_labels_list, ws_timers_list, ws_timers_save):
+    for cmd in (ws_panel_get, ws_panels_names, ws_panels_list, ws_panels_save, ws_panels_delete, ws_labels_list, ws_timers_list, ws_timers_save):
         websocket_api.async_register_command(hass, cmd)

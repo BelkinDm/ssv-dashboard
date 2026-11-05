@@ -19,6 +19,17 @@ save_scene:
       selector:
         entity:
           domain: scene
+    timing:
+      example: '{"light.living_ceiling": {"delay": 0, "back": 30, "back_to": "off"}}'
+      selector:
+        object:
+    panels:
+      example: '["living", "master"]'
+      selector:
+        object:
+    home:
+      selector:
+        boolean:
 get_scene:
   fields:
     scene:
@@ -30,6 +41,14 @@ delete_scene:
   fields:
     scene:
       required: true
+      selector:
+        entity:
+          domain: scene
+run_scene:
+  fields:
+    entity_id:
+      required: true
+      example: "scene.movie_night"
       selector:
         entity:
           domain: scene

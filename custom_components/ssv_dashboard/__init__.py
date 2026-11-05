@@ -3,7 +3,7 @@
 What this integration does:
   * serves the panel pages at /ssv_dashboard/panel.html, room.html, phone.html;
   * creates the labels the panels read (Light, Curtain, Scene Device, ...);
-  * offers user-scene services so guests can make their own scenes safely;
+  * offers user-scene services so the people in the house can make their own (user) scenes safely;
   * makes the run timers chosen on the SSV Dashboard page and turns heated walls,
     floor heating, hot water and recirculation off when their timer ends;
   * provides sensor.ssv_time so every panel clock follows Home Assistant;
@@ -28,7 +28,7 @@ from homeassistant.helpers import label_registry as lr
 from homeassistant.loader import async_get_integration
 
 from .const import CONF_NOTIFY, CONF_TIMER_ACTIONS, DOMAIN, LABELS, NAME, SETUP_PANEL, STATIC_URL
-from .http import async_register_files
+from .http import async_register_files, local_served
 from .labels import ensure_base_labels
 from .panels import PanelStore, async_register_ws as async_register_panel_ws, restyle_panel_labels
 from .scenes import async_setup_scenes, async_unload_scenes
@@ -124,7 +124,7 @@ async def _checks(hass: HomeAssistant) -> list[dict]:
     scene_ok = await hass.async_add_executor_job(_scene_include, hass.config.path("configuration.yaml"))
     return [
         {"key": "hacs", "name": "HACS", "for": "Installing and updating SSV Dashboard", "ok": "hacs" in comps, "need": "required"},
-        {"key": "scene_yaml", "name": "scene: !include scenes.yaml", "for": "Scenes made by guests", "ok": scene_ok, "need": "required"},
+        {"key": "scene_yaml", "name": "scene: !include scenes.yaml", "for": "User scenes", "ok": scene_ok, "need": "required"},
         {"key": "timer", "name": "Timer", "for": "Run buttons", "ok": "timer" in comps, "need": "required"},
         {"key": "recorder", "name": "Recorder", "for": "Water: today and 7 days", "ok": "recorder" in comps, "need": "required"},
         {"key": "weather", "name": "Weather (Met.no or other)", "for": "Weather in the header", "ok": has_dom("weather"), "need": "recommended"},
@@ -133,7 +133,7 @@ async def _checks(hass: HomeAssistant) -> list[dict]:
         {"key": "go2rtc", "name": "go2rtc", "for": "Intercom live video", "ok": "go2rtc" in comps, "need": "tab", "domain": "go2rtc"},
         {"key": "webrtc", "name": "WebRTC Camera (AlexxIT)", "for": "Intercom live video", "ok": "webrtc" in comps, "need": "tab", "hacs": "AlexxIT/WebRTC", "domain": "webrtc"},
         {"key": "alarm", "name": "Alarm / locks", "for": "Security tab", "ok": has_dom("alarm_control_panel") or has_dom("lock"), "need": "tab"},
-        {"key": "mobile_app", "name": "Mobile App", "for": "Guests signing in on phones", "ok": "mobile_app" in comps, "need": "recommended"},
+        {"key": "mobile_app", "name": "Mobile App", "for": "Owners and users signing in on phones", "ok": "mobile_app" in comps, "need": "recommended"},
         {"key": "fully_kiosk", "name": "Fully Kiosk Browser", "for": "Tablet screen control", "ok": "fully_kiosk" in comps, "need": "recommended", "domain": "fully_kiosk"},
     ]
 
@@ -150,6 +150,9 @@ async def ws_info(hass: HomeAssistant, connection: websocket_api.ActiveConnectio
         "location_name": hass.config.location_name,
         "checks": await _checks(hass),
         "update": update_info(hass),
+        # panels open through /local/ssv/loader.html once HA serves /local (after one restart on a new install)
+        "loader": local_served(hass),
+        "internal_url": hass.config.internal_url,
     })
 
 

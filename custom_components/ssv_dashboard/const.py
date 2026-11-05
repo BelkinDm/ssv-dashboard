@@ -6,7 +6,9 @@ NAME = "SSV Dashboard"
 
 # Files served from custom_components/ssv_dashboard/www at /ssv_dashboard/<file>
 STATIC_URL = "/ssv_dashboard"
-STATIC_FILES = ("panel.html", "room.html", "phone.html", "setup.js")
+STATIC_FILES = ("panel.html", "room.html", "phone.html", "setup.js", "loader.html", "start.html")
+LOADER_DIR = "www/ssv"            # /config/www/ssv/loader.html, served by HA itself at /local/ssv/loader.html
+LOADER_URL = "/local/ssv/loader.html"
 
 # Admin sidebar page (installer tools)
 SETUP_PANEL = "ssv-setup"
@@ -65,9 +67,9 @@ LABEL_USE: dict[str, str] = {
     "right": "Curtain opens to the right",
     "both_side": "Curtain opens to both sides",
     "scene": "Ready scenes (script.* shown as a scene)",
-    "scene_device": "Devices guests may use in their own scenes",
-    "user_scene": "Put by SSV on scenes made by guests",
-    "home": "Light or tile picked for the Home page",
+    "scene_device": "Devices people may use in their own user scenes",
+    "user_scene": "Put by SSV on user scenes (made on the panels)",
+    "home": "Light or tile picked for the Home page; on a scene — a scene button on Home of the 10″ panels",
     "water": "Water tab (together with a function label)",
     "hot_water": "Water function: hot water / boiler; can get Run buttons",
     "recirculation": "Water function: recirculation; can get Run buttons",
