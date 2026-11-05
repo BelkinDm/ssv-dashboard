@@ -380,3 +380,24 @@ async def test_ping_loader_and_start_file(hass, hass_client_no_auth, hass_ws_cli
     await ws.send_json({"id": 1, "type": f"{DOMAIN}/info"})
     res = (await ws.receive_json())["result"]
     assert "loader" in res and "internal_url" in res
+
+
+async def test_label_colours(hass, hass_ws_client):
+    """1.3.1: labels get a colour by group; a colour chosen by hand stays."""
+    reg = lr.async_get(hass)
+    reg.async_create("cctv", color="pink")          # made by hand before SSV
+    await _setup(hass)
+    assert reg.async_get_label("light").color == "yellow"
+    assert reg.async_get_label("ac").color == "orange"
+    assert reg.async_get_label("curtain").color == "purple"
+    assert reg.async_get_label("scene").color == "green"
+    assert reg.async_get_label("water").color == "blue"
+    assert reg.async_get_label("home").color == "brown"
+    assert reg.async_get_label("cctv").color == "pink"
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": f"{DOMAIN}/panels/save", "panel": {"id": "gym", "name": "Gym", "type": "wall"}})
+    assert (await client.receive_json())["success"]
+    assert reg.async_get_label("panel_gym").color == "teal"
+    await client.send_json({"id": 2, "type": f"{DOMAIN}/labels/list"})
+    rows = {r["id"]: r for r in (await client.receive_json())["result"]["labels"]}
+    assert rows["light"]["color"] == "yellow" and rows["panel_gym"]["color"] == "teal"
