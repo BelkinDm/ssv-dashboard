@@ -41,6 +41,18 @@
         "scene": {
           "name": "Scene",
           "description": "Existing user scene to update; leave empty to create a new one."
+        },
+        "timing": {
+          "name": "Timing",
+          "description": "Entity id → {delay: seconds, back: minutes, back_to: previous | off}."
+        },
+        "panels": {
+          "name": "Panels",
+          "description": "Ids of the panels that show the scene (none = all)."
+        },
+        "home": {
+          "name": "Home",
+          "description": "Show on the Home page of the 10″ panels."
         }
       }
     },
@@ -61,6 +73,16 @@
         "scene": {
           "name": "Scene",
           "description": "User scene."
+        }
+      }
+    },
+    "run_scene": {
+      "name": "Run scene",
+      "description": "Run a scene. A user scene runs with its own timing: each device can start later and go back after some minutes.",
+      "fields": {
+        "entity_id": {
+          "name": "Scene",
+          "description": "The scene to run."
         }
       }
     }
