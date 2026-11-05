@@ -319,3 +319,64 @@ async def test_room_labels_made_with_panel(hass, hass_ws_client):
     await ws.send_json({"id": 2, "type": "ssv_dashboard/labels/list"})
     rows = {x["id"]: x for x in (await ws.receive_json())["result"]["labels"]}
     assert rows[area.id]["group"] == "room"
+
+
+async def test_scene_timing_panels_home_and_run(hass, hass_ws_client, hass_read_only_user):
+    """1.3: each device on its own timer, panels and Home chosen by check boxes, run_scene."""
+    from datetime import timedelta
+    from homeassistant.util import dt as dt_util
+    from pytest_homeassistant_custom_component.common import async_fire_time_changed
+    await _setup(hass)
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": f"{DOMAIN}/panels/save", "panel": {"id": "living", "name": "Living", "type": "wall"}})
+    assert (await client.receive_json())["success"]
+    lamp = _light(hass, "lamp", ["scene_device"])
+    fan = _light(hass, "fanlight", ["scene_device"])
+    applied = async_mock_service(hass, "scene", "apply")
+    guest = Context(user_id=hass_read_only_user.id)
+    r = await hass.services.async_call(DOMAIN, "save_scene", {
+        "name": "Bath", "entities": {lamp: {"state": "on", "brightness": 120}, fan: {"state": "on"}},
+        "timing": {lamp: {"delay": 0, "back": 5, "back_to": "off"}, fan: {"delay": 60}},
+        "panels": ["living", "nope"], "home": True}, blocking=True, return_response=True, context=guest)
+    eid = r["entity_id"]
+    labels = set(er.async_get(hass).async_get(eid).labels)
+    assert {"scene", "user_scene", "home", "panel_living"} <= labels and "panel_nope" not in labels
+    got = await hass.services.async_call(DOMAIN, "get_scene", {"scene": eid}, blocking=True, return_response=True)
+    assert got["panels"] == ["living"] and got["home"] is True
+    assert got["timing"][lamp]["back"] == 5 and got["timing"][fan]["delay"] == 60
+
+    # names of the panels: any signed-in user (the scene editor on a panel)
+    await client.send_json({"id": 2, "type": f"{DOMAIN}/panels/names"})
+    assert (await client.receive_json())["result"]["panels"] == [{"id": "living", "name": "Living", "type": "wall"}]
+
+    await hass.services.async_call(DOMAIN, "run_scene", {"entity_id": eid}, blocking=True, return_response=True)
+    await hass.async_block_till_done()
+    assert [list(c.data["entities"]) for c in applied] == [[lamp]]           # lamp now, fan waits a minute
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=61)); await hass.async_block_till_done()
+    assert list(applied[-1].data["entities"]) == [fan]
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(minutes=6)); await hass.async_block_till_done()
+    assert applied[-1].data["entities"] == {lamp: {"state": "off"}}          # lamp goes back to off after 5 min
+
+    # untick Home and the panel → labels removed again
+    await hass.services.async_call(DOMAIN, "save_scene", {"scene": eid, "name": "Bath", "entities": {lamp: {"state": "on"}},
+        "timing": {}, "panels": [], "home": False}, blocking=True, return_response=True, context=guest)
+    labels = set(er.async_get(hass).async_get(eid).labels)
+    assert "home" not in labels and "panel_living" not in labels
+    got = await hass.services.async_call(DOMAIN, "get_scene", {"scene": eid}, blocking=True, return_response=True)
+    assert got["timing"] == {}
+
+
+async def test_ping_loader_and_start_file(hass, hass_client_no_auth, hass_ws_client):
+    """1.3: ping.png for the tablet start file, the loader in /config/www/ssv, start.html template."""
+    await _setup(hass)
+    client = await hass_client_no_auth()
+    r = await client.get("/ssv_dashboard/ping.png")
+    assert r.status == 200 and r.headers["Content-Type"].startswith("image/png") and r.headers["Access-Control-Allow-Origin"] == "*"
+    r = await client.get("/ssv_dashboard/start.html")
+    body = await r.text()
+    assert r.status == 200 and "__HA__" in body and "ping.png" in body
+    assert os.path.exists(hass.config.path("www/ssv/loader.html"))
+    ws = await hass_ws_client(hass)
+    await ws.send_json({"id": 1, "type": f"{DOMAIN}/info"})
+    res = (await ws.receive_json())["result"]
+    assert "loader" in res and "internal_url" in res
