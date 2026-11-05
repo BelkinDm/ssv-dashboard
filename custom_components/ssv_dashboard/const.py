@@ -49,6 +49,22 @@ LABELS: dict[str, tuple[str, str]] = {
     "no_panel": ("No Panel", "mdi:eye-off"),
 }
 
+# Label colours by group (Home Assistant's label colours), so Settings → Labels reads at a glance.
+# Set when a label has no colour yet; a colour chosen by hand is kept.
+LABEL_GROUP_COLOR: dict[str, tuple[str, tuple[str, ...]]] = {
+    "lights":   ("yellow", ("light", "on_off_only")),
+    "climate":  ("orange", ("climate", "ac", "ufh", "heated_wall", "t_h")),
+    "curtains": ("purple", ("curtain", "net", "blackout", "roller", "shutter", "left", "right", "both_side")),
+    "scenes":   ("green", ("scene", "scene_device", "user_scene")),
+    "water":    ("blue", ("water", "hot_water", "recirculation", "valve", "water_meter")),
+    "schedule": ("indigo", ("schedule",)),
+    "security": ("red", ("cctv", "alarm", "critical", "doorbell")),
+    "service":  ("brown", ("home", "no_panel")),
+}
+LABEL_COLOR: dict[str, str] = {lid: color for color, ids in LABEL_GROUP_COLOR.values() for lid in ids}
+PANEL_LABEL_COLOR = "teal"      # Panel <Name>, Panel <Name> <Room>
+ROOM_LABEL_COLOR = "grey"       # <Room> labels made for the areas of the panels
+
 # What each label does — shown in the Labels list at the bottom of the SSV Dashboard page
 LABEL_USE: dict[str, str] = {
     "light": "Lights shown on the panels (also a switch that drives a light)",

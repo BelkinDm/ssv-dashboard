@@ -34,7 +34,7 @@ from homeassistant.util import slugify
 
 from homeassistant.helpers import area_registry as ar, device_registry as dr, entity_registry as er, label_registry as lr
 
-from .const import DOMAIN, LABEL_USE, LABELS
+from .const import DOMAIN, LABEL_COLOR, LABEL_USE, LABELS, PANEL_LABEL_COLOR, ROOM_LABEL_COLOR
 from .labels import ensure_label, nice
 from .timers import async_apply_timers, async_candidates
 
@@ -166,7 +166,7 @@ def ensure_room_labels(hass: HomeAssistant, panel: dict) -> list[str]:
     """Room labels (<room>) for the panel's areas: id = area id, name = area name — Bedroom 1 (bedroom_1)."""
     made = []
     for a in panel_areas(hass, panel):
-        lid = ensure_label(hass, a.id, nice(a.name), "mdi:door")
+        lid = ensure_label(hass, a.id, nice(a.name), "mdi:door", ROOM_LABEL_COLOR)
         if lid:
             made.append(lid)
     return made
@@ -175,7 +175,7 @@ def ensure_room_labels(hass: HomeAssistant, panel: dict) -> list[str]:
 @callback
 def ensure_panel_labels(hass: HomeAssistant, panel: dict) -> list[str]:
     """Make all labels of a panel (see panel_label_specs) and the room labels of its areas. Returns their ids."""
-    made = [ensure_label(hass, lid, name, icon) for lid, name, icon, _ in panel_label_specs(panel)]
+    made = [ensure_label(hass, lid, name, icon, PANEL_LABEL_COLOR) for lid, name, icon, _ in panel_label_specs(panel)]
     made += ensure_room_labels(hass, panel)
     return list(dict.fromkeys(m for m in made if m))
 
@@ -204,6 +204,8 @@ def labels_overview(hass: HomeAssistant, store: "PanelStore") -> list[dict]:
     def row(lid: str, name: str, icon: str, what: str, group: str) -> None:
         entry = lreg.async_get_label(lid)
         rows.append({"id": lid, "name": entry.name if entry else name, "icon": icon, "use": what, "group": group,
+                     "color": (entry.color if entry and entry.color else None)
+                     or {"panel": PANEL_LABEL_COLOR, "room": ROOM_LABEL_COLOR}.get(group) or LABEL_COLOR.get(lid),
                      "exists": entry is not None, **use.get(lid, {"areas": 0, "devices": 0, "entities": 0})})
 
     for lid, (name, icon) in LABELS.items():

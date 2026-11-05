@@ -15,7 +15,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import label_registry as lr
 from homeassistant.util import slugify
 
-from .const import LABELS
+from .const import LABEL_COLOR, LABELS
 
 _LOGGER = logging.getLogger(__name__)
 ABBR = {"ac", "ufh", "cctv", "wc", "tv", "ups", "ev", "hvac", "led", "rgb", "spa", "bbq", "id"}
@@ -28,7 +28,7 @@ def nice(text: str) -> str:
 
 
 @callback
-def ensure_label(hass: HomeAssistant, label_id: str, name: str, icon: str | None = None) -> str | None:
+def ensure_label(hass: HomeAssistant, label_id: str, name: str, icon: str | None = None, color: str | None = None) -> str | None:
     """Make sure label <label_id> exists and is called <name>. Returns the id, or None if impossible."""
     reg = lr.async_get(hass)
     entry = reg.async_get_label(label_id)
@@ -41,7 +41,7 @@ def ensure_label(hass: HomeAssistant, label_id: str, name: str, icon: str | None
         if clash is not None:
             _LOGGER.warning("Label %s not created: name %s is taken by %s", label_id, seed, clash.label_id)
             return None
-        entry = reg.async_create(seed, icon=icon)
+        entry = reg.async_create(seed, icon=icon, color=color)
         if entry.label_id != label_id:  # someone else holds the id-like name
             _LOGGER.warning("Label %s got id %s", label_id, entry.label_id)
             return entry.label_id
@@ -51,6 +51,8 @@ def ensure_label(hass: HomeAssistant, label_id: str, name: str, icon: str | None
             reg.async_update(entry.label_id, name=name)
         else:
             _LOGGER.warning("Label %s keeps its name: %s is used by %s", label_id, name, other.label_id)
+    if color and not entry.color:  # a colour chosen by hand stays
+        reg.async_update(entry.label_id, color=color)
     return entry.label_id
 
 
@@ -61,6 +63,6 @@ def ensure_base_labels(hass: HomeAssistant) -> list[str]:
     made: list[str] = []
     for label_id, (name, icon) in LABELS.items():
         existed = reg.async_get_label(label_id) is not None
-        if ensure_label(hass, label_id, name, icon) and not existed:
+        if ensure_label(hass, label_id, name, icon, LABEL_COLOR.get(label_id)) and not existed:
             made.append(label_id)
     return made
