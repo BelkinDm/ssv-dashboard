@@ -79,7 +79,7 @@ On the SSV Dashboard page, dashboards that still use `/local/morea/…` show **M
    - **Integrations** — чего не хватает вкладкам; недостающее из HACS ставится кнопкой, дальше перезапуск и **Add**;
    - **New panel** — название, экран, назначение, комнаты, привязанные помещения, вкладки, ночной экран. При сохранении создаются дашборд `/ssv-<id>/main` и метки `Panel <Имя>`, `Panel <Имя> <Помещение>`; у комнатной панели всегда есть `Panel <Имя> WC`;
    - **Run timers** — отметить тёплые стены, тёплые полы, бойлер, рециркуляцию, задать кнопки в минутах, Save;
-   - **Labels** внизу страницы — все метки SSV, включая метки панелей, и где они уже стоят;
+   - **Labels** внизу страницы — все метки SSV, включая метки панелей, и где они уже стоят. Метки окрашены по группам: свет — жёлтые, климат — оранжевые, шторы — фиолетовые, сцены — зелёные, вода — синие, безопасность — красные, панели — бирюзовые, комнаты — серые; цвет, заданный вручную, не меняется;
    - **Tablet file** у панели — стартовый файл для планшета: положить в папку Download и указать в Fully Kiosk как Start URL (`file:///sdcard/Download/ssv-start-<id>.html`). Планшет ждёт HA и не зависает на «Bad Gateway» / «404».
 4. Пользовательские сцены делают сами жильцы на панели: яркость, цвет, режим и уставка кондиционера, скорость вентилятора; у каждого устройства своя задержка включения и возврат через N минут; галочками — на каких панелях и на главной 10″.
 5. Повесить метки на зоны, устройства и сущности — сами метки создаёт интеграция.
@@ -89,6 +89,21 @@ On the SSV Dashboard page, dashboards that still use `/local/morea/…` show **M
 ## Labels
 
 Every label SSV Dashboard reads. Panels look for the **id**; Settings → Labels shows the **name**. Labels are created by the integration — never type an id by hand.
+
+Colours by group, so the list reads at a glance (a colour you set by hand is kept):
+
+| Colour | Labels |
+| --- | --- |
+| Yellow | Light, On Off Only |
+| Orange | Climate, AC, UFH, Heated Wall, Temperature Humidity |
+| Purple | Curtain, Net, Blackout, Roller, Shutter, Left, Right, Both Sides |
+| Green | Scene, Scene Device, User Scene |
+| Blue | Water, Hot Water, Recirculation, Valve, Water Meter |
+| Indigo | Schedule |
+| Red | CCTV, Alarm, Critical, Doorbell |
+| Brown | Home, No Panel |
+| Teal | Panel &lt;Name&gt;, Panel &lt;Name&gt; &lt;Room&gt; |
+| Grey | room labels (Bedroom 1, Kitchen …) |
 
 | Label | Id | What for |
 | --- | --- | --- |
