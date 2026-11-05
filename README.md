@@ -9,11 +9,12 @@ Everything on the panels is built from Home Assistant itself: floors → rooms �
 | Wall panel 10″ (`panel.html`) | Home, Rooms with a page per room, Lights, Climate, Heating, Curtains, Water, Cameras, Intercom, Security, Schedule, night screen, alerts |
 | Room panel 4″ (`room.html`) | Light, curtains, climate, WC and water of one room, night mode |
 | Phone (`phone.html`) | Same logic with bottom tabs Home · Rooms · Lights · Climate · More; on a screen of 600 × 900 or more it switches to the Tablet dashboard |
-| User scenes | Guests create, change and delete their own scenes from devices labelled **Scene Device** — only with values the device supports |
+| User scenes | The owner and users create, change and delete their own scenes from devices labelled **Scene Device** — only with values the device supports; brightness, colour, AC mode, set point and fan speed; each device can start later and go back after N minutes; check boxes choose the panels and the 10″ Home page |
 | Run timers | Run buttons (e.g. 1h / 2h / 3h) for heated walls, floor heating, hot water and recirculation — chosen on the SSV Dashboard page; the integration turns the device off when the timer ends |
 | `sensor.ssv_time` | Panel clocks follow Home Assistant time, not the tablet's clock |
 | Panels | Each screen is a panel with a name, screen type (10″, 4″, Tablet, Phone; 5.5″ Main / Room coming), purpose (residential, hotel room, office, gym, common area), rooms, attached rooms (WC, Shower…) and tabs; each gets its own dashboard and labels `Panel <Name>`, `Panel <Name> <Room>` |
-| SSV Dashboard page | Admin page in the sidebar: panels, start page, run times, and a check of the integrations each tab needs with install through HACS |
+| SSV Dashboard page | Admin page in the sidebar: panels, start page, scene places and order per panel, tablet start files, run times, and a check of the integrations each tab needs with install through HACS |
+| Screen care | Panels dim to 20 % after the same idle time as the return to Home (first touch only wakes); a panel never stays on “404: Not Found” or “Bad Gateway” while Home Assistant starts |
 
 ## Install
 
@@ -24,10 +25,31 @@ Everything on the panels is built from Home Assistant itself: floors → rooms �
    - **Integrations** shows what every tab needs; missing ones from HACS (Scheduler, WebRTC Camera, kiosk-mode, card-mod) install with one button, then restart and press **Add**;
    - **New panel** — name, screen, purpose, rooms, attached rooms (room panel), tabs, night screen; saving creates the dashboard `/ssv-<id>/main` and the labels `Panel <Name>` / `Panel <Name> <Room>`;
    - **Start page** makes a dashboard the start page for everyone;
+   - **Tablet file** downloads the start file of a panel for its tablet (see [Tablets](#tablets-fully-kiosk));
+   - in the panel editor, **Scenes** sets how many scene places Home (10″) or the button row (4″) has and the order of the scenes;
    - **Run timers** — tick heated walls, floor heating, hot water, recirculation, type the buttons in minutes, press Save;
    - when a new SSV Dashboard is out, the page shows **Update now** and Home Assistant shows a notification (push to a phone: integration options → notify service).
 
 Then put labels on your entities (Settings → Entities → select → Add label). The labels are created by the integration, all named in one style: every word capitalised, spaces between words, abbreviations in capitals (AC, UFH, CCTV, WC). The full list is at the [bottom of this page](#labels); the SSV Dashboard page shows the same list live, with the labels of every panel and where each label is used.
+
+## Tablets (Fully Kiosk)
+
+When the power comes back, a tablet starts faster than Home Assistant. Without help it shows “Unable to connect”, “Bad Gateway” or a white “404: Not Found” and stays there. SSV Dashboard avoids this in two places:
+
+1. **Inside Home Assistant** the dashboards open the panel through `/local/ssv/loader.html` (the integration writes it to `/config/www/ssv/`). Home Assistant serves it even while it is still starting; it shows “Reconnecting…” and opens the panel as soon as SSV Dashboard answers. On a new install `/local` works after one more restart; the SSV Dashboard page then switches the dashboards over by itself.
+2. **On the tablet** keep the panel's start file: SSV Dashboard page → panel → **Tablet file** → `ssv-start-<id>.html`. Copy it to the tablet's *Download* folder.
+
+Fully Kiosk Browser settings (menu names can differ a little between Fully versions):
+
+| Setting | Value |
+| --- | --- |
+| Web Content Settings → Start URL | `file:///sdcard/Download/ssv-start-<id>.html` |
+| Web Content Settings → Enable File Access / Allow local files | on |
+| Web Auto Reload → Reload on Network Reconnect | on |
+| Advanced Web Settings → Enable JavaScript Interface | on — then dimming uses the screen backlight (20 %); without it the panel dims with a dark layer |
+| Device Management → Keep Screen On | on |
+
+The start file shows the time and “Reconnecting…”, checks Home Assistant every few seconds (`/ssv_dashboard/ping.png`) and opens the panel's dashboard only when SSV Dashboard answers. An open panel keeps its last view while the connection is lost and reconnects by itself.
 
 ## Panel address parameters
 
@@ -41,7 +63,7 @@ Then put labels on your entities (Settings → Entities → select → Add label
 
 ## Updates
 
-Publish a GitHub release with a higher `version` in `manifest.json`. HACS shows the update; after **Update** and a restart, every open panel reloads itself within 10 minutes. Rooms, labels, users, guests' scenes and settings are not touched by an update.
+Publish a GitHub release with a higher `version` in `manifest.json`. HACS shows the update; after **Update** and a restart, every open panel reloads itself within 10 minutes. Rooms, labels, users, user scenes and settings are not touched by an update.
 
 ## Moving from the old `/local/morea` files
 
@@ -57,8 +79,10 @@ On the SSV Dashboard page, dashboards that still use `/local/morea/…` show **M
    - **Integrations** — чего не хватает вкладкам; недостающее из HACS ставится кнопкой, дальше перезапуск и **Add**;
    - **New panel** — название, экран, назначение, комнаты, привязанные помещения, вкладки, ночной экран. При сохранении создаются дашборд `/ssv-<id>/main` и метки `Panel <Имя>`, `Panel <Имя> <Помещение>`; у комнатной панели всегда есть `Panel <Имя> WC`;
    - **Run timers** — отметить тёплые стены, тёплые полы, бойлер, рециркуляцию, задать кнопки в минутах, Save;
-   - **Labels** внизу страницы — все метки SSV, включая метки панелей, и где они уже стоят.
-4. Повесить метки на зоны, устройства и сущности — сами метки создаёт интеграция.
+   - **Labels** внизу страницы — все метки SSV, включая метки панелей, и где они уже стоят;
+   - **Tablet file** у панели — стартовый файл для планшета: положить в папку Download и указать в Fully Kiosk как Start URL (`file:///sdcard/Download/ssv-start-<id>.html`). Планшет ждёт HA и не зависает на «Bad Gateway» / «404».
+4. Пользовательские сцены делают сами жильцы на панели: яркость, цвет, режим и уставка кондиционера, скорость вентилятора; у каждого устройства своя задержка включения и возврат через N минут; галочками — на каких панелях и на главной 10″.
+5. Повесить метки на зоны, устройства и сущности — сами метки создаёт интеграция.
 
 Обновление: новый Release на GitHub → HACS → Обновить → перезапуск. Панели перезагрузятся сами в течение 10 минут; о новой версии SSV сообщает уведомлением в HA.
 
@@ -84,9 +108,9 @@ Every label SSV Dashboard reads. Panels look for the **id**; Settings → Labels
 | Right | `right` | Curtain opens to the right |
 | Both Sides | `both_side` | Curtain opens to both sides |
 | Scene | `scene` | Ready scenes (script.* shown as a scene) |
-| Scene Device | `scene_device` | Devices guests may use in their own scenes |
-| User Scene | `user_scene` | Put by SSV on scenes made by guests |
-| Home | `home` | Light or tile picked for the Home page |
+| Scene Device | `scene_device` | Devices people may use in their own user scenes |
+| User Scene | `user_scene` | Put by SSV on user scenes (made on the panels) |
+| Home | `home` | Light or tile picked for the Home page; on a scene — one of the scene buttons on Home of the 10″ panels (set by the Home check box in the scene editor) |
 | Water | `water` | Water tab (together with a function label) |
 | Hot Water | `hot_water` | Water function: hot water / boiler; can get Run buttons |
 | Recirculation | `recirculation` | Water function: recirculation; can get Run buttons |
@@ -103,7 +127,7 @@ Made with each panel on the SSV Dashboard page (the live list with every panel's
 
 | Label | Id | What for |
 | --- | --- | --- |
-| Panel &lt;Name&gt; | `panel_<id>` | On an area: the whole room goes to that panel. On a device or entity: just that device, wherever it is installed |
+| Panel &lt;Name&gt; | `panel_<id>` | On an area: the whole room goes to that panel. On a device or entity: just that device, wherever it is installed. On a scene: the scene is shown on that panel (a scene without any Panel label is on every panel) |
 | Panel &lt;Name&gt; WC | `panel_<id>_wc` | WC tab of a room panel — every room panel has it |
 | Panel &lt;Name&gt; &lt;Room&gt; | `panel_<id>_<room>` | Tab of another attached room (Shower, Balcony…) |
 | &lt;Room&gt; (e.g. Bedroom 1) | area id (`bedroom_1`) | Room label for each area of a panel: puts a device in that room on the panels (Home, Climate…) |
