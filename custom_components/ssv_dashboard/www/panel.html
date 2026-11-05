@@ -69,6 +69,8 @@ button{font:inherit;color:inherit;cursor:pointer;margin:0}
 .btn.lit{background:var(--amber);border-color:var(--amber);color:#2A1E0A}
 .btn.sq{flex:none;width:56px;padding:0}
 .btn.f{flex:none;padding:0 20px}
+/* floor buttons: one fixed size on every page, with or without the light counter */
+.btn.fl{flex:none;width:156px;padding:0 10px;justify-content:center;overflow:hidden}.btn.fl>.fn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .btn.dim{color:#5E6E7E;border-color:#1A242E}
 .btn.ghost{background:rgba(7,11,16,.45);border-color:#3A3F46}
 .btn.danger{background:var(--alert);border-color:var(--alert);color:#1A0806}
@@ -206,7 +208,7 @@ button{font:inherit;color:inherit;cursor:pointer;margin:0}
 <script>
 /* INEX wall panel 10" — single consolidated file (no override blocks).
    BUILD changes on every deploy; open panels compare it every 10 min and reload themselves. */
-const BUILD = '1.2.2';
+const BUILD = '1.3.0';
 let lastMsg = Date.now(), downSince = 0, noData = 0, reloading = false; const BOOT = Date.now();
 const UNAVAILABLE = '<div class="empty">This section is temporarily unavailable</div>';
 function safe(fn, fallback = ''){ try { return fn(); } catch (e) { console.error('[panel]', e); return fallback; } }
@@ -275,6 +277,7 @@ function applyCfg(c){
   const n = CFG.night || {};
   if (n.enabled === false) SET.nightIdleMinutes = 0;
   if (n.from != null) SET.nightFrom = +n.from; if (n.to != null) SET.nightTo = +n.to;
+  const sc = CFG.scenes || {}; if (sc.places != null) SET.homeScenes = Math.max(0, Math.min(4, +sc.places)); SET.sceneOrder = Array.isArray(sc.order) ? sc.order : [];
 }
 const tabOn = (k) => !CFG || !CFG.tabs || CFG.tabs[k] !== false;
 const SET = {
@@ -286,7 +289,11 @@ const SET = {
   nightIdleMinutes: 3, nightFrom: 22, nightTo: 6,
   homeIdleMinutes: 2,
   homeScenes: 4,
+  sceneOrder: [],
 };
+/* scene order: as set on the SSV Dashboard page for this panel, then A–Z */
+const sceneRank = (id) => { const i = SET.sceneOrder.indexOf(id); return i < 0 ? 1e6 : i; };
+const sceneCmp = (a, b) => sceneRank(a) - sceneRank(b) || String(attr(a, 'friendly_name') || a).localeCompare(String(attr(b, 'friendly_name') || b));
 
 const IC = {
 strip: '<rect x="2.5" y="9" width="19" height="5" rx="1.5"/><path d="M6.5 11.5h.01M10.5 11.5h.01M14.5 11.5h.01M18.5 11.5h.01"/><path d="M5 17.5l-1 2M12 17.5v2M19 17.5l1 2"/>',
@@ -321,7 +328,7 @@ pumpc: '<circle cx="11" cy="13.5" r="7"/><path d="M11 13.5c1-2.2 3-3.2 4.5-3M11 
   door:'<path d="M6 21V4h10v17M4 21h16"/><circle cx="13" cy="12.5" r=".8"/>',
   moon:'<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>',
   power:'<path d="M12 3v9"/><path d="M6.3 7.3a8 8 0 1 0 11.4 0"/>',
-  minus:'<path d="M6 12h12"/>', plus:'<path d="M6 12h12M12 6v12"/>',
+  minus:'<path d="M6 12h12"/>', plus:'<path d="M6 12h12M12 6v12"/>', check:'<path d="M5 12.5l4.5 4.5L19 7.5"/>',
   snow:'<path d="M12 2v20M4 6l16 12M20 6L4 18"/>',
   waves:'<path d="M3 20h18"/><path d="M6 16c0-2 2-2 2-4s-2-2-2-4M12 16c0-2 2-2 2-4s-2-2-2-4M18 16c0-2 2-2 2-4s-2-2-2-4"/>',
   flame:'<path d="M12 3c1 4 5 5 5 10a5 5 0 0 1-10 0c0-3 2-4 2-6 1.5 1 2 2 2 3 0-3 1-5 1-7z"/>',
@@ -357,7 +364,7 @@ const REG = { ents:{}, devs:{}, areas:[], floors:[], loaded:false };
 let M = null;                 // model built from the registry
 let HA = { location:'' };
 let view = 'home', connected = false;
-const UI = { lightRoom:null, coverRoom:'all', roomFloor:'all', page:{}, lastScene:null, lastSceneAt:0, sceneEdit:false };
+const UI = { lightRoom:null, coverRoom:'all', roomFloor:'all', page:{}, lastScene:null, lastSceneAt:0 };
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const store = { get(k, d){ try { const v = localStorage.getItem('wp_'+PANEL.id+'_'+k); return v == null ? d : JSON.parse(v); } catch(e){ return d; } },
@@ -465,7 +472,10 @@ const NEED = { light:['light'], temp:['t_h'], hum:['t_h'], co2:['t_h'], cover:['
 if (NEED[kind] && !hasLabel(id, NEED[kind])) return;
     names[id] = cleanName(id, room);
     if (kind === 'weather') { if (!g.weather) g.weather = id; return; }
-    if (kind === 'scene') { g.scenes.push(id); return; }
+    if (kind === 'scene') {   /* Panel <Name> labels choose the panels; none = every panel */
+      const pl = ((REG.ents[id] || {}).lb || []).filter(l => /^panel_/.test(l));
+      if (pl.length && !pl.includes(panelLabel)) return;
+      g.scenes.push(id); return; }
     if (kind === 'timer') {
       if (!inHouse) return;
       const base = id.slice(6);
@@ -687,6 +697,7 @@ async function connect(){
     else if (m.type === 'event' && m.id === FC_ID && m.event && m.event.forecast) { FC = m.event.forecast; schedule(); }
     else if (m.type === 'event' && m.event) {
       const et = m.event.event_type;
+      if (!HA_LIVE && m.event.time_fired) { const f = Date.parse(m.event.time_fired); if (!isNaN(f)) HA_OFF = f - Date.now(); }
       if (et === 'state_changed') {
         const d = m.event.data;
         const added = !S[d.entity_id] && d.new_state;
@@ -735,7 +746,8 @@ function setBri(id, p){
 }
 function runScene(id){
   const dom = id.split('.')[0];
-  call(dom, 'turn_on', {}, { entity_id:id });
+  if (dom === 'scene') call('ssv_dashboard', 'run_scene', { entity_id:id });   /* user scenes: each device on its own timer */
+  else call(dom, 'turn_on', {}, { entity_id:id });
   UI.lastScene = id; UI.lastSceneAt = Date.now();
   toast(`Scene “${NM(id)}” activated`);
   schedule();
@@ -781,8 +793,8 @@ function renderSide(){
 function fmtClock(d){ return d.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' }); }
 function fmtDate(d){ return d.toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'short' }); }
 /* INEX 2026-10-27: clock comes from Home Assistant (sensor.ssv_time / sensor.inex_time: server time + HA time zone), not from the tablet's own clock */
-var HA_OFF = 0, HA_TZ = 0, HA_TZOK = false;
-function haTimeSync(iso, live){ const ms = Date.parse(iso); if (isNaN(ms)) return; if (live) HA_OFF = ms - Date.now(); const z = /([+-])(\d\d):?(\d\d)$/.exec(iso); if (z) { HA_TZ = (z[1] === '-' ? -1 : 1) * (+z[2] * 60 + +z[3]); HA_TZOK = true; } }
+var HA_OFF = 0, HA_TZ = 0, HA_TZOK = false, HA_LIVE = false;
+function haTimeSync(iso, live){ const ms = Date.parse(iso); if (isNaN(ms)) return; if (live) { HA_OFF = ms - Date.now(); HA_LIVE = true; } const z = /([+-])(\d\d):?(\d\d)$/.exec(iso); if (z) { HA_TZ = (z[1] === '-' ? -1 : 1) * (+z[2] * 60 + +z[3]); HA_TZOK = true; } }
 function haAt(t){ if (!HA_TZOK) { const s = S['sensor.ssv_time'] || S['sensor.inex_time']; if (s && s.state) haTimeSync(s.state, false); } return HA_TZOK ? new Date(t + (HA_TZ + new Date(t).getTimezoneOffset()) * 60000) : new Date(t); }
 function haNow(){ return haAt(Date.now() + HA_OFF); }
 function greet(){ const h = haNow().getHours(); return h < 5 ? 'Good night' : h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'; }
@@ -815,7 +827,8 @@ function renderTop(){
   if (al.length) alertBtn = `<button class="pill ${al.some(x=>x.crit)?'crit':'warn'}" data-act="alerts" aria-label="Alerts">${svg('bell')}${al.length}</button>`;
   let weather = '';
   const w = M && M.g.weather;
-  if (w && real(w)) {
+  /* no weather block at all when the weather integration is unavailable (no internet) */
+  if (w && real(w) && isFinite(parseFloat(S[w].attributes.temperature))) {
     const a = S[w].attributes; const fc = (FC && FC[0]) || (a.forecast && a.forecast[0]) || null;
     weather = `<div class="pill">${svg('cloud','width:26px;height:26px;color:var(--soft)')}<div class="v">${Math.round(a.temperature)}°</div><div class="l">${esc(S[w].state.replace(/[-_]/g,' '))}${fc && fc.temperature!=null ? `<br>H ${Math.round(fc.temperature)}°${fc.templow!=null?' · L '+Math.round(fc.templow)+'°':''}` : ''}</div></div>`;
   }
@@ -831,7 +844,7 @@ function paged(key, items, per){
   return { items: items.slice(p*per, p*per+per), pager };
 }
 
-function pinnedScenes(){ return avail(M.g.scenes).filter(id => hasLabel(id, ['home'])).slice(0, SET.homeScenes); }
+function pinnedScenes(){ return avail(M.g.scenes).slice().sort(sceneCmp).filter(id => hasLabel(id, ['home'])).slice(0, SET.homeScenes); }
 function sceneActive(id){ return UI.lastScene === id && Date.now() - UI.lastSceneAt < 30*60000; }
 
 function viewHome(){
@@ -903,7 +916,7 @@ function viewRooms(){
   const sum = [`${lit} lights on`, acOn ? acOn + ' AC' : '', hOn ? hOn + ' heating' : ''].filter(Boolean).join(' · ');
   const cards = items.map(roomCard).join('');
   return `<div class="vw">
-    <div class="bar">${floors.length > 1 ? floors.map(f => `<button class="btn f${UI.roomFloor===f.floor_id?' sel':''}" data-floor="${f.floor_id}">${esc(f.name.replace(/\s*floor$/i,''))}</button>`).join('') : ''}
+    <div class="bar">${floors.length > 1 ? floors.map(f => `<button class="btn fl${UI.roomFloor===f.floor_id?' sel':''}" data-floor="${f.floor_id}"><span class="fn">${esc(f.name.replace(/\s*floor$/i,''))}</span></button>`).join('') : ''}
       <div class="sp"></div><span class="s" style="font-size:13px">${esc(sum)}</span>${pager}</div>
     <div class="grid" style="grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr))">${cards}</div></div>`;
 }
@@ -942,9 +955,9 @@ function viewLights(){
   if (!inFloor.find(r => r.id === UI.lightRoom)) UI.lightRoom = (inFloor.find(r => lightsOnIn(r).length) || inFloor[0] || {}).id;
   const r = M.byId[UI.lightRoom];
   const fbtn = fl.length > 1 ? fl.map(f => { const n = rooms.filter(x => fOf(x) === f.id).reduce((a, x) => a + lightsOnIn(x).length, 0); const sel = f.id === UI.lightFloor;
-    return `<button class="btn f${sel ? ' sel' : ''}" data-lfloor="${f.id}">${esc(f.name)}${n ? `${lbadge(n, sel)}` : ''}</button>`; }).join('') : '';
+    return `<button class="btn fl${sel ? ' sel' : ''}" data-lfloor="${f.id}"><span class="fn">${esc(f.name)}</span>${lbadge(n, sel)}</button>`; }).join('') : '';
   const rbtn = inFloor.map(x => { const n = lightsOnIn(x).length; const sel = x.id === UI.lightRoom;
-    return `<button class="btn${sel ? ' sel' : ''}" data-lroom="${x.id}" style="min-width:0"><span style="white-space:normal;line-height:1.25;text-align:center">${esc(x.name)}</span>${n ? `${lbadge(n, sel)}` : ''}</button>`; }).join('');
+    return `<button class="btn${sel ? ' sel' : ''}" data-lroom="${x.id}" style="min-width:0"><span style="white-space:normal;line-height:1.25;text-align:center">${esc(x.name)}</span>${lbadge(n, sel)}</button>`; }).join('');
   const ids = r ? avail(r.lights).slice().sort(lightSort) : [];
   const { items, pager } = paged('lights_' + UI.lightRoom, ids, 8);
   const rows = ids.length > 4 ? 2 : 1;
@@ -1040,8 +1053,8 @@ function heatBlock(id, runs = true){
 function ufhRuns(id){
   const r = CFG && CFG.runs && CFG.runs[id]; const tid = 'timer.inex_ufh_' + id.split('.')[1];
   if (!Array.isArray(r) || !r.length || !S[tid]) return '';
-  const t = S[tid]; const on = t.state === 'active' || t.state === 'paused';
-  const left = on && t.attributes.finishes_at ? hms((new Date(t.attributes.finishes_at) - Date.now()) / 1000) : '';
+  const t = S[tid]; const on = tOn(tid);
+  const left = on ? cdSpan(tid) : '';
   return `<div class="row" style="gap:8px;margin-top:8px">${r.slice(0, 4).map((m, i) => `<button class="btn f${on && t.attributes.duration === durStr(m).replace(/^0/, '') ? ' sel' : ' ghost'}" data-urun="${id}" data-min="${m}" style="flex:1;gap:6px">${i ? '' : WI.run}<span style="text-transform:none">${fmtMin(m)}</span></button>`).join('')}${left ? `<span class="s heat" style="flex:none">${left}</span>` : ''}</div>`;
 }
 
@@ -1056,7 +1069,7 @@ function viewCurtains(){
   const r = M.byId[UI.cvRoom];
   const ids = all.filter(id => labelRoom(id) === r);
   const { items, pager } = paged('cv_' + UI.cvRoom, ids, 6);
-  const fbtn = fl.length > 1 ? fl.map(f => `<button class="btn f${f.id === UI.cvFloor ? ' sel' : ''}" data-cvfloor="${f.id}">${esc(f.name)}</button>`).join('') : '';
+  const fbtn = fl.length > 1 ? fl.map(f => `<button class="btn fl${f.id === UI.cvFloor ? ' sel' : ''}" data-cvfloor="${f.id}"><span class="fn">${esc(f.name)}</span></button>`).join('') : '';
   const rbtn = inF.map(x => `<button class="btn${x.id === UI.cvRoom ? ' sel' : ''}" data-cvroom="${x.id}" style="min-width:0"><span style="white-space:normal;line-height:1.25;text-align:center">${esc(x.name)}</span></button>`).join('');
   return `<div class="vw"><div class="bar">${fbtn}<div class="sp"></div>${pager}
       <button class="btn f" data-cvall="open_cover" style="gap:8px">${svg('open')}Open all</button><button class="btn f" data-cvall="close_cover" style="gap:8px">${svg('close')}Close all</button></div>
@@ -1091,12 +1104,20 @@ function coverCard(id, r){
     <div class="row" style="gap:8px">${cbtns(id, k, moving)}</div></div>`;
 }
 
-function hms(sec){ sec = Math.max(0, Math.round(sec)); const h = Math.floor(sec/3600), m = Math.floor(sec%3600/60), s = sec%60; return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`; }
+/* Run countdown: seconds left by HA's clock (HA_OFF), never below 0; [data-cd] spans tick every 250 ms */
+const hmsSecs = (v) => { const m = /^(\d+):(\d\d):(\d\d)/.exec(String(v || '')); return m ? +m[1] * 3600 + +m[2] * 60 + +m[3] : 0; };
+function tLeft(tid){ const t = tid && S[tid]; if (!t) return null;
+  if (t.state === 'active' && t.attributes.finishes_at) return Math.max(0, Math.ceil((Date.parse(t.attributes.finishes_at) - Date.now() - HA_OFF) / 1000));
+  if (t.state === 'paused') return hmsSecs(t.attributes.remaining); return null; }
+const tOn = (tid) => { const t = tid && S[tid]; return !!t && (t.state === 'active' || t.state === 'paused'); };
+const cdText = (tid) => { const l = tLeft(tid); return l == null ? '' : hms(l); };
+const cdSpan = (tid) => `<span data-cd="${tid}" style="font-variant-numeric:tabular-nums">${cdText(tid)}</span>`;
+const stHtml = (w) => w.timed && w.tid ? 'Run · ' + cdSpan(w.tid) : esc(w.status);
+function hms(sec){ sec = Math.max(0, Math.ceil(sec)); const h = Math.floor(sec/3600), m = Math.floor(sec%3600/60), s = sec%60; return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`; }
 function timerInfo(x){
   const t = st(x.timer); const sc = st(x.start);
   let active = false, left = '';
-  if (t && t.state === 'active' && t.attributes.finishes_at) { active = true; left = hms((new Date(t.attributes.finishes_at) - Date.now())/1000); }
-  else if (t && t.state === 'paused') { active = true; left = t.attributes.remaining || ''; }
+  if (tOn(x.timer)) { active = true; left = cdText(x.timer); }
   if (sc && sc.state === 'on') active = true;
   return { active, left };
 }
@@ -1160,20 +1181,10 @@ function confirmLock(id, service){
     <div class="row" style="gap:8px"><button class="btn" data-act="close">Cancel</button><button class="btn danger" data-unlock="${id}">Unlock</button></div></div>`);
 }
 
-function openScenes(){
-  const all = avail(M.g.scenes); const pins = pinnedScenes();
-  const { items, pager } = paged('scenes', all, 12);
-  openOv(`<div class="dlg wide"><div class="row" style="height:56px"><div class="col"><div style="font-size:30px;font-weight:300;letter-spacing:-.02em">Scenes</div><div class="s">${all.length} scenes · ${pins.length} pinned to Home</div></div>${pager}<button class="btn sq" data-act="close" aria-label="Close">${svg('x')}</button></div>
-    <div style="flex:1;min-height:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(3,minmax(0,1fr));gap:16px">${items.map(id => `
-      <button class="sct${sceneActive(id)?' on':''}" data-${UI.sceneEdit?'pinsc':'scene'}="${id}"><div class="row" style="justify-content:space-between"><div class="d">${svg(sceneIcon(id))}</div>${pins.includes(id)?'<span class="pin">Home</span>':''}</div>
-        <div class="col" style="flex:none"><div class="t" style="font-size:19px">${esc(NM(id))}</div><div class="s${sceneActive(id)?' mint':''}">${sceneActive(id)?'Active':UI.sceneEdit?(pins.includes(id)?'Tap to unpin':'Tap to pin'):'Tap to run'}</div></div></button>`).join('')}</div>
-    <div class="row" style="justify-content:space-between"><div class="s" style="font-size:13px">${UI.sceneEdit ? `Pin up to ${SET.homeScenes} scenes to Home` : 'Tap = run'}</div>
-      <button class="btn f${UI.sceneEdit?' sel':''}" data-act="sceneedit" style="height:64px">${svg('edit')}${UI.sceneEdit?'Done':'Edit Home slots'}</button></div></div>`, 'scenes');
-}
 
 let ovKind = null;
 function openOv(html, kind){ ovKind = kind || 'dlg'; $('ov').innerHTML = html; $('ov').classList.add('show'); safe(mountRtc); }
-function closeOv(){ ovKind = null; UI.sceneEdit = false; $('ov').classList.remove('show'); $('ov').innerHTML = ''; }
+function closeOv(){ ovKind = null; $('ov').classList.remove('show'); $('ov').innerHTML = ''; }
 let toastT = 0;
 function toast(text){ const t = $('toast'); t.innerHTML = svg('scene') + esc(text); t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 3000); }
 const acked = store.get('acked', {});
@@ -1330,7 +1341,6 @@ stage.addEventListener('click', (e) => {
   if (d.hatoggle) { call('homeassistant', 'toggle', {}, { entity_id: d.hatoggle }); return; }
   if (d.roomlights) { const r = M.byId[d.roomlights]; setLights(r.lights, !lightsOnIn(r).length); return; }
   if (d.scene) { runScene(d.scene); if (ovKind === 'scenes') openScenes(); return; }
-  if (d.pinsc) { let pins = pinnedScenes(); pins = pins.includes(d.pinsc) ? pins.filter(x => x !== d.pinsc) : [...pins, d.pinsc].slice(-SET.homeScenes); store.set('pins', pins); openScenes(); schedule(); return; }
   if (d.bp != null && d.id) { setBri(d.id, +d.bp); closeOv(); return; }
   if (d.preset) { applyPreset(d.id, d.preset); return; }
   if (d.tmp) { stepTemp(d.tmp, +d.d); return; }
@@ -1354,7 +1364,6 @@ stage.addEventListener('click', (e) => {
     case 'covall': coversAll(d.s, UI.coverRoom); break;
     case 'night': enterNight(); break;
     case 'scenes': UI.page.scenes = 0; openScenes(); break;
-    case 'sceneedit': UI.sceneEdit = !UI.sceneEdit; openScenes(); break;
     case 'alerts': openAlerts(); break;
     case 'pinok': if (pinTarget) { call('alarm_control_panel', pinTarget.service, { code:pinBuf }, { entity_id:pinTarget.id }); pinTarget = null; closeOv(); } break;
     case 'close': closeOv(); break;
@@ -1368,6 +1377,27 @@ function coversAll(service, roomId){
 
 let lastTouch = Date.now();
 function touched(){ lastTouch = Date.now(); }
+
+/* ===== Dim to 20 % after the same idle time as the return to Home (all panels except Phone).
+   Fully Kiosk with its JavaScript interface: the screen backlight goes to 20 %; otherwise a black layer at 80 %.
+   The first touch only wakes the panel; it does not press anything. A doorbell or alarm wakes it too. ===== */
+const DIM = { on: false, el: null, b: null, eat: 0 };
+function dimSet(on){
+  if (on === DIM.on) return; DIM.on = on; const F = window.fully;
+  if (F && F.setScreenBrightness && F.getScreenBrightness) {
+    try { if (on) { DIM.b = +F.getScreenBrightness() || 255; try { localStorage.setItem('ssv_bright', DIM.b); } catch (e) {} F.setScreenBrightness(Math.max(1, Math.round(DIM.b * 0.2))); } else { F.setScreenBrightness(DIM.b || 255); try { localStorage.removeItem('ssv_bright'); } catch (e) {} } return; } catch (e) {}
+  }
+  if (!DIM.el) { DIM.el = document.createElement('div'); DIM.el.id = 'dim'; DIM.el.style.cssText = 'position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity .8s;z-index:2147483000'; document.body.appendChild(DIM.el); }
+  DIM.el.style.opacity = on ? '.8' : '0';
+}
+/* a reload while dimmed (update, power) must not leave the screen at 20 % */
+try { const b = +localStorage.getItem('ssv_bright'); if (b && window.fully && fully.setScreenBrightness) { fully.setScreenBrightness(b); localStorage.removeItem('ssv_bright'); } } catch (e) {}
+const dimEat = (e) => { if (Date.now() - DIM.eat < 700) { e.stopPropagation(); e.preventDefault(); } };
+addEventListener('pointerdown', (e) => { if (!DIM.on) return; DIM.eat = Date.now(); e.stopPropagation(); e.preventDefault(); lastTouch = Date.now(); dimSet(false); }, true);
+['pointerup', 'pointermove', 'click', 'touchend', 'mouseup'].forEach(t => addEventListener(t, dimEat, true));
+setInterval(() => { const after = SET.homeIdleMinutes * 60000; const idle = Date.now() - lastTouch;
+  const dark = $('night').classList.contains('show') || ($('crit').classList.contains('show') || ovKind === 'door');
+  dimSet(!!after && idle >= after && !dark); }, 1000);
 setInterval(() => {
   const idle = (Date.now() - lastTouch) / 60000; const h = haNow().getHours();
   const nightHours = SET.nightFrom > SET.nightTo ? (h >= SET.nightFrom || h < SET.nightTo) : (h >= SET.nightFrom && h < SET.nightTo);
@@ -1378,12 +1408,11 @@ setInterval(() => {
 setInterval(() => {
   const now = haNow();
   const c = $('clk'); if (c) c.textContent = fmtClock(now);
-  document.querySelectorAll('[data-cd]').forEach(el => { const x = M && M.g.timers.find(t => t.timer === el.dataset.cd); if (!x) return; const r = timerInfo(x); if (r.active && r.left) el.textContent = r.left; });
-  if (M && view === 'home' && M.g.timers.some(x => timerInfo(x).active)) schedule();
   if (view === 'cameras') { camTick++; document.querySelectorAll('[data-camimg]').forEach(img => { const s = camSrc(img.dataset.camimg); if (s) img.src = s; }); document.querySelectorAll('[data-camclk]').forEach(x => x.textContent = now.toLocaleTimeString('en-GB')); }
   if ($('night').classList.contains('show')) renderNight();
 }, 1000);
 setInterval(() => { if (M && alerts().length) schedule(); }, 60000);
+setInterval(() => { document.querySelectorAll('[data-cd]').forEach(el => { if (!tOn(el.dataset.cd)) return; const v = cdText(el.dataset.cd); if (el.textContent !== v) el.textContent = v; }); }, 250);
 
 function fit(){ const s = Math.min(innerWidth / 1280, innerHeight / 800); stage.style.transform = `scale(${s})`; stage.style.left = ((innerWidth - 1280*s) / 2) + 'px'; stage.style.top = ((innerHeight - 800*s) / 2) + 'px'; }
 addEventListener('resize', fit); fit();
@@ -1448,7 +1477,7 @@ function viewHeating(){
     return `<div class="card${w.off ? '' : ' heat'}${w.na ? ' na' : ''}" style="gap:14px">
       <div class="row"><div class="col"><div class="e w">${esc(z.r.name)}</div><div class="s">Heated wall</div></div>${svg('waves', `width:30px;height:30px;color:${w.off ? 'var(--text2)' : 'var(--heat)'}`)}</div>
       <div style="flex:1;display:flex;align-items:center;justify-content:space-between;gap:16px">
-        <div class="col" style="gap:6px"><div style="font-size:64px;font-weight:200;letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums">${w.cur != null ? fmtT(w.cur) : '--'}<span style="font-size:24px;color:var(--text2);margin-left:4px">°C</span></div><div class="s${w.off ? '' : ' heat'}" style="font-size:14px">${esc(w.status)}</div></div>
+        <div class="col" style="gap:6px"><div style="font-size:64px;font-weight:200;letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums">${w.cur != null ? fmtT(w.cur) : '--'}<span style="font-size:24px;color:var(--text2);margin-left:4px">°C</span></div><div class="s${w.off ? '' : ' heat'}" style="font-size:14px">${stHtml(w)}</div></div>
         <div class="row" style="flex:none;gap:10px">${stepper(z.id, w.off)}</div></div>
       ${schedChip([z.id])}<div class="row" style="gap:10px">${runsOf(z.id, [180]).map((m, i) => `<button class="btn${w.timed && w.dur === durStr(m).replace(/^0/, '') ? ' sel' : ' ghost'}" data-wrun="${z.id}" data-min="${m}" style="gap:8px;flex:1 1 0;min-width:0">${i ? '' : WI.run}${i ? '' : 'Run '}<span style="text-transform:none">${fmtMin(m)}</span></button>`).join('')}${runsOf(z.id, [180]).length > 1 ? b(!w.off && !w.timed, 'data-wman', WI.hand, '') + b(w.off, 'data-woff', WI.off, '') : b(!w.off && !w.timed, 'data-wman', WI.hand, 'Manual on') + b(w.off, 'data-woff', WI.off, 'Off')}</div></div>`;
   }).join('');
@@ -1468,12 +1497,10 @@ const WI = {
 };
 function wallState(id){
   const s = st(id); const na = !real(id); const off = na || s.state === 'off';
-  const t = S[wallTimerId(id)]; let timed = false, left = '';
-  if (t && t.state === 'active' && t.attributes.finishes_at) { timed = true; left = hms((new Date(t.attributes.finishes_at) - Date.now()) / 1000); }
-  else if (t && t.state === 'paused') { timed = true; left = t.attributes.remaining || ''; }
-  if (off) timed = false;
+  const tid = wallTimerId(id); const t = S[tid]; let timed = tOn(tid), left = timed ? cdText(tid) : '';
+  const dur = t ? t.attributes.duration || '' : '';
   const cur = attr(id, 'current_temperature');
-  return { na, off, timed, left, cur, status: off ? 'Off' : timed ? 'Run' + (left ? ' · ' + left : '') : 'Manual' };
+  return { na, off, timed, left, cur, tid, dur, status: timed ? 'Run' + (left ? ' · ' + left : '') : off ? 'Off' : 'Manual' };
 }
 async function ensureWallTimer(id){
   const tid = wallTimerId(id); if (S[tid]) return tid;
@@ -1504,7 +1531,7 @@ function wallSet(id, mode){
 function wallRows(){
   const out = [];
   zonesBy(CL.wall).forEach(({ r, ids }) => ids.forEach(id => { const w = wallState(id);
-    out.push(`<button class="ln" data-tab="heating">${svg('waves')}<b>${esc(r.name)} wall</b><em class="${w.off ? '' : 'heat'}">${w.cur != null ? fmtT(w.cur) + '° · ' : ''}${esc(w.status)}</em></button>`); }));
+    out.push(`<button class="ln" data-tab="heating">${svg('waves')}<b>${esc(r.name)} wall</b><em class="${w.off ? '' : 'heat'}">${w.cur != null ? fmtT(w.cur) + '° · ' : ''}${stHtml(w)}</em></button>`); }));
   return out;
 }
 
@@ -1520,20 +1547,17 @@ const dmn = (id) => id.split('.')[0];
 const wEnts = (fn) => Object.keys(S).filter(id => hasLabel(id, ['water']) && (!fn || hasLabel(id, [fn])) && !hasLabel(id, SET.hideLabels) && show(id));
 function wGroup(fn){
   const ids = wEnts(fn);
-  return { fn, dev: ids.filter(id => WCTRL.includes(dmn(id))), temp: ids.find(id => dmn(id) === 'sensor' && (attr(id, 'device_class') === 'temperature' || /°/.test(attr(id, 'unit_of_measurement') || ''))), timer: ids.find(id => dmn(id) === 'timer') };
+  return { fn, dev: ids.filter(id => WCTRL.includes(dmn(id))), temp: ids.find(id => dmn(id) === 'sensor' && (attr(id, 'device_class') === 'temperature' || /°/.test(attr(id, 'unit_of_measurement') || ''))), timer: S['timer.inex_water_' + fn] ? 'timer.inex_water_' + fn : ids.find(id => dmn(id) === 'timer') };
 }
 const devOn = (id) => { const s = S[id]; if (!s || !real(id)) return false; return dmn(id) === 'water_heater' ? s.state !== 'off' : s.state === 'on'; };
 const fmtMin = (m) => m < 60 ? m + 'm' : Math.floor(m / 60) + (m % 60 ? ':' + String(m % 60).padStart(2, '0') : '') + 'h';
 const durStr = (m) => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0') + ':00';
 function wState(g){
-  const on = g.dev.some(devOn); const t = g.timer && S[g.timer]; let timed = false, left = '', dur = '';
-  if (t && t.state === 'active' && t.attributes.finishes_at) { timed = true; left = hms((new Date(t.attributes.finishes_at) - Date.now()) / 1000); }
-  else if (t && t.state === 'paused') { timed = true; left = t.attributes.remaining || ''; }
-  if (t) dur = t.attributes.duration || '';
-  if (!on) timed = false;
+  const t = g.timer && S[g.timer]; const timed = tOn(g.timer); const on = g.dev.some(devOn) || timed;
+  const left = timed ? cdText(g.timer) : ''; const dur = t ? t.attributes.duration || '' : '';
   let temp = g.temp && real(g.temp) ? parseFloat(S[g.temp].state) : null;
   if (temp === null || isNaN(temp)) { const h = g.dev.find(id => dmn(id) === 'water_heater'); temp = h ? attr(h, 'current_temperature') : null; }
-  return { on, timed, left, dur, temp, na: g.dev.length && g.dev.every(id => !real(id)), status: !on ? 'Off' : timed ? 'Run' + (left ? ' · ' + left : '') : 'On' };
+  return { on, timed, left, dur, temp, tid: g.timer, na: g.dev.length && g.dev.every(id => !real(id)), status: !on ? 'Off' : timed ? 'Run' + (left ? ' · ' + left : '') : 'On' };
 }
 function devCall(ids, on){ ids.forEach(id => { const d = dmn(id); optimistic(id, on ? 'on' : 'off');
   if (d === 'water_heater') call('water_heater', on ? 'turn_on' : 'turn_off', {}, { entity_id: id }); else call('homeassistant', on ? 'turn_on' : 'turn_off', {}, { entity_id: id }); }); }
@@ -1563,7 +1587,7 @@ function fnCard(fn){
     <div class="row"><div class="col"><div class="e w">${F.name}</div><div class="s">${F.sub}</div></div>${svg(F.icon, `width:30px;height:30px;color:${w.on ? 'var(--heat)' : 'var(--text2)'}`)}</div>
     <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:6px">
       ${w.temp != null ? `<div style="font-size:64px;font-weight:200;letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums">${fmtT(w.temp)}<span style="font-size:24px;color:var(--text2);margin-left:4px">°C</span></div>` : ''}
-      <div class="s${w.on ? ' heat' : ''}" style="font-size:14px">${esc(w.status)}</div></div>
+      <div class="s${w.on ? ' heat' : ''}" style="font-size:14px">${stHtml(w)}</div></div>
     ${schedChip(g.dev)}<div class="row" style="gap:10px">${runs}<button class="btn${w.on ? ' ghost' : ' sel'}" data-wtoff="${fn}" style="gap:8px">${WI.off}Off</button></div></div>`;
 }
 function valveCard(id){
@@ -1588,7 +1612,7 @@ function meterCard(id){
 function waterRows(){
   const out = [];
   ['hot_water', 'recirculation'].forEach(fn => { const g = wGroup(fn); if (!g.dev.length) return; const w = wState(g);
-    out.push(`<button class="ln" data-tab="water">${svg(WFN[fn].icon)}<b>${WFN[fn].name}</b><em class="${w.on ? 'heat' : ''}">${w.temp != null ? fmtT(w.temp) + '° · ' : ''}${esc(w.status)}</em></button>`); });
+    out.push(`<button class="ln" data-tab="water">${svg(WFN[fn].icon)}<b>${WFN[fn].name}</b><em class="${w.on ? 'heat' : ''}">${w.temp != null ? fmtT(w.temp) + '° · ' : ''}${stHtml(w)}</em></button>`); });
   wEnts('valve').filter(id => ['valve', 'switch'].includes(dmn(id))).forEach(id => { const o = valveOpen(id);
     out.push(`<button class="ln" data-tab="water">${svg('water')}<b>${esc(NM(id))}</b><em class="${o ? '' : 'amber'}">${o ? 'Open' : 'Closed'}</em></button>`); });
   return out;
@@ -1714,7 +1738,7 @@ function entSelect(){
 }
 
 /* Lights: count of lights on as a yellow round badge (keeps "Bedroom 1" readable) */
-const lbadge = (n, sel) => `<span style="flex:none;min-width:22px;height:22px;padding:0 6px;margin-left:8px;border-radius:11px;font:500 12px/20px var(--mono);letter-spacing:0;text-align:center;${sel ? 'background:rgba(10,32,24,.14);border:1px solid rgba(10,32,24,.35);color:inherit' : 'background:rgba(242,193,78,.12);border:1px solid rgba(242,193,78,.45);color:#F2C14E'}">${n}</span>`;
+const lbadge = (n, sel) => `<span style="${n ? '' : 'visibility:hidden;'}flex:none;min-width:22px;height:22px;padding:0 6px;margin-left:8px;border-radius:11px;font:500 12px/20px var(--mono);letter-spacing:0;text-align:center;${sel ? 'background:rgba(10,32,24,.14);border:1px solid rgba(10,32,24,.35);color:inherit' : 'background:rgba(242,193,78,.12);border:1px solid rgba(242,193,78,.45);color:#F2C14E'}">${n}</span>`;
 
 /* Light order (same rule on every panel): own room first -> balcony -> WC; inside a zone: main -> cove/vanity -> other */
 const lTypeRank = (id) => lightOrder(id);
@@ -1802,7 +1826,7 @@ const sxErr = (e) => (e && (e.message || e.translation_key)) || 'Not saved';
 
 /* ---- scenes list: run · manage (edit / delete your own) · new ---- */
 function openScenes(){
-  const all = avail(M.g.scenes); const pins = pinnedScenes();
+  const all = avail(M.g.scenes).slice().sort(sceneCmp); const pins = pinnedScenes();
   const { items, pager } = paged('scenes', all, 12);
   openOv(`<div class="dlg wide"><div class="row" style="height:56px"><div class="col"><div style="font-size:30px;font-weight:300;letter-spacing:-.02em">Scenes</div><div class="s">${all.length} scenes · ${all.filter(isUserScene).length} yours</div></div>${pager}<button class="btn sq" data-act="close" aria-label="Close">${svg('x')}</button></div>
     <div class="sxgrid" style="flex:1;min-height:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(3,minmax(0,1fr));gap:16px">${items.map(id => { const mine = isUserScene(id);
@@ -1816,7 +1840,17 @@ function openScenes(){
 }
 
 /* ---- editor ---- */
-function sxOpen(ed){ SX.ed = Object.assign({ tab:'devices', busy:false, err:'', confirm:false }, ed); ovKind = 'sceneed'; sxPaint(); }
+/* each device: start later (delay, s) and go back after (back, min) to what it was before or to off */
+const SX_DELAY = [0, 30, 60, 120, 300, 600, 900, 1800, 3600];
+const SX_BACK = [0, 1, 5, 10, 15, 30, 60, 90, 120, 180, 240];
+const fmtDelay = (sec) => !sec ? 'Now' : sec < 60 ? sec + ' s' : sec < 3600 ? (sec / 60) + ' min' : (sec / 3600) + ' h';
+const fmtBack = (m) => !m ? 'Stays' : m < 60 ? m + ' min' : (m % 60 ? Math.floor(m / 60) + ' h ' + (m % 60) + ' min' : (m / 60) + ' h');
+async function sxNames(){ if (SX.names) return SX.names;
+  try { const r = await send({ type: 'ssv_dashboard/panels/names' }); SX.names = (r && r.panels) || []; } catch (e) { SX.names = []; } return SX.names; }
+function sxOpen(ed){
+  SX.ed = Object.assign({ tab:'devices', busy:false, err:'', confirm:false, t:{}, panels:null, home:false }, ed); ovKind = 'sceneed';
+  sxNames().then(n => { const E = SX.ed; if (!E) return; if (E.panels == null) E.panels = n.some(x => x.id === PANEL.id) ? [PANEL.id] : []; if (ovKind === 'sceneed') sxPaint(); });
+  sxPaint(); }
 function sxPaint(){
   const E = SX.ed; if (!E) return;
   const devs = sxDevs(); const chosen = Object.keys(E.v);
@@ -1828,12 +1862,21 @@ function sxPaint(){
   const del = E.id ? (E.confirm ? `<button class="btn danger f" data-sxdelok="1">Delete “${esc(E.name || NM(E.id))}”?</button><button class="btn f" data-sxdelno="1">Keep</button>` : `<button class="btn f" data-sxdel="1" style="color:#F0AFA3">${svg('x')}Delete</button>`) : '';
   openOv(`<div class="dlg wide" style="gap:14px">
     <div class="row" style="gap:10px"><input class="sxin" id="sxname" maxlength="40" placeholder="Scene name" value="${esc(E.name)}" autocomplete="off"><button class="btn sq" data-sxclose="1" aria-label="Close">${svg('x')}</button></div>
-    <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn f${E.tab === 'devices' ? ' sel' : ''}" data-sxtab="devices">Devices · ${chosen.length}</button><button class="btn f${E.tab === 'settings' ? ' sel' : ''}" data-sxtab="settings" ${chosen.length ? '' : 'disabled'}>Settings</button>
+    <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn f${E.tab === 'devices' ? ' sel' : ''}" data-sxtab="devices">Devices · ${chosen.length}</button><button class="btn f${E.tab === 'settings' ? ' sel' : ''}" data-sxtab="settings" ${chosen.length ? '' : 'disabled'}>Settings</button><button class="btn f${E.tab === 'show' ? ' sel' : ''}" data-sxtab="show">Show on</button>
       <div class="sp"></div>${chosen.length ? `<button class="btn f" data-sxnow="1">${svg('arc')}Take current state</button><button class="btn f" data-sxtry="1">${svg('play')}Try</button>` : ''}</div>
-    <div class="sxbody">${E.tab === 'devices' ? devTab : setTab}</div>
+    <div class="sxbody">${E.tab === 'devices' ? devTab : E.tab === 'show' ? sxShowTab() : setTab}</div>
     ${E.err ? `<div class="sxerr">${esc(E.err)}</div>` : ''}
     <div class="row" style="gap:10px;flex-wrap:wrap">${del}<div class="sp"></div><button class="btn f" data-sxclose="1">Cancel</button><button class="btn f sel" data-sxsave="1" ${E.busy ? 'disabled' : ''}>${E.busy ? 'Saving…' : 'Save scene'}</button></div></div>`, 'sceneed');
   const inp = $('sxname'); if (inp) inp.addEventListener('input', () => { E.name = inp.value; });
+}
+/* where the scene is shown: check boxes = labels Panel <Name> and Home, set by SSV (no HA settings needed) */
+function sxShowTab(){
+  const E = SX.ed; const names = SX.names || []; const on = (pid) => (E.panels || []).includes(pid);
+  const TY = { wall: '10″', tablet: 'Tablet', room: '4″', phone: 'Phone' };
+  const box = (attrs, sel, title, sub) => `<button class="sxchip${sel ? ' sel' : ''}" ${attrs} style="justify-content:flex-start;min-width:0;flex:1 1 260px">${svg(sel ? 'check' : 'plus', 'width:18px;height:18px')}<span style="text-align:left">${esc(title)}${sub ? `<br><span style="font:500 11px var(--mono);letter-spacing:.1em;color:var(--text2)">${esc(sub)}</span>` : ''}</span></button>`;
+  return `<div class="col" style="flex:none;gap:8px"><div class="e">Home page of the 10″ panels</div><div class="sxroom">${box('data-sxhome="1"', E.home, 'On Home', 'one of the scene buttons on Home')}</div></div>
+    <div class="col" style="flex:none;gap:8px"><div class="e">Panels</div><div class="sxroom">${names.length ? names.map(n => box(`data-sxpanel="${esc(n.id)}"`, on(n.id), n.name, TY[n.type] || n.type)).join('') : `<div class="empty">${SX.names ? 'No panels on the SSV Dashboard page yet' : 'Loading the panels…'}</div>`}</div>
+    <div class="s" style="font-size:13px">${(E.panels || []).length ? 'Shown only on the panels chosen here' : 'No panel chosen: the scene is shown on every panel'}</div></div>`;
 }
 const sxB = (id, k, val, label, cur) => `<button class="btn${String(cur) === String(val) ? ' sel' : ''}" data-sxset="${id}" data-k="${k}" data-val="${esc(val)}">${esc(label)}</button>`;
 const sxStep = (id, k, d, txt) => `<button class="btn sq" data-sxstep="${id}" data-k="${k}" data-d="-1" aria-label="Lower">${svg('minus')}</button><div class="sxval">${txt}</div><button class="btn sq" data-sxstep="${id}" data-k="${k}" data-d="1" aria-label="Raise">${svg('plus')}</button>`;
@@ -1858,22 +1901,29 @@ function sxBlock(id){
         rows.push(`<div class="sxrow"><span class="lbl">Colour</span>${k3.map(([k, n]) => sxB(id, 'color_temp_kelvin', k, n, v.color_temp_kelvin)).join('')}</div>`); }
     }
   }
+  if (d === 'fan' && v.state === 'on' && (attr(id, 'supported_features') || 0) & 1) rows.push(`<div class="sxrow"><span class="lbl">Speed</span>${sxStep(id, 'percentage', 1, (v.percentage != null ? v.percentage : attr(id, 'percentage') ?? 100) + ' %')}</div>`);
+  const t = SX.ed.t[id] || {};
+  rows.push(`<div class="sxrow"><span class="lbl">Start</span>${sxStep(id, 'delay', 1, fmtDelay(t.delay || 0))}<span class="lbl" style="margin-left:12px">Go back</span>${sxStep(id, 'back', 1, fmtBack(t.back || 0))}</div>`);
+  if (t.back) rows.push(`<div class="sxrow"><span class="lbl">Back to</span><button class="btn${(t.back_to || 'previous') === 'previous' ? ' sel' : ''}" data-sxt="${id}" data-val="previous">As before</button><button class="btn${t.back_to === 'off' ? ' sel' : ''}" data-sxt="${id}" data-val="off">${d === 'cover' ? 'Closed' : 'Off'}</button></div>`);
   return `<div class="sxblk"><div class="row" style="gap:12px">${svg(d === 'climate' ? 'snow' : d === 'cover' ? 'curtains' : 'bulb', 'color:var(--text2)')}<div class="col"><div class="n" style="font-size:18px">${esc(sxName(id))}</div><div class="s">${esc(r ? r.name : '')}</div></div><button class="btn sq" data-sxpick="${id}" aria-label="Remove">${svg('x')}</button></div>${rows.join('')}</div>`;
 }
 function sxStepVal(id, k, dir){
   const v = SX.ed.v[id], a = (S[id] || {}).attributes || {};
   if (k === 'temperature') { const st = a.target_temp_step || 0.5; v.temperature = Math.min(a.max_temp ?? 30, Math.max(a.min_temp ?? 7, Math.round(((v.temperature ?? a.temperature ?? 22) + dir * st) * 10) / 10)); }
   else if (k === 'brightness') { const p = Math.max(1, Math.round((v.brightness ?? 255) / 2.55)); const np = Math.min(100, Math.max(10, (p < 10 && dir > 0 ? 10 : Math.round(p / 10) * 10 + dir * 10))); v.brightness = Math.round(np * 2.55); }
+  else if (k === 'delay' || k === 'back') { const L = k === 'delay' ? SX_DELAY : SX_BACK; const t = SX.ed.t[id] = SX.ed.t[id] || {}; const i = Math.max(0, L.indexOf(t[k] || 0)); t[k] = L[Math.min(L.length - 1, Math.max(0, i + dir))]; }
+  else if (k === 'percentage') { v.percentage = Math.min(100, Math.max(10, Math.round(((v.percentage ?? attr(id, 'percentage') ?? 100) + dir * 10) / 10) * 10)); }
   else if (k === 'current_position') { v.current_position = Math.min(100, Math.max(0, Math.round(((v.current_position ?? 50) + dir * 10) / 10) * 10)); }
 }
-function sxPayload(){ const out = {}; Object.keys(SX.ed.v).forEach(id => { const v = Object.assign({}, SX.ed.v[id]); if (dmn(id) === 'light' && v.state !== 'on') { delete v.brightness; delete v.color_temp_kelvin; } if (dmn(id) === 'climate' && v.state === 'off') { ['temperature','fan_mode','swing_mode','preset_mode'].forEach(k => delete v[k]); } out[id] = v; }); return out; }
+function sxPayload(){ const out = {}; Object.keys(SX.ed.v).forEach(id => { const v = Object.assign({}, SX.ed.v[id]); if (dmn(id) === 'light' && v.state !== 'on') { delete v.brightness; delete v.color_temp_kelvin; } if (dmn(id) === 'fan' && v.state !== 'on') delete v.percentage; if (dmn(id) === 'climate' && v.state === 'off') { ['temperature','fan_mode','swing_mode','preset_mode'].forEach(k => delete v[k]); } out[id] = v; }); return out; }
 async function sxSave(){
   const E = SX.ed; const inp = $('sxname'); if (inp) E.name = inp.value;
   E.name = (E.name || '').trim();
   if (!E.name) { E.err = 'Give the scene a name'; sxPaint(); return; }
   if (!Object.keys(E.v).length) { E.err = 'Choose at least one device'; sxPaint(); return; }
   E.busy = true; E.err = ''; sxPaint();
-  try { const data = { name: E.name, entities: sxPayload() }; if (E.id) data.scene = E.id;
+  const timing = {}; Object.keys(E.v).forEach(id => { const t = E.t[id]; if (t && (t.delay || t.back)) timing[id] = { delay: t.delay || 0, back: t.back || 0, back_to: t.back_to || 'previous' }; });
+  try { const data = { name: E.name, entities: sxPayload(), timing, home: !!E.home }; if (E.panels != null) data.panels = E.panels; if (E.id) data.scene = E.id;
     await sxCall('save', data); SX.ed = null; closeOv(); toast(`Scene “${data.name}” saved`); setTimeout(() => { if (!ovKind) { SX.manage = false; openScenes(); } }, 1500); }
   catch (e) { E.busy = false; E.err = sxErr(e); sxPaint(); }
 }
@@ -1884,7 +1934,8 @@ async function sxDelete(){
 }
 async function sxEdit(id){
   try { const r = await sxCall('get', { scene: id }); const v = {}; Object.keys(r.entities || {}).forEach(eid => { if (S[eid]) v[eid] = Object.assign({}, r.entities[eid]); });
-    sxOpen({ id, name: r.name || NM(id), v, tab: 'settings' }); }
+    const t = {}; Object.keys(r.timing || {}).forEach(eid => { if (v[eid]) t[eid] = Object.assign({}, r.timing[eid]); });
+    sxOpen({ id, name: r.name || NM(id), v, t, panels: r.panels || [], home: !!r.home, tab: 'settings' }); }
   catch (e) { toast('Cannot open this scene'); }
 }
 stage.addEventListener('click', (e) => {
@@ -1896,12 +1947,16 @@ stage.addEventListener('click', (e) => {
   const E = SX.ed; const inp = $('sxname'); if (inp) E.name = inp.value;
   if (d.sxclose) { SX.ed = null; closeOv(); openScenes(); return; }
   if (d.sxtab) { E.tab = d.sxtab; sxPaint(); return; }
-  if (d.sxpick) { if (E.v[d.sxpick]) delete E.v[d.sxpick]; else E.v[d.sxpick] = sxCurrent(d.sxpick); sxPaint(); return; }
+  if (d.sxpick) { if (E.v[d.sxpick]) { delete E.v[d.sxpick]; delete E.t[d.sxpick]; } else E.v[d.sxpick] = sxCurrent(d.sxpick); sxPaint(); return; }
   if (d.sxset) { const v = E.v[d.sxset]; let val = d.val; if (['current_position','color_temp_kelvin'].includes(d.k)) val = +val; v[d.k] = val;
     if (d.k === 'state' && dmn(d.sxset) === 'climate' && val !== 'off' && v.temperature == null) v.temperature = attr(d.sxset, 'temperature') ?? 22;
+    if (d.k === 'state' && dmn(d.sxset) === 'fan' && val === 'on' && v.percentage == null && attr(d.sxset, 'percentage') != null) v.percentage = attr(d.sxset, 'percentage');
     if (d.k === 'state' && dmn(d.sxset) === 'light' && val === 'on' && v.brightness == null && (attr(d.sxset, 'supported_color_modes') || []).some(m => m !== 'onoff')) v.brightness = 255;
     sxPaint(); return; }
   if (d.sxstep) { sxStepVal(d.sxstep, d.k, +d.d); sxPaint(); return; }
+  if (d.sxt) { (E.t[d.sxt] = E.t[d.sxt] || {}).back_to = d.val; sxPaint(); return; }
+  if (d.sxhome) { E.home = !E.home; sxPaint(); return; }
+  if (d.sxpanel) { const L = E.panels || []; E.panels = L.includes(d.sxpanel) ? L.filter(x => x !== d.sxpanel) : [...L, d.sxpanel]; sxPaint(); return; }
   if (d.sxnow) { Object.keys(E.v).forEach(id => E.v[id] = sxCurrent(id)); sxPaint(); return; }
   if (d.sxtry) { call('scene', 'apply', { entities: sxPayload() }); toast('Trying the scene'); return; }
   if (d.sxsave) { sxSave(); return; }
@@ -1909,7 +1964,7 @@ stage.addEventListener('click', (e) => {
   if (d.sxdelno) { E.confirm = false; sxPaint(); return; }
   if (d.sxdelok) { sxDelete(); return; }
 });
-function closeOv(){ ovKind = null; UI.sceneEdit = false; SX.ed = null; $('ov').classList.remove('show'); $('ov').innerHTML = ''; }
+function closeOv(){ ovKind = null; SX.ed = null; $('ov').classList.remove('show'); $('ov').innerHTML = ''; }
 document.addEventListener('keydown', () => touched());
 
 </script>

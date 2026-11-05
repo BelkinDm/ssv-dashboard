@@ -152,7 +152,7 @@ html,body{overflow:hidden;height:100%;overscroll-behavior:none}
     const al = alerts();
     const alertBtn = al.length ? `<button class="pill ${al.some(x => x.crit) ? 'crit' : 'warn'}" data-act="alerts" aria-label="Alerts">${svg('bell')}${al.length}</button>` : '';
     let weather = ''; const w = M && M.g.weather;
-    if (view === 'home' && !al.length && w && real(w)) weather = `<div class="pill">${svg('cloud')}<div class="v">${Math.round(S[w].attributes.temperature)}°</div></div>`;
+    if (view === 'home' && !al.length && w && real(w) && isFinite(parseFloat(S[w].attributes.temperature))) weather = `<div class="pill">${svg('cloud')}<div class="v">${Math.round(S[w].attributes.temperature)}°</div></div>`;
     $('top').innerHTML = `${back ? `<button class="btn sq" data-tab="${back}" aria-label="Back">${svg('chevl')}</button>` : ''}<div class="ttl"><div class="eb">${esc(eb)}</div><div class="hd">${esc(hd)}</div></div>${alertBtn}${weather}<div class="clk"><b id="clk">${fmtClock(now)}</b></div>`;
   };
 

@@ -202,14 +202,14 @@ pumpc: '<circle cx="11" cy="13.5" r="7"/><path d="M11 13.5c1-2.2 3-3.2 4.5-3M11 
   recirc: '<path d="M20 12a8 8 0 0 1-14 5.3M4 12a8 8 0 0 1 14-5.3"/><path d="M18 3v4h-4M6 21v-4h4"/>',
 };
 /* ---------- Home Assistant connection: own WebSocket, independent of the parent page internals ---------- */
-const BUILD = '1.2.2';
+const BUILD = '1.3.0';
 const HC = { ready: false, states: {}, entities: {}, devices: {}, areas: {} };
 let ws = null, wsOk = false, msgId = 0, backoff = 1000, FC_ID = 0, lastMsg = Date.now(), downSince = Date.now(), reloading = false, regT = 0; const BOOT = Date.now();
 const waiters = {};
 const HA = () => HC;
 /* INEX 2026-10-27: clock comes from Home Assistant (sensor.ssv_time / sensor.inex_time: server time + HA time zone), not from the tablet's own clock */
-var HA_OFF = 0, HA_TZ = 0, HA_TZOK = false;
-function haTimeSync(iso, live){ const ms = Date.parse(iso); if (isNaN(ms)) return; if (live) HA_OFF = ms - Date.now(); const z = /([+-])(\d\d):?(\d\d)$/.exec(iso); if (z) { HA_TZ = (z[1] === '-' ? -1 : 1) * (+z[2] * 60 + +z[3]); HA_TZOK = true; } }
+var HA_OFF = 0, HA_TZ = 0, HA_TZOK = false, HA_LIVE = false;
+function haTimeSync(iso, live){ const ms = Date.parse(iso); if (isNaN(ms)) return; if (live) { HA_OFF = ms - Date.now(); HA_LIVE = true; } const z = /([+-])(\d\d):?(\d\d)$/.exec(iso); if (z) { HA_TZ = (z[1] === '-' ? -1 : 1) * (+z[2] * 60 + +z[3]); HA_TZOK = true; } }
 function haAt(t){ if (!HA_TZOK) { const s = (HC && HC.states) ? (HC.states['sensor.ssv_time'] || HC.states['sensor.inex_time']) : null; if (s && s.state) haTimeSync(s.state, false); } return HA_TZOK ? new Date(t + (HA_TZ + new Date(t).getTimezoneOffset()) * 60000) : new Date(t); }
 function haNow(){ return haAt(Date.now() + HA_OFF); }
 function safe(fn, fallback = ''){ try { return fn(); } catch (e) { console.error('[room]', e); return fallback; } }
@@ -262,6 +262,7 @@ async function connect(){
     else if (m.type === 'event' && m.event) {
       if (m.id === FC_ID && m.event.forecast) { FC = m.event.forecast; schedule(); return; }
       const et = m.event.event_type;
+      if (!HA_LIVE && m.event.time_fired) { const f = Date.parse(m.event.time_fired); if (!isNaN(f)) HA_OFF = f - Date.now(); }
       if (et === 'state_changed') { const d = m.event.data; if (d.new_state) HC.states[d.entity_id] = d.new_state; else delete HC.states[d.entity_id]; if (/^sensor\.(ssv|inex)_time$/.test(d.entity_id) && d.new_state) haTimeSync(d.new_state.state, true); schedule(); }
       else if (/_registry_updated$/.test(et || '')) { clearTimeout(regT); regT = setTimeout(() => loadRegistry().catch(() => {}), 1500); }
     }
@@ -400,8 +401,8 @@ function pills(ids, groups){
   return groups.filter(g => g.ids.length).map(g => { const on = g.ids.filter(isOn); const b = on.map(bri).find(x => x != null);
     return `<button class="pill${on.length ? ' on' : ''}" data-grp="${g.ids.join(',')}"><span class="ico">${svg(g.icon)}</span><span style="min-width:0"><div class="nm">${esc(g.name)}</div><div class="lab${on.length ? ' amber' : ''}">${on.length ? 'On' + (b != null ? ' · ' + b + ' %' : '') : 'Off'}</div></span></button>`; }).join('');
 }
-function timerOf(fnLabels){ return Object.keys(S()).find(id => dmn(id) === 'timer' && fnLabels.every(l => has(id, l)) && (has(id, ROOM) || has(id, PANEL) || fnLabels.includes('water'))) || null; }
-function tState(tid){ const t = tid && st(tid); if (t && t.state === 'active' && t.attributes.finishes_at) return { on: true, left: (new Date(t.attributes.finishes_at) - Date.now()) / 1000, dur: t.attributes.duration };
+function timerOf(fnLabels){ if (fnLabels[0] === 'water' && S()['timer.inex_water_' + fnLabels[1]]) return 'timer.inex_water_' + fnLabels[1]; return Object.keys(S()).find(id => dmn(id) === 'timer' && fnLabels.every(l => has(id, l)) && (has(id, ROOM) || has(id, PANEL) || fnLabels.includes('water'))) || null; }
+function tState(tid){ const t = tid && st(tid); if (t && t.state === 'active' && t.attributes.finishes_at) return { on: true, left: Math.max(0, Math.ceil((Date.parse(t.attributes.finishes_at) - Date.now() - HA_OFF) / 1000)), dur: t.attributes.duration };
   if (t && t.state === 'paused') return { on: true, left: null, rem: t.attributes.remaining, dur: t.attributes.duration }; return { on: false }; }
 const leftText = (ts) => ts.left != null ? hms(ts.left) : (ts.rem || '');
 
@@ -426,7 +427,9 @@ const balcAll = M.roomLights.filter(id => lightRank(id) === 1), balc = byHome(ba
 const groups = [{ name: 'Main', icon: 'bulb', ids: pickMain(own) }, { name: 'Balcony', icon: 'balcony', ids: balc }]
   .concat(Object.values(M.att).map(x => ({ name: x.z.name, icon: zoneIcon(x.z), ids: pickMain(x.lights) }))).filter(g => g.ids.length);
 const btns = pills([], groups).split('</button>').filter(Boolean).map(x => x + '</button>');
-M.scenes.forEach(id => btns.push(`<button class="pill" data-scene="${id}"><span class="ico">${svg('scene')}</span><span style="min-width:0"><div class="nm">${esc(NM(id))}</div><div class="lab">Scene</div></span></button>`));
+/* scenes after the lights: order and number of places from the SSV Dashboard page (this panel) */
+const SC = (CFG && CFG.scenes) || {}; const ord = Array.isArray(SC.order) ? SC.order : []; const rk = (id) => { const i = ord.indexOf(id); return i < 0 ? 1e6 : i; };
+M.scenes.slice().sort((a, b) => rk(a) - rk(b) || String(NM(a)).localeCompare(String(NM(b)))).slice(0, SC.places != null ? +SC.places : 4).forEach(id => btns.push(`<button class="pill" data-scene="${id}"><span class="ico">${svg('scene')}</span><span style="min-width:0"><div class="nm">${esc(NM(id))}</div><div class="lab">Scene</div></span></button>`));
 if (btns.length) out.push(`<div class="row eq${btns.length >= 4 ? ' n4' : ''}">${btns.slice(0, 4).join('')}</div>`); });
 return out.join('');
 }
@@ -489,13 +492,13 @@ function vWC(key){
 function vWater(){
   const out = M.walls.slice(0, 1).map(wallCard);
   const hotDev = M.hot.filter(id => ['switch', 'water_heater', 'input_boolean'].includes(dmn(id)));
-  if (hotDev.length){ const on = hotDev.some(id => dmn(id) === 'water_heater' ? st(id).state !== 'off' : isOn(id));
-    const tid = timerOf(['water', 'hot_water']); const ts = tState(tid); const timed = on && ts.on;
+  if (hotDev.length){ const devOn = hotDev.some(id => dmn(id) === 'water_heater' ? st(id).state !== 'off' : isOn(id));
+    const tid = timerOf(['water', 'hot_water']); const ts = tState(tid); const timed = ts.on; const on = devOn || timed;
     const sid = M.hot.find(id => dmn(id) === 'sensor'); let t = sid ? parseFloat(st(sid).state) : null; if (t == null || isNaN(t)) { const wh = hotDev.find(id => dmn(id) === 'water_heater'); t = wh ? attr(wh, 'current_temperature') : null; }
     out.push(`<div class="card${on ? ' heat' : ''}"><div class="row hd">${svg('boiler', 'width:18px;height:18px;color:' + (on ? 'var(--heat)' : 'var(--text2)'))}<div class="lab">Hot water</div>${t != null ? `<div class="mid" style="font-size:24px;margin-left:8px">${Math.round(t)}<small>°C</small></div>` : ''}<div class="sp"></div>${on ? `<span class="lab heat">On</span><div class="mid" style="font-size:24px;margin-left:6px" data-left="${tid || ''}">${timed ? leftText(ts) : 'Manual'}</div>` : '<div class="lab">Off</div>'}</div>
       <div class="row">${runsOf('fn:hot_water', WATER_RUNS).map(m => `<button class="btn${timed && String(ts.dur || '').replace(/^0/, '') === durStr(m).replace(/^0/, '') ? ' sel' : ''}" data-wrun="hot_water" data-min="${m}">${svg('run')}<span class="t">${fmtMin(m)}</span></button>`).join('')}<button class="btn${on ? '' : ' sel'}" data-woff="hot_water">${svg('power')}Off</button></div></div>`); }
   const recDev = M.rec.filter(id => ['switch', 'fan', 'input_boolean'].includes(dmn(id)));
-  if (recDev.length){ const on = recDev.some(isOn); const tid = timerOf(['water', 'recirculation']); const ts = tState(tid);
+  if (recDev.length){ const tid = timerOf(['water', 'recirculation']); const ts = tState(tid); const on = recDev.some(isOn) || ts.on;
     out.push(`<div class="card${on ? ' cool' : ''}"><div class="row hd">${svg('pumpc', 'width:18px;height:18px;color:' + (on ? 'var(--cool)' : 'var(--text2)'))}<div class="lab">Recirculation</div><div class="sp"></div>${on ? `<span class="lab cool">On</span>${ts.on ? `<div class="mid" style="font-size:24px;margin-left:6px" data-left="${tid || ''}">${leftText(ts)}</div>` : ''}` : '<div class="lab">Off</div>'}</div>
       <div class="row"><button class="btn${on && ts.on ? ' sel' : ''}" data-wrun="recirculation" data-min="${runsOf('fn:recirculation', [REC_RUN])[0]}">${svg('run')}Run <span class="t">${fmtMin(runsOf('fn:recirculation', [REC_RUN])[0])}</span></button><button class="btn${on ? '' : ' sel'}" data-woff="recirculation">${svg('power')}Off</button></div></div>`); }
   return out.join('') || '<div class="empty">Put the label ' + esc(pretty(PANEL)) + ' on the heated wall</div>';
@@ -503,6 +506,27 @@ function vWater(){
 
 /* ---------- night ---------- */
 let lastTouch = Date.now(), forceAwake = 0;
+
+/* ===== Dim to 20 % after the same idle time as the return to Home (all panels except Phone).
+   Fully Kiosk with its JavaScript interface: the screen backlight goes to 20 %; otherwise a black layer at 80 %.
+   The first touch only wakes the panel; it does not press anything. A doorbell or alarm wakes it too. ===== */
+const DIM = { on: false, el: null, b: null, eat: 0 };
+function dimSet(on){
+  if (on === DIM.on) return; DIM.on = on; const F = window.fully;
+  if (F && F.setScreenBrightness && F.getScreenBrightness) {
+    try { if (on) { DIM.b = +F.getScreenBrightness() || 255; try { localStorage.setItem('ssv_bright', DIM.b); } catch (e) {} F.setScreenBrightness(Math.max(1, Math.round(DIM.b * 0.2))); } else { F.setScreenBrightness(DIM.b || 255); try { localStorage.removeItem('ssv_bright'); } catch (e) {} } return; } catch (e) {}
+  }
+  if (!DIM.el) { DIM.el = document.createElement('div'); DIM.el.id = 'dim'; DIM.el.style.cssText = 'position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity .8s;z-index:2147483000'; document.body.appendChild(DIM.el); }
+  DIM.el.style.opacity = on ? '.8' : '0';
+}
+/* a reload while dimmed (update, power) must not leave the screen at 20 % */
+try { const b = +localStorage.getItem('ssv_bright'); if (b && window.fully && fully.setScreenBrightness) { fully.setScreenBrightness(b); localStorage.removeItem('ssv_bright'); } } catch (e) {}
+const dimEat = (e) => { if (Date.now() - DIM.eat < 700) { e.stopPropagation(); e.preventDefault(); } };
+addEventListener('pointerdown', (e) => { if (!DIM.on) return; DIM.eat = Date.now(); e.stopPropagation(); e.preventDefault(); lastTouch = Date.now(); dimSet(false); }, true);
+['pointerup', 'pointermove', 'click', 'touchend', 'mouseup'].forEach(t => addEventListener(t, dimEat, true));
+setInterval(() => { const after = 120000; const idle = Date.now() - lastTouch;
+  const dark = $('night').classList.contains('show') || (false);
+  dimSet(!!after && idle >= after && !dark); }, 1000);
 function nightNow(){
   const nb = st('input_boolean.inex_night_' + ROOM); const hr = haNow().getHours();
   if (!NIGHT_ON && !nb) return false;
@@ -535,8 +559,7 @@ function render(){
 }
 function tick(){
   const d = haNow(); $('clock').textContent = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-  document.querySelectorAll('[data-left]').forEach(el => { const ts = tState(el.dataset.left); if (ts.on && ts.left != null) el.textContent = hms(ts.left); });
-  const night = M && nightNow(); if (!!night !== $('night').classList.contains('show')) render(); else if (night && d.getSeconds() === 0) renderNight();
+    const night = M && nightNow(); if (!!night !== $('night').classList.contains('show')) render(); else if (night && d.getSeconds() === 0) renderNight();
 }
 function fit(){ const k = Math.min(innerWidth, innerHeight) / 480; $('stage').style.transform = `translate(-50%,-50%) scale(${k})`; $('nightIn').style.transform = `translate(-50%,-50%) scale(${k})`; }
 
@@ -588,7 +611,7 @@ document.addEventListener('click', (e) => {
   if (d.cv) { call('cover', d.cv, { entity_id: d.id }); return; }
   if (d.wall) { wallAct(d.wall, d.id, +d.min || 0); return; }
   if (d.fan) { call('climate', 'set_fan_mode', { entity_id: d.fan, fan_mode: d.f }); return; }
-  if (d.scene) { call(dmn(d.scene) === 'script' ? 'script' : 'scene', 'turn_on', { entity_id: d.scene }); toast(NM(d.scene)); return; }
+  if (d.scene) { if (dmn(d.scene) === 'script') call('script', 'turn_on', { entity_id: d.scene }); else call('ssv_dashboard', 'run_scene', { entity_id: d.scene }); toast(NM(d.scene)); return; }
   if (d.urun) { const id = d.urun, tid = 'timer.inex_ufh_' + id.split('.')[1]; if (dmn(id) === 'climate') call('climate', 'set_hvac_mode', { entity_id: id, hvac_mode: 'heat' }); else call('homeassistant', 'turn_on', { entity_id: id });
     if (st(tid)) { call('timer', 'start', { entity_id: tid, duration: durStr(+d.min) }); toast('Floor heating · ' + fmtMin(+d.min)); } return; }
   if (d.wrun) { waterRun(d.wrun, +d.min); return; }
@@ -623,6 +646,7 @@ document.addEventListener('pointerup', () => { const g = dragging; dragging = nu
 function start(){
   $('logo').innerHTML = LOGO(28);
   addEventListener('resize', fit); fit(); render(); tick(); setInterval(tick, 1000);
+  setInterval(() => document.querySelectorAll('[data-left]').forEach(el => { const ts = tState(el.dataset.left); if (ts.on && ts.left != null) { const v = hms(ts.left); if (el.textContent !== v) el.textContent = v; } }), 250);
   connect(); setInterval(watchdog, 10000); setInterval(checkUpdate, 600000);
   /* back to Home after 2 min without touch, same as the 10" panel */
   setInterval(() => { if (view !== 'home' && Date.now() - lastTouch > 120000) { view = 'home'; lpage = 0; render(); } }, 5000);
@@ -648,7 +672,7 @@ start();
 
 /* ---------- header: room climate + outside forecast, on every page ---------- */
 function renderHead(){
-  const th = (M && M.roomTH) || {}; const w = Object.keys(S()).find(id => dmn(id) === 'weather'); const fc = FC && FC[0];
+  const th = (M && M.roomTH) || {}; let w = Object.keys(S()).find(id => dmn(id) === 'weather'); if (w && (!real(w) || !isFinite(parseFloat(attr(w, 'temperature'))))) w = null; const fc = w && FC && FC[0] && FC[0].temperature != null ? FC[0] : null;
   $('hroom').innerHTML = `<div class="hl">Room</div><div class="hv">${th.t != null ? fmtT(th.t) + '°' : '--'}${th.h != null ? `<span>${th.h}%</span>` : ''}</div>`;
   $('hout').innerHTML = w ? `<div class="hl">${svg('cloud', 'width:12px;height:12px')}<span>${esc(st(w).state.replace(/[-_]/g, ' '))}</span></div><div class="hv">${Math.round(attr(w, 'temperature'))}°${fc ? `<span>${Math.round(fc.temperature)}° / ${Math.round(fc.templow)}°</span>` : ''}</div>` : '';
 }

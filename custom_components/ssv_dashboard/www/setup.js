@@ -34,9 +34,13 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&
 const slug = (s) => String(s || '').toLowerCase().normalize('NFKD').replace(/[^\w\s-]/g, '').trim().replace(/[\s_-]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40);
 const dashPath = (id) => 'ssv-' + id.replace(/_/g, '-');
 
+const LOADER = '/local/ssv/loader.html';
+let LOADER_OK = false;   /* set from ssv_dashboard/info: HA serves /local (one restart after the first install) */
+/* the dashboard opens the page through the loader, which waits while HA is starting (no more "404: Not Found") */
+const viaLoader = (direct) => LOADER_OK ? LOADER + '?to=' + encodeURIComponent(direct) : direct;
 function panelUrl(p) {
   const q = new URLSearchParams({ panel: p.id });
-  return FILES + TYPES[p.type].file + '?' + q.toString();
+  return viaLoader(FILES + TYPES[p.type].file + '?' + q.toString());
 }
 function buildConfig(t, title, url) {
   const T = TYPES[t];
@@ -51,9 +55,11 @@ function buildConfig(t, title, url) {
 function ssvCard(cfg) {
   const c = cfg && cfg.views && cfg.views[0] && cfg.views[0].cards && cfg.views[0].cards[0];
   if (!c || c.type !== 'iframe' || typeof c.url !== 'string') return null;
-  const m = c.url.match(/^(\/ssv_dashboard\/|\/local\/morea\/)(panel|room|phone)\.html(\?.*)?$/);
+  let u = c.url; const lo = u.startsWith(LOADER + '?');
+  if (lo) u = new URLSearchParams(u.slice(LOADER.length + 1)).get('to') || '';
+  const m = u.match(/^(\/ssv_dashboard\/|\/local\/morea\/)(panel|room|phone)\.html(\?.*)?$/);
   if (!m) return null;
-  return { legacy: m[1] !== FILES, file: m[2], query: new URLSearchParams(m[3] || ''), url: c.url };
+  return { legacy: m[1] !== FILES, file: m[2], query: new URLSearchParams(m[3] || ''), url: c.url, direct: u, loader: lo };
 }
 function newPanel() { return { id: '', name: '', type: 'wall', purpose: 'residential', areas: [], room: '', attached: [], tabs: {}, night: { enabled: true, from: 22, to: 7 }, villa: '', place: '' }; }
 /* labels a panel owns, as Home Assistant shows them: Panel <Name>, Panel <Name> <Room>; a room panel always has Panel <Name> WC */
@@ -98,7 +104,7 @@ class SSVSetup extends HTMLElement {
         this.ws({ type: 'ssv_dashboard/labels/list' }).catch(() => ({ labels: [] })),
       ]);
       S.labels = labels.labels || [];
-      S.info = info; S.areas = areas.sort((a, b) => a.name.localeCompare(b.name));
+      S.info = info; LOADER_OK = !!info.loader; S.areas = areas.sort((a, b) => a.name.localeCompare(b.name));
       S.resources = resources; S.defaultPanel = (sys && sys.value && sys.value.default_panel) || null;
       S.ents = ents.entities || []; S.panels = panels.panels || [];
       if (!S.tdirty) S.timers = (timers.items || []).map(c => Object.assign({}, c, { on: c.chosen || c.new, text: (c.runs || []).join(', ') }));
@@ -109,6 +115,11 @@ class SSVSetup extends HTMLElement {
         const cfg = await this.ws({ type: 'lovelace/config', url_path: d.url_path }).catch(() => null);
         const c = ssvCard(cfg);
         if (c && (c.legacy || !S.panels.some(p => dashPath(p.id) === d.url_path))) S.legacy.push({ d, cfg, c });
+        /* 1.3: SSV dashboards open their page through the loader once HA serves /local */
+        else if (c && !c.legacy && LOADER_OK && !c.loader) {
+          cfg.views[0].cards[0].url = viaLoader(c.direct);
+          await this.ws({ type: 'lovelace/config/save', url_path: d.url_path, config: cfg }).then(() => this.log('/' + d.url_path + ' opens through the loader')).catch(() => {});
+        }
       }
     } catch (e) { this.log('Cannot read Home Assistant: ' + (e.message || e.code || e), true); }
     this.render();
@@ -140,6 +151,7 @@ class SSVSetup extends HTMLElement {
     const body = { id: p.id, name: p.name.trim(), type: p.type, purpose: p.purpose, areas: p.areas, room: p.room || p.areas[0] || null, attached: att,
       tabs: p.tabs, night: { enabled: !!p.night.enabled, from: +p.night.from, to: +p.night.to },
       villa: p.villa || null, place: p.place || null, dashboard: dashPath(p.id) };
+    if (p.scenes) body.scenes = { places: p.scenes.places != null ? +p.scenes.places : 4, order: (p.scenes.order || []).slice(0, 60) };
     const r = await this.ws({ type: 'ssv_dashboard/panels/save', panel: body });
     const path = await this.writeDash(body);
     this.st.ed = null;
@@ -149,9 +161,20 @@ class SSVSetup extends HTMLElement {
     /* old dashboard → same page from the integration's files, same parameters */
     const t = x.c.file === 'room' ? 'room' : x.c.file === 'phone' ? 'phone' : (x.d.url_path.includes('tablet') ? 'tablet' : 'wall');
     const q = x.c.query; q.delete('v');
-    const url = FILES + TYPES[t].file + (q.toString() ? '?' + q.toString().replace(/\+/g, '%20') : '');
+    const url = viaLoader(FILES + TYPES[t].file + (q.toString() ? '?' + q.toString().replace(/\+/g, '%20') : ''));
     await this.ws({ type: 'lovelace/config/save', url_path: x.d.url_path, config: buildConfig(t, x.cfg.title || x.d.title, url) });
     return '/' + x.d.url_path + ' → ' + url;
+  }
+  /* the start file for one panel: kept on the tablet, Fully Kiosk Start URL; opens the panel when HA answers */
+  async startFile(id) {
+    const p = this.st.panels.find(x => x.id === id); if (!p) throw new Error('No panel ' + id);
+    const ha = (this.st.info && this.st.info.internal_url) || location.origin;
+    const tpl = await (await fetch(FILES + 'start.html', { cache: 'no-store' })).text();
+    const html = tpl.split('__HA__').join(ha.replace(/'/g, '')).split('__PATH__').join('/' + dashPath(p.id) + '/main').split('__NAME__').join(esc(p.name).replace(/'/g, '&#39;'));
+    const name = 'ssv-start-' + p.id.replace(/_/g, '-') + '.html';
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([html], { type: 'text/html' })); a.download = name;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    return name + ' · tablet: Download folder, Fully Kiosk › Start URL file:///sdcard/Download/' + name + ' · HA address ' + ha;
   }
   async setDefault(path) {
     const cur = await this.ws({ type: 'frontend/get_system_data', key: 'core' }).catch(() => null);
@@ -189,6 +212,7 @@ class SSVSetup extends HTMLElement {
     else if (f === 'room') ed.room = t.value;
     else if (f === 'tab') { if (t.checked) delete ed.tabs[t.value]; else ed.tabs[t.value] = false; }
     else if (f === 'night') ed.night.enabled = t.checked;
+    else if (f === 'scplaces') ed.scenes = Object.assign({}, ed.scenes, { places: +t.value });
     else return;
     this.render();
   }
@@ -199,6 +223,8 @@ class SSVSetup extends HTMLElement {
     if (a.act === 'tsave') return this.run('Run timers', async () => {
       const timers = {}; for (const c of S.timers) { if (!c.on) continue; const runs = parseRuns(c.text); if (!runs.length) throw new Error(c.name + ': type minutes, e.g. 60, 120, 180'); timers[c.key] = { runs }; }
       const r = await this.ws({ type: 'ssv_dashboard/timers/save', timers }); S.tdirty = false; return r.changes.length ? r.changes.join(', ') : 'saved, nothing to add or remove'; });
+    if (a.scup != null || a.scdown != null) { const ids = this.panelScenes(S.ed).map(x => x.id); const i = +(a.scup != null ? a.scup : a.scdown), j = a.scup != null ? i - 1 : i + 1;
+      if (j >= 0 && j < ids.length) { [ids[i], ids[j]] = [ids[j], ids[i]]; S.ed.scenes = Object.assign({}, S.ed.scenes, { order: ids }); } return this.render(); }
     if (a.act === 'attadd') { S.ed.attached.push({ name: '', area: null }); return this.render(); }
     if (a.attdel != null) { S.ed.attached.splice(+a.attdel, 1); return this.render(); }
     if (a.act === 'update') return this.run('Update', async () => { const r = await this.ws({ type: 'ssv_dashboard/update/install' }); S.restart = true; return 'SSV Dashboard ' + r.installed + ' downloaded · restart Home Assistant'; });
@@ -210,6 +236,7 @@ class SSVSetup extends HTMLElement {
     if (a.act === 'save') return this.run('Panel', () => this.savePanel());
     if (a.del) return this.run('Panel removed', async () => { await this.ws({ type: 'ssv_dashboard/panels/delete', panel: a.del }); return a.del + ' (its dashboard and label are kept)'; });
     if (a.legacy != null) return this.run('Move', () => this.moveLegacy(S.legacy[+a.legacy]));
+    if (a.startfile) return this.run('Start file', () => this.startFile(a.startfile));
     if (a.default) return this.run('Start page', () => this.setDefault(a.default));
   }
 
@@ -240,7 +267,7 @@ class SSVSetup extends HTMLElement {
       const rooms = (p.areas || []).length ? p.areas.map(areaName).join(', ') : 'Whole house';
       return `<tr><td><a href="/${esc(path)}/main" target="_top">${esc(p.name)}</a>${def ? ' <span class="tag">start page</span>' : ''}<div class="dim">${esc(panelLabels(p).join(' · '))}</div></td>
         <td>${esc(TYPES[p.type] ? TYPES[p.type].label : p.type)}</td><td>${esc((PURPOSES[p.purpose] || {}).label || p.purpose)}</td><td>${esc(rooms)}</td>
-        <td class="act"><button data-edit="${esc(p.id)}">Edit</button><button data-default="${esc(path)}"${def ? ' disabled' : ''}>Start page</button><button class="sec" data-del="${esc(p.id)}">Remove</button></td></tr>`;
+        <td class="act"><button data-edit="${esc(p.id)}">Edit</button><button data-default="${esc(path)}"${def ? ' disabled' : ''}>Start page</button><button data-startfile="${esc(p.id)}" title="File for the tablet: opens this panel when Home Assistant answers">Tablet file</button><button class="sec" data-del="${esc(p.id)}">Remove</button></td></tr>`;
     }).join('') || '<tr><td colspan="5" class="dim">No panels yet — press “New panel”.</td></tr>';
     const legacyRows = (S.legacy || []).map((x, i) => `<tr><td><a href="/${esc(x.d.url_path)}/main" target="_top">${esc(x.d.title)}</a></td><td>${esc(x.c.file)}.html</td><td class="mono" colspan="2">${esc(x.c.url)}</td>
         <td class="act">${x.c.legacy ? `<button class="warn" data-legacy="${i}">Move to SSV files</button>` : ''}<button data-default="${esc(x.d.url_path)}"${S.defaultPanel === x.d.url_path ? ' disabled' : ''}>Start page</button></td></tr>`).join('');
@@ -317,6 +344,30 @@ class SSVSetup extends HTMLElement {
     if (S.busy) this.shadowRoot.querySelectorAll('button').forEach(b => b.disabled = true);
   }
 
+  /* scenes this panel shows (labels Scene + Panel <Name>; a scene without Panel labels is on every panel), in its order */
+  panelScenes(ed) {
+    const st = (this._hass && this._hass.states) || {}; const L = {}; (this.st.ents || []).forEach(e => { L[e.ei] = e.lb || []; });
+    const pid = ed.id || slug(ed.name);
+    const list = Object.keys(st).filter(id => /^(scene|script)\./.test(id) && (L[id] || []).includes('scene')).filter(id => {
+      const pl = (L[id] || []).filter(l => /^panel_/.test(l));
+      if (ed.type === 'room') return pl.some(l => l === 'panel_' + pid || l.startsWith('panel_' + pid + '_')) || (L[id] || []).some(l => ed.areas.includes(l));
+      return !pl.length || pl.includes('panel_' + pid); });
+    const order = ((ed.scenes || {}).order || []).filter(id => list.includes(id));
+    const name = (id) => (st[id] && st[id].attributes.friendly_name) || id;
+    return order.concat(list.filter(id => !order.includes(id)).sort((a, b) => name(a).localeCompare(name(b)))).map(id => ({ id, name: name(id), home: (L[id] || []).includes('home'), user: (L[id] || []).includes('user_scene') }));
+  }
+  sceneEditor(ed) {
+    if (ed.type === 'phone') return '';
+    const list = this.panelScenes(ed); const sc = ed.scenes || {}; const places = sc.places != null ? sc.places : 4;
+    const big = ed.type !== 'room';
+    const rows = list.map((x, i) => `<tr><td class="mono" style="width:32px">${i + 1}</td><td>${esc(x.name)}${x.user ? ' <span class="tag">user</span>' : ''}${big && x.home ? ' <span class="tag">Home</span>' : ''}<div class="mono dim">${esc(x.id)}</div></td>
+      <td class="act"><button class="sec" data-scup="${i}"${i ? '' : ' disabled'}>↑</button><button class="sec" data-scdown="${i}"${i < list.length - 1 ? '' : ' disabled'}>↓</button></td></tr>`).join('')
+      || `<tr><td colspan="3" class="dim">No scenes for this panel yet. User scenes are made on the panel (Scenes › New scene); installer scenes need the label Scene.</td></tr>`;
+    return `<p style="margin-top:12px">Scenes · ${big ? 'places on Home' : 'places in the button row after the lights'}
+        <select data-f="scplaces">${[0, 1, 2, 3, 4].map(n => `<option value="${n}"${n === +places ? ' selected' : ''}>${n}</option>`).join('')}</select>
+        <span class="dim">${big ? '— Home shows the scenes with the Home label in this order; More shows all of them in this order' : '— the row holds 4 buttons with the lights; scenes go in this order'}</span></p>
+      <table><tbody>${rows}</tbody></table>`;
+  }
   editor() {
     const ed = this.st.ed; if (!ed) return '';
     const areas = this.st.areas || [];
@@ -345,6 +396,7 @@ class SSVSetup extends HTMLElement {
       <div class="box">${tabBoxes}</div>
       <div class="row" style="margin-top:12px"><label class="chk"><input type="checkbox" data-f="night"${ed.night.enabled ? ' checked' : ''}>Night screen</label>
         <label class="chk">from <select data-f="from">${hours(ed.night.from)}</select></label><label class="chk">to <select data-f="to">${hours(ed.night.to)}</select></label></div>
+      ${this.sceneEditor(ed)}
       <div class="row" style="margin-top:16px"><button data-act="save">Save panel and dashboard</button><button class="sec" data-act="cancel">Cancel</button></div>
     </div>`;
   }

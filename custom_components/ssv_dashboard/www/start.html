@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<!-- SSV Dashboard start file for one panel: "__NAME__". Version __SSV_VERSION__
+     Keep this file ON THE TABLET (e.g. Download folder) and set it as the Start URL in Fully Kiosk:
+       file:///sdcard/Download/<this file name>
+     It does not need Home Assistant to open. It checks Home Assistant every few seconds and opens the
+     panel only when SSV Dashboard answers, so the tablet never stays on "Bad Gateway", "404: Not Found"
+     or "Unable to connect to Home Assistant" after a power cut or a restart. -->
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>__NAME__ · SSV Dashboard</title>
+<style>
+html,body{margin:0;height:100%;background:#070B10;color:#8C9AA8;font:500 14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;overflow:hidden}
+.c{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center;padding:16px}
+.d{width:12px;height:12px;border-radius:50%;background:#E5B567;animation:p 1.4s ease-in-out infinite}
+@keyframes p{0%,100%{opacity:.25;transform:scale(.8)}50%{opacity:1;transform:scale(1)}}
+h1{margin:0;color:#E8EDF2;font-weight:300;font-size:min(14vw,96px);letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+b{color:#E8EDF2;font-weight:500;font-size:18px}
+small{font:12px/1.6 ui-monospace,Menlo,Consolas,monospace;letter-spacing:.12em;text-transform:uppercase;color:#56636F}
+</style></head>
+<body><div class="c"><h1 id="clk">--:--</h1><div class="d"></div><b>Reconnecting…</b><small id="s">__NAME__ · waiting for Home Assistant</small></div>
+<script>
+(() => {
+  const HA = '__HA__'.replace(/\/+$/, '');           /* Home Assistant address as the tablet reaches it */
+  const PAGE = HA + '__PATH__';                        /* the panel's dashboard */
+  const PING = HA + '/ssv_dashboard/ping.png';         /* a picture SSV Dashboard serves once it is loaded */
+  const clk = () => { const d = new Date(); document.getElementById('clk').textContent = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
+  clk(); setInterval(clk, 5000);
+  let n = 0;
+  const try_ = () => {
+    n++; const img = new Image(); let done = false;
+    const next = () => { if (done) return; done = true; document.getElementById('s').textContent = '__NAME__ · Home Assistant is not answering · try ' + n; setTimeout(try_, Math.min(3000 * n, 15000)); };
+    img.onload = () => { if (done) return; done = true; location.replace(PAGE); };
+    img.onerror = next; setTimeout(next, 8000);
+    img.src = PING + '?t=' + Date.now();
+  };
+  try_();
+})();
+</script></body></html>
