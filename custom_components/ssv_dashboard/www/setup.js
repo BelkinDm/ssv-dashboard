@@ -278,7 +278,7 @@ class SSVSetup extends HTMLElement {
       || '<tr><td colspan="5" class="dim">Nothing found yet. Label climates Heated Wall or UFH, and water devices Water + Hot Water / Recirculation, then reload this page.</td></tr>';
 
     const used = (l) => [l.areas && l.areas + (l.areas > 1 ? ' areas' : ' area'), l.devices && l.devices + (l.devices > 1 ? ' devices' : ' device'), l.entities && l.entities + (l.entities > 1 ? ' entities' : ' entity')].filter(Boolean).join(', ');
-    const labelRows = (S.labels || []).map((l, i, all) => `${l.group !== 'base' && (i === 0 || all[i - 1].group !== l.group) ? `<tr><th colspan="3">${l.group === 'panel' ? 'Made with the panels' : 'Rooms of the panels'}</th></tr>` : ''}<tr><td>${esc(l.name)}${l.exists ? '' : ' <span class="bad">missing</span>'}<div class="mono dim">${esc(l.id)}</div></td>
+    const labelRows = (S.labels || []).map((l, i, all) => `${l.group !== 'base' && (i === 0 || all[i - 1].group !== l.group) ? `<tr><th colspan="3">${l.group === 'panel' ? 'Made with the panels' : 'Rooms of the panels'}</th></tr>` : ''}<tr><td>${l.color ? `<span title="${esc(l.color)}" style="display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:8px;vertical-align:middle;background:${/^#/.test(l.color) ? esc(l.color) : `var(--${esc(l.color)}-color, ${esc(l.color.replace(/-/g, ''))})`}"></span>` : ''}${esc(l.name)}${l.exists ? '' : ' <span class="bad">missing</span>'}<div class="mono dim">${esc(l.id)}</div></td>
       <td>${esc(l.use)}</td><td>${used(l) || '<span class="dim">not used yet</span>'}</td></tr>`).join('')
       || '<tr><td colspan="3" class="dim">—</td></tr>';
 
