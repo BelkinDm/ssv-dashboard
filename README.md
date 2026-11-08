@@ -6,11 +6,11 @@ Everything on the panels is built from Home Assistant itself: floors → rooms �
 
 | Part | What it is |
 | --- | --- |
-| Wall panel 10″ (`panel.html`) | Home, Rooms with a page per room, Lights, Climate, Heating, Curtains, Water, Cameras, Intercom, Security, Schedule, night screen, alerts |
+| Wall panel 10″ (`panel.html`) | Home, Rooms with a page per room, Lights, Climate (air conditioning; floor heating as a status line), Heating (heated walls and floor heating), Curtains, Water, Cameras, Intercom, Security, Schedule, night screen, alerts |
 | Room panel 4″ (`room.html`) | Light, curtains, climate, WC and water of one room, night mode |
 | Phone (`phone.html`) | Same logic with bottom tabs Home · Rooms · Lights · Climate · More; on a screen of 600 × 900 or more it switches to the Tablet dashboard |
 | User scenes | The owner and users create, change and delete their own scenes from devices labelled **Scene Device** — only with values the device supports; brightness, colour, AC mode, set point and fan speed; each device can start later and go back after N minutes; check boxes choose the panels and the 10″ Home page |
-| Run timers | Run buttons (e.g. 1h / 2h / 3h) for heated walls, floor heating, hot water and recirculation — chosen on the SSV Dashboard page; the integration turns the device off when the timer ends |
+| Run timers | Run buttons (e.g. 1h / 2h / 3h) for heated walls, hot water and recirculation (floor heating: On / Off, set point and schedules, no Run) — chosen on the SSV Dashboard page; the integration turns the device off when the timer ends |
 | `sensor.ssv_time` | Panel clocks follow Home Assistant time, not the tablet's clock |
 | Panels | Each screen is a panel with a name, screen type (10″, 4″, Tablet, Phone; 5.5″ Main / Room coming), purpose (residential, hotel room, office, gym, common area), rooms, attached rooms (WC, Shower…) and tabs; each gets its own dashboard and labels `Panel <Name>`, `Panel <Name> <Room>` |
 | SSV Dashboard page | Admin page in the sidebar: panels, start page, scene places and order per panel, tablet start files, run times, and a check of the integrations each tab needs with install through HACS |
@@ -28,7 +28,7 @@ Everything on the panels is built from Home Assistant itself: floors → rooms �
    - **Tablet file** downloads the start file of a panel for its tablet (see [Tablets](#tablets-fully-kiosk));
    - in the panel editor, **Scenes** sets how many scene places Home (10″) or the button row (4″) has and the order of the scenes;
    - **Floor heating on relays** — relays / valves with the label UFH; where the room has a temperature sensor (label Temperature Humidity), **Make thermostat** creates Home Assistant's Generic Thermostat (relay + sensor): the panels show the room temperature and the set point; without a sensor the panels show On / Off and Run;
-   - **Run timers** — tick heated walls, floor heating, hot water, recirculation, type the buttons in minutes, press Save;
+   - **Run timers** — tick heated walls, hot water, recirculation, type the buttons in minutes, press Save;
    - when a new SSV Dashboard is out, the page shows **Update now** and Home Assistant shows a notification (push to a phone: integration options → notify service).
 
 Then put labels on your entities (Settings → Entities → select → Add label). The labels are created by the integration, all named in one style: every word capitalised, spaces between words, abbreviations in capitals (AC, UFH, CCTV, WC). The full list is at the [bottom of this page](#labels); the SSV Dashboard page shows the same list live, with the labels of every panel and where each label is used.
@@ -82,7 +82,7 @@ Since 1.5 nothing SSV makes carries the old INEX name: at start SSV replaces tim
    - **Integrations** — чего не хватает вкладкам; недостающее из HACS ставится кнопкой, дальше перезапуск и **Add**;
    - **New panel** — название, экран, назначение, комнаты, привязанные помещения, вкладки, ночной экран. При сохранении создаются дашборд `/ssv-<id>/main` и метки `Panel <Имя>`, `Panel <Имя> <Помещение>`; у комнатной панели всегда есть `Panel <Имя> WC`;
    - **Floor heating on relays** — тёплый пол на реле или клапане (метка UFH). Есть датчик температуры в комнате — кнопка **Make thermostat** создаёт термостат HA (реле + датчик): на панели температура и уставка. Датчика нет — на панели только Вкл / Выкл и Run;
-   - **Run timers** — отметить тёплые стены, тёплые полы, бойлер, рециркуляцию, задать кнопки в минутах, Save;
+   - **Run timers** — отметить тёплые стены, бойлер, рециркуляцию (у тёплых полов таймеров нет: Вкл / Выкл, уставка, расписания), задать кнопки в минутах, Save;
    - **Labels** внизу страницы — все метки SSV, включая метки панелей, и где они уже стоят. Метки окрашены по группам: свет — жёлтые, климат — оранжевые, шторы — фиолетовые, сцены — зелёные, вода — синие, безопасность — красные, панели — бирюзовые, комнаты — серые; цвет, заданный вручную, не меняется;
    - **Tablet file** у панели — стартовый файл для планшета: положить в папку Download и указать в Fully Kiosk как Start URL (`file:///sdcard/Download/ssv-start-<id>.html`). Планшет ждёт HA и не зависает на «Bad Gateway» / «404».
 4. Пользовательские сцены делают сами жильцы на панели: яркость, цвет, режим и уставка кондиционера, скорость вентилятора; у каждого устройства своя задержка включения и возврат через N минут; галочками — на каких панелях и на главной 10″.
@@ -115,7 +115,7 @@ Colours by group, so the list reads at a glance (a colour you set by hand is kep
 | On Off Only | `on_off_only` | Dimmable light shown as a plain On / Off switch |
 | Climate | `climate` | Climate tab: room thermostats |
 | AC | `ac` | Air conditioners (with fan speed buttons on room panels) |
-| UFH | `ufh` | Floor heating: a climate, or a relay / valve (switch) — On / Off and Run; with a room sensor the SSV page makes a thermostat of it |
+| UFH | `ufh` | Floor heating: a climate, or a relay / valve (switch) — On / Off and its schedules (no Run buttons); with a room sensor the SSV page makes a thermostat of it |
 | Heated Wall | `heated_wall` | Heated walls; can get Run buttons |
 | Temperature Humidity | `t_h` | Temperature / humidity sensors for the room header |
 | Curtain | `curtain` | Curtains |
