@@ -91,7 +91,7 @@ class SSVSetup extends HTMLElement {
   async load() {
     const S = this.st;
     try {
-      const [info, dashes, areas, ents, resources, sys, panels, hacs, timers, labels] = await Promise.all([
+      const [info, dashes, areas, ents, resources, sys, panels, hacs, timers, labels, therm] = await Promise.all([
         this.ws({ type: 'ssv_dashboard/info' }),
         this.ws({ type: 'lovelace/dashboards/list' }),
         this.ws({ type: 'config/area_registry/list' }),
@@ -102,8 +102,9 @@ class SSVSetup extends HTMLElement {
         this.ws({ type: 'hacs/repositories/list' }).catch(() => null),
         this.ws({ type: 'ssv_dashboard/timers/list' }).catch(() => ({ items: [] })),
         this.ws({ type: 'ssv_dashboard/labels/list' }).catch(() => ({ labels: [] })),
+        this.ws({ type: 'ssv_dashboard/thermostats/list' }).catch(() => ({ items: [] })),
       ]);
-      S.labels = labels.labels || [];
+      S.labels = labels.labels || []; S.therm = therm.items || [];
       S.info = info; LOADER_OK = !!info.loader; S.areas = areas.sort((a, b) => a.name.localeCompare(b.name));
       S.resources = resources; S.defaultPanel = (sys && sys.value && sys.value.default_panel) || null;
       S.ents = ents.entities || []; S.panels = panels.panels || [];
@@ -164,6 +165,19 @@ class SSVSetup extends HTMLElement {
     const url = viaLoader(FILES + TYPES[t].file + (q.toString() ? '?' + q.toString().replace(/\+/g, '%20') : ''));
     await this.ws({ type: 'lovelace/config/save', url_path: x.d.url_path, config: buildConfig(t, x.cfg.title || x.d.title, url) });
     return '/' + x.d.url_path + ' → ' + url;
+  }
+  /* floor heating on relays (valves): with a room sensor SSV makes a Home Assistant thermostat */
+  thermCard() {
+    const L = this.st.therm || []; if (!L.length) return '';
+    const st = (this._hass && this._hass.states) || {}; const nm = (id) => (st[id] && st[id].attributes.friendly_name) || id;
+    const rows = L.map((x, i) => {
+      const act = x.thermostat ? `<span class="ok">Thermostat</span> <span class="mono">${esc(x.thermostat)}</span>`
+        : x.sensors.length ? `${x.sensors.length > 1 ? `<select data-tsensor="${i}">${x.sensors.map(s => `<option value="${esc(s)}">${esc(nm(s))}</option>`).join('')}</select> ` : ''}<button data-mkterm="${i}">Make thermostat</button>`
+        : '<span class="dim">On / Off only — no temperature sensor (label Temperature Humidity) in this room</span>';
+      return `<tr><td>${esc(x.name)}<div class="mono dim">${esc(x.relay)}</div></td><td>${esc(x.area_name || '—')}</td><td>${x.sensors.length ? esc(x.sensors.map(nm).join(', ')) : '<span class="dim">—</span>'}</td><td class="act" style="text-align:left">${act}</td></tr>`; }).join('');
+    return `<div class="card"><h2>Floor heating on relays</h2>
+      <p>Relays and valves with the label UFH. Without a room sensor the panels show On / Off and Run. With a sensor, <b>Make thermostat</b> creates Home Assistant's Generic Thermostat (relay + sensor): the panels then show the room temperature and the set point, and the relay itself is hidden (label No Panel). Defaults: 16–28 °C, hysteresis 0.3 °C, at least 5 min between valve switchings — change them in the thermostat's options.</p>
+      <table><tr><th style="width:30%">Relay</th><th style="width:16%">Room</th><th style="width:22%">Room sensor</th><th>Thermostat</th></tr>${rows}</table></div>`;
   }
   /* the start file for one panel: kept on the tablet, Fully Kiosk Start URL; opens the panel when HA answers */
   async startFile(id) {
@@ -236,6 +250,9 @@ class SSVSetup extends HTMLElement {
     if (a.act === 'save') return this.run('Panel', () => this.savePanel());
     if (a.del) return this.run('Panel removed', async () => { await this.ws({ type: 'ssv_dashboard/panels/delete', panel: a.del }); return a.del + ' (its dashboard and label are kept)'; });
     if (a.legacy != null) return this.run('Move', () => this.moveLegacy(S.legacy[+a.legacy]));
+    if (a.mkterm != null) { const x = S.therm[+a.mkterm]; const sel = this.shadowRoot.querySelector(`[data-tsensor="${a.mkterm}"]`);
+      const sensor = sel ? sel.value : x.sensors[0];
+      return this.run('Thermostat', async () => { const r = await this.ws({ type: 'ssv_dashboard/thermostats/make', relay: x.relay, sensor }); return x.name + ' → ' + r.climate; }); }
     if (a.startfile) return this.run('Start file', () => this.startFile(a.startfile));
     if (a.default) return this.run('Start page', () => this.setDefault(a.default));
   }
@@ -328,6 +345,7 @@ class SSVSetup extends HTMLElement {
       ${legacyRows ? `<div class="card"><h2>Other dashboards with SSV pages</h2><p>Made before 1.1 or by hand. They keep working; “Move to SSV files” switches dashboards that still use /local/morea.</p>
         <table><tr><th style="width:24%">Dashboard</th><th style="width:13%">Page</th><th colspan="2">Address</th><th style="width:27%"></th></tr>${legacyRows}</table></div>` : ''}
 
+      ${this.thermCard()}
       <div class="card"><h2>Run timers</h2>
         <p>Everything that can run for a while: heated walls, floor heating, hot water, recirculation. Tick what should have Run buttons and type the buttons in minutes (up to 4, e.g. 60, 120, 180). Nothing is made until you press Save; untick + Save removes the timer. SSV Dashboard turns the device off when the timer ends.</p>
         <table><tr><th style="width:30%">Device</th><th style="width:14%">Kind</th><th style="width:20%">Buttons, minutes</th><th>Timer</th><th style="width:8%">Made</th></tr>${runRows}</table>

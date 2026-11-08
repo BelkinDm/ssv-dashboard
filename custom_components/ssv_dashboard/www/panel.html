@@ -208,7 +208,7 @@ button{font:inherit;color:inherit;cursor:pointer;margin:0}
 <script>
 /* INEX wall panel 10" — single consolidated file (no override blocks).
    BUILD changes on every deploy; open panels compare it every 10 min and reload themselves. */
-const BUILD = '1.3.0';
+const BUILD = '1.4.0';
 let lastMsg = Date.now(), downSince = 0, noData = 0, reloading = false; const BOOT = Date.now();
 const UNAVAILABLE = '<div class="empty">This section is temporarily unavailable</div>';
 function safe(fn, fallback = ''){ try { return fn(); } catch (e) { console.error('[panel]', e); return fallback; } }
@@ -452,6 +452,7 @@ function buildModel(){
     let kind = null;
     if (dom === 'light') kind = 'light';
     else if (dom === 'switch' && hasLabel(id, SET.lightLabels)) kind = 'light';
+    else if ((dom === 'switch' || dom === 'input_boolean') && hasLabel(id, ['ufh'])) kind = 'heat';   /* floor heating on a relay / valve */
     else if (dom === 'climate') kind = climateKind(id);
     else if (dom === 'cover') kind = 'cover';
     else if (dom === 'camera') kind = 'cam';
@@ -927,7 +928,7 @@ function roomCard(r){
   const chips = [];
   if (on.length) chips.push(`<span class="chip amber">${on.length} light${on.length>1?'s':''}</span>`);
   avail(r.ac).forEach(id => { const s = st(id); if (s.state !== 'off') chips.push(`<span class="chip ${/heat/.test(s.attributes.hvac_action||s.state)?'heat':'cool'}">${esc(MODE[s.state]||s.state)} ${fmtT(s.attributes.temperature)}°</span>`); });
-  avail(r.heat).forEach(id => { const s = st(id); if (s.state !== 'off') chips.push(`<span class="chip heat">${esc(heatLabel(id))} → ${fmtT(s.attributes.temperature)}°</span>`); });
+  avail(r.heat).forEach(id => { const s = st(id); if (s.state !== 'off') chips.push(`<span class="chip heat">${esc(heatLabel(id))}${s.attributes.temperature != null ? ' → ' + fmtT(s.attributes.temperature) + '°' : ' on'}</span>`); });
   const cov = avail(r.covers).filter(real);
   if (cov.length) { const p = cov.map(id => S[id].attributes.current_position).filter(v => v != null); chips.push(`<span class="chip">${p.length ? 'Curtains ' + Math.round(p.reduce((a,b)=>a+b,0)/p.length) + ' %' : 'Curtains ' + S[cov[0]].state}</span>`); }
   r.openings.filter(isOpen).forEach(id => chips.push(`<span class="chip amber">${esc(NM(id))} open</span>`));
@@ -1027,7 +1028,8 @@ function climateCard(r){
   ac.slice(0, 2).forEach(id => blocks.push(acBlock(id, ac.length === 1 && ht.length === 0)));
   /* Run buttons of floor heating only when the card has room for them (no AC in the same card) */
   ht.slice(0, Math.max(1, 3 - blocks.length)).forEach(id => blocks.push(heatBlock(id, ac.length === 0)));
-  return `<div class="card" style="padding:18px 20px">
+  const tight = blocks.length > 1;   /* AC + floor heating: tighter so both fit in the card */
+  return `<div class="card" style="padding:${tight ? '12px 20px;gap:8px' : '18px 20px'}">
     <div class="row"><div class="col"><div class="e w">${esc(r.name)}</div><div class="s">${esc(r.floorName)}</div></div>
       <div class="row" style="flex:none;gap:16px;align-items:baseline">${t!=null?`<div class="rt">${fmtT(t)}<span>°C</span></div>`:''}${h!=null?`<div class="rh">${h}<span>%</span></div>`:''}</div></div>
     ${blocks.join('')}</div>`;
@@ -1045,7 +1047,15 @@ function acBlock(id, roomy){
     <div class="row" style="gap:6px">${modes.map(m => `<button class="btn${m===mode?' sel':''}" data-mode="${id}" data-m="${m}">${MODE[m]}</button>`).join('')}</div>
     ${roomy && fans.length ? `<div class="row" style="gap:6px"><span class="s" style="width:44px">Fan</span>${fans.map(f => `<button class="btn${f===a.fan_mode?' sel':''}" data-fan="${id}" data-m="${esc(f)}">${esc(f)}</button>`).join('')}</div>` : ''}</div>`;
 }
+/* floor heating on a relay (valve): On / Off and Run, no set point (Home Assistant thermostat = climate, made on the SSV page) */
+const isRelay = (id) => /^(switch|input_boolean)\./.test(id);
+function relayBlock(id, runs = true){
+  const s = st(id); const na = !real(id); const off = s.state !== 'on';
+  return `<div class="blk ${off?'':'heat'}"><div class="row" style="gap:8px"><div class="lab">${svg('waves', `color:${off?'var(--text2)':'var(--heat)'}`)}<div class="col" style="gap:2px"><b style="color:${off?'var(--soft)':'var(--heat)'}">${esc(heatLabel(id))}</b><span class="s ${off?'dim':'heat'}">${na?'Unavailable':off?'Off':'On'}</span></div></div>
+    <div class="sp"></div><button class="btn sq${off?'':' sel'}" data-relay="${id}" data-on="${off?'1':''}" aria-label="Power">${svg('power')}</button></div>${runs ? ufhRuns(id) : ''}</div>`;
+}
 function heatBlock(id, runs = true){
+  if (isRelay(id)) return relayBlock(id, runs);
   const s = st(id); const na = !real(id); const off = s.state === 'off' || na;
   return `<div class="blk ${off?'':'heat'}"><div class="row" style="gap:8px"><div class="lab">${svg('waves', `color:${off?'var(--text2)':'var(--heat)'}`)}<div class="col" style="gap:2px"><b style="color:${off?'var(--soft)':'var(--heat)'}">${esc(heatLabel(id))}</b><span class="s ${off?'dim':'heat'}">${na?'Unavailable':off?'Off':'Heating'}</span></div></div>
     ${stepper(id, off)}<button class="btn sq${off?'':' sel'}" data-mode="${id}" data-m="${off?'heat':'off'}" aria-label="Power">${svg('power')}</button></div>${runs ? ufhRuns(id) : ''}</div>`;
@@ -1344,6 +1354,8 @@ stage.addEventListener('click', (e) => {
   if (d.bp != null && d.id) { setBri(d.id, +d.bp); closeOv(); return; }
   if (d.preset) { applyPreset(d.id, d.preset); return; }
   if (d.tmp) { stepTemp(d.tmp, +d.d); return; }
+  if (d.relay) { const on = !!d.on; optimistic(d.relay, on ? 'on' : 'off'); call('homeassistant', on ? 'turn_on' : 'turn_off', {}, { entity_id:d.relay });
+    const tid = 'timer.inex_ufh_' + d.relay.split('.')[1]; if (!on && tOn(tid)) call('timer', 'cancel', {}, { entity_id:tid }); return; }
   if (d.mode) { optimistic(d.mode, d.m); call('climate', 'set_hvac_mode', { hvac_mode:d.m }, { entity_id:d.mode }); return; }
   if (d.fan) { optimistic(d.fan, st(d.fan).state, { fan_mode:d.m }); call('climate', 'set_fan_mode', { fan_mode:d.m }, { entity_id:d.fan }); return; }
   if (d.cv) { call('cover', d.s, {}, { entity_id:d.cv }); return; }
@@ -1379,19 +1391,21 @@ let lastTouch = Date.now();
 function touched(){ lastTouch = Date.now(); }
 
 /* ===== Dim to 20 % after the same idle time as the return to Home (all panels except Phone).
-   Fully Kiosk with its JavaScript interface: the screen backlight goes to 20 %; otherwise a black layer at 80 %.
+   Only the screen backlight is dimmed, through Fully Kiosk's JavaScript interface (Advanced Web Settings ›
+   Enable JavaScript Interface). Without it the screen is not dimmed at all — no dark layer over the page.
    The first touch only wakes the panel; it does not press anything. A doorbell or alarm wakes it too. ===== */
-const DIM = { on: false, el: null, b: null, eat: 0 };
+const DIM = { on: false, b: null, eat: 0 };
+const fullyApi = () => { try { const F = window.fully || (window.parent !== window && window.parent.fully); return F && F.setScreenBrightness && F.getScreenBrightness ? F : null; } catch (e) { return null; } };
 function dimSet(on){
-  if (on === DIM.on) return; DIM.on = on; const F = window.fully;
-  if (F && F.setScreenBrightness && F.getScreenBrightness) {
-    try { if (on) { DIM.b = +F.getScreenBrightness() || 255; try { localStorage.setItem('ssv_bright', DIM.b); } catch (e) {} F.setScreenBrightness(Math.max(1, Math.round(DIM.b * 0.2))); } else { F.setScreenBrightness(DIM.b || 255); try { localStorage.removeItem('ssv_bright'); } catch (e) {} } return; } catch (e) {}
-  }
-  if (!DIM.el) { DIM.el = document.createElement('div'); DIM.el.id = 'dim'; DIM.el.style.cssText = 'position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity .8s;z-index:2147483000'; document.body.appendChild(DIM.el); }
-  DIM.el.style.opacity = on ? '.8' : '0';
+  if (on === DIM.on) return; const F = fullyApi(); if (!F) { DIM.on = false; return; }
+  try {
+    if (on) { DIM.b = +F.getScreenBrightness() || 255; try { localStorage.setItem('ssv_bright', DIM.b); } catch (e) {} F.setScreenBrightness(Math.max(1, Math.round(DIM.b * 0.2))); }
+    else { F.setScreenBrightness(DIM.b || 255); try { localStorage.removeItem('ssv_bright'); } catch (e) {} }
+    DIM.on = on;
+  } catch (e) {}
 }
 /* a reload while dimmed (update, power) must not leave the screen at 20 % */
-try { const b = +localStorage.getItem('ssv_bright'); if (b && window.fully && fully.setScreenBrightness) { fully.setScreenBrightness(b); localStorage.removeItem('ssv_bright'); } } catch (e) {}
+try { const b = +localStorage.getItem('ssv_bright'); const F = fullyApi(); if (b && F) { F.setScreenBrightness(b); localStorage.removeItem('ssv_bright'); } } catch (e) {}
 const dimEat = (e) => { if (Date.now() - DIM.eat < 700) { e.stopPropagation(); e.preventDefault(); } };
 addEventListener('pointerdown', (e) => { if (!DIM.on) return; DIM.eat = Date.now(); e.stopPropagation(); e.preventDefault(); lastTouch = Date.now(); dimSet(false); }, true);
 ['pointerup', 'pointermove', 'click', 'touchend', 'mouseup'].forEach(t => addEventListener(t, dimEat, true));
@@ -1463,7 +1477,7 @@ const isRunning = (id) => { const s = S[id]; if (!s || !real(id)) return false; 
 const CL = { climate: 'climate', wall: 'heated_wall' };
 function zonesBy(fn){
   const g = {};
-  Object.keys(S).filter(id => id.startsWith('climate.') && hasLabel(id, [fn]) && !hasLabel(id, SET.hideLabels) && show(id)).forEach(id => { const r = labelRoom(id); if (!r) return; (g[r.id] = g[r.id] || []).push(id); });
+  Object.keys(S).filter(id => ((id.startsWith('climate.') && hasLabel(id, [fn])) || (fn === CL.climate && isRelay(id) && hasLabel(id, ['ufh']))) && !hasLabel(id, SET.hideLabels) && show(id)).forEach(id => { const r = labelRoom(id); if (!r) return; (g[r.id] = g[r.id] || []).push(id); });
   return M.rooms.filter(r => g[r.id]).map(r => ({ r, ids: g[r.id] }));
 }
 const waterTimers = () => M.g.timers.filter(x => !hasLabel(x.timer, [CL.wall, 'ufh']));
