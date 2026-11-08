@@ -401,3 +401,37 @@ async def test_label_colours(hass, hass_ws_client):
     await client.send_json({"id": 2, "type": f"{DOMAIN}/labels/list"})
     rows = {r["id"]: r for r in (await client.receive_json())["result"]["labels"]}
     assert rows["light"]["color"] == "yellow" and rows["panel_gym"]["color"] == "teal"
+
+
+async def test_relay_floor_heating_thermostat(hass, hass_ws_client):
+    """1.4: floor heating on a relay; Make thermostat = HA Generic Thermostat (relay + room sensor)."""
+    from homeassistant.helpers import area_registry as ar
+    await _setup(hass)
+    area = ar.async_get(hass).async_create("Bedroom 2")
+    reg = er.async_get(hass)
+    relay = reg.async_get_or_create("switch", "test", "ufh_valve", suggested_object_id="bedroom_2_ufh")
+    reg.async_update_entity(relay.entity_id, labels={"ufh", "bedroom_2"}, area_id=area.id)
+    hass.states.async_set(relay.entity_id, "off")
+    sen = reg.async_get_or_create("sensor", "test", "t2", suggested_object_id="bedroom_2_temperature")
+    reg.async_update_entity(sen.entity_id, labels={"t_h"}, area_id=area.id)
+    hass.states.async_set(sen.entity_id, "20.5", {"device_class": "temperature", "unit_of_measurement": "°C"})
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": f"{DOMAIN}/thermostats/list"})
+    items = (await client.receive_json())["result"]["items"]
+    assert items == [{"relay": relay.entity_id, "name": items[0]["name"], "area": area.id, "area_name": "Bedroom 2",
+                      "sensors": [sen.entity_id], "thermostat": None}]
+    await client.send_json({"id": 2, "type": f"{DOMAIN}/thermostats/make", "relay": relay.entity_id, "sensor": sen.entity_id})
+    res = await client.receive_json()
+    assert res["success"], res
+    climate = res["result"]["climate"]
+    await hass.async_block_till_done()
+    ce = reg.async_get(climate)
+    assert {"climate", "ufh", "bedroom_2"} <= set(ce.labels) and ce.area_id == area.id
+    assert "no_panel" in reg.async_get(relay.entity_id).labels
+    st = hass.states.get(climate)
+    assert st is not None and st.attributes["min_temp"] == 16 and st.attributes["max_temp"] == 28
+    # second time: the same thermostat, not a new one
+    await client.send_json({"id": 3, "type": f"{DOMAIN}/thermostats/make", "relay": relay.entity_id, "sensor": sen.entity_id})
+    assert (await client.receive_json())["result"]["climate"] == climate
+    await client.send_json({"id": 4, "type": f"{DOMAIN}/thermostats/list"})
+    assert (await client.receive_json())["result"]["items"][0]["thermostat"] == climate
