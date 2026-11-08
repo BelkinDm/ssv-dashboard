@@ -200,7 +200,7 @@ async def test_timers_made_on_save(hass, hass_ws_client):
     reg.async_update_entity(sw.entity_id, labels={"water", "hot_water"})
     await hass.async_block_till_done()
     # nothing is made until Save
-    assert hass.states.get("timer.inex_wall_bath_wall") is None
+    assert hass.states.get("timer.ssv_wall_bath_wall") is None
     ws = await hass_ws_client(hass)
     await ws.send_json({"id": 1, "type": "ssv_dashboard/timers/list"})
     items = {c["key"]: c for c in (await ws.receive_json())["result"]["items"]}
@@ -213,9 +213,9 @@ async def test_timers_made_on_save(hass, hass_ws_client):
     r = await ws.receive_json()
     assert r["success"], r
     await hass.async_block_till_done()
-    assert hass.states.get("timer.inex_wall_bath_wall").attributes["duration"] == "2:00:00"
-    assert hass.states.get("timer.inex_ufh_bed_floor") is not None
-    t = reg.async_get("timer.inex_water_hot_water")
+    assert hass.states.get("timer.ssv_wall_bath_wall").attributes["duration"] == "2:00:00"
+    assert hass.states.get("timer.ssv_ufh_bed_floor") is not None
+    t = reg.async_get("timer.ssv_water_hot_water")
     assert t is not None and {"water", "hot_water"} <= set(t.labels)
 
     # the panels get the buttons
@@ -229,8 +229,8 @@ async def test_timers_made_on_save(hass, hass_ws_client):
     await ws.send_json({"id": 5, "type": "ssv_dashboard/timers/save", "timers": {"fn:hot_water": {"runs": [60]}}})
     assert (await ws.receive_json())["success"]
     await hass.async_block_till_done()
-    assert hass.states.get("timer.inex_wall_bath_wall") is None
-    assert hass.states.get("timer.inex_water_hot_water") is not None
+    assert hass.states.get("timer.ssv_wall_bath_wall") is None
+    assert hass.states.get("timer.ssv_water_hot_water") is not None
     await ws.send_json({"id": 6, "type": "ssv_dashboard/timers/list"})
     items = {c["key"]: c for c in (await ws.receive_json())["result"]["items"]}
     assert not items["climate.bath_wall"]["new"] and not items["climate.bath_wall"]["chosen"]
@@ -240,7 +240,7 @@ async def test_ufh_timer_turns_off(hass):
     await _setup(hass)
     hvac = async_mock_service(hass, "climate", "set_hvac_mode")
     hass.states.async_set("climate.bed_floor", "heat")
-    hass.bus.async_fire("timer.finished", {"entity_id": "timer.inex_ufh_bed_floor"})
+    hass.bus.async_fire("timer.finished", {"entity_id": "timer.ssv_ufh_bed_floor"})
     await hass.async_block_till_done()
     assert hvac and hvac[0].data == {"entity_id": "climate.bed_floor", "hvac_mode": "off"}
 
@@ -435,3 +435,34 @@ async def test_relay_floor_heating_thermostat(hass, hass_ws_client):
     assert (await client.receive_json())["result"]["climate"] == climate
     await client.send_json({"id": 4, "type": f"{DOMAIN}/thermostats/list"})
     assert (await client.receive_json())["result"]["items"][0]["thermostat"] == climate
+
+
+async def test_no_inex_objects_after_start(hass):
+    """1.5: timers inex_… are replaced by ssv_… (same duration and labels), user scenes inex_user_… get ssv_user_…."""
+    assert await async_setup_component(hass, "timer", {})
+    from custom_components.ssv_dashboard.timers import _timer_collection
+    coll = _timer_collection(hass)
+    await coll.async_create_item({"name": "inex_water_hot_water", "duration": "01:30:00", "restore": True})
+    await hass.async_block_till_done()
+    reg = er.async_get(hass)
+    reg.async_update_entity("timer.inex_water_hot_water", labels={"water", "hot_water"})
+    with open(hass.config.path("scenes.yaml"), "w") as f:
+        f.write("- id: inex_user_abc\n  name: Evening\n  entities:\n    light.lamp:\n      state: 'on'\n")
+    old = reg.async_get_or_create("scene", "homeassistant", "inex_user_abc", suggested_object_id="evening")
+    reg.async_update_entity(old.entity_id, labels={"scene", "user_scene", "home"})
+    # _setup writes an empty scenes.yaml — do the same steps here without it
+    with open(hass.config.path("configuration.yaml"), "w") as f:
+        f.write("scene: !include scenes.yaml\n")
+    assert await async_setup_component(hass, "http", {})
+    assert await async_setup_component(hass, "scene", {})
+    entry = MockConfigEntry(domain=DOMAIN, data={}, options={"timer_actions": True})
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert hass.states.get("timer.inex_water_hot_water") is None
+    new = hass.states.get("timer.ssv_water_hot_water")
+    assert new is not None and new.attributes["duration"] == "1:30:00"
+    assert {"water", "hot_water"} <= set(reg.async_get("timer.ssv_water_hot_water").labels)
+    assert "inex" not in open(hass.config.path("scenes.yaml")).read()
+    ent = reg.async_get(old.entity_id)
+    assert ent.unique_id == "ssv_user_abc" and "home" in ent.labels
