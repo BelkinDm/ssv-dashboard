@@ -68,7 +68,9 @@ Publish a GitHub release with a higher `version` in `manifest.json`. HACS shows 
 
 ## Moving from the old `/local/morea` files
 
-On the SSV Dashboard page, dashboards that still use `/local/morea/…` show **Move to SSV files**. After moving all of them, the old `inex_scenes` integration and the two “INEX Panel – … timer finished” automations can be removed: scenes made with it keep working (`inex_user_…` ids are accepted), and the timers are handled by SSV Dashboard.
+On the SSV Dashboard page, dashboards that still use `/local/morea/…` show **Move to SSV files**. After moving all of them, the old `inex_scenes` integration and the two “INEX Panel – … timer finished” automations can be removed: scenes made with it keep working, and the timers are handled by SSV Dashboard.
+
+Since 1.5 nothing SSV makes carries the old INEX name: at start SSV replaces timer helpers `timer.inex_…` with `timer.ssv_…` (same duration and labels; a timer that is running is replaced after it ends) and gives old user scenes the id `ssv_user_…` (the scene keeps its name and labels). Night switches are `input_boolean.ssv_night_<room>` (the old `inex_night_` still works). Schedules made on the panels get the tag `ssv`.
 
 ---
 
