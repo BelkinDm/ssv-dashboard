@@ -8,10 +8,10 @@
 </head>
 <body>
 Loading…
-<!-- INEX phone dashboard: loads panel.html (same logic, entities and labels as the wall panels)
+<!-- SSV phone dashboard: loads panel.html (same logic, entities and labels as the wall panels)
      and lays it out for a phone: bottom tabs Home · Rooms · Lights · Climate · More. -->
 <script type="text/plain" id="phcss">
-/* ===== INEX phone layout (overrides the 1280x800 wall-panel stage) ===== */
+/* ===== SSV phone layout (overrides the 1280x800 wall-panel stage) ===== */
 html,body{overflow:hidden;height:100%;overscroll-behavior:none}
 #stage{position:fixed!important;inset:0!important;width:auto!important;height:auto!important;transform:none!important}
 #top{left:12px;right:12px;top:calc(10px);width:auto;height:62px;padding:0 8px 0 14px;gap:8px;border-radius:18px}
@@ -123,7 +123,7 @@ html,body{overflow:hidden;height:100%;overscroll-behavior:none}
 .ph-row em{font:500 11px var(--mono);letter-spacing:.1em;text-transform:uppercase;font-style:normal;color:var(--text2)}
 </script>
 <script type="text/plain" id="phjs">
-/* ===== INEX phone behaviour ===== */
+/* ===== SSV phone behaviour ===== */
 (function(){
   SET.nightIdleMinutes = 0; SET.homeIdleMinutes = 0;           /* a phone never falls into night/home by itself */
   const MAIN = [['home','Home','home'],['rooms','Rooms','rooms'],['lights','Lights','bulb'],['climate','Climate','climate'],['more','More','more']];
@@ -237,7 +237,7 @@ html,body{overflow:hidden;height:100%;overscroll-behavior:none}
 </script>
 <script>
 (async () => {
-  /* INEX 2026-10-29: on a tablet or computer (screen at least 600 x 900) the Phone tab hands over to the Tablet dashboard.
+  /* SSV 2026-10-29: on a tablet or computer (screen at least 600 x 900) the Phone tab hands over to the Tablet dashboard.
      Add ?stay=1 to the Phone card URL to switch this off; ?tablet=/other-dashboard/main points it elsewhere. */
   try {
     const T = window.top, w = T.innerWidth, h = T.innerHeight;

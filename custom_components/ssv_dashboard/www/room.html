@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>INEX Room Panel</title>
+<title>SSV Dashboard · Room Panel</title>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#070B10;--surface:#0F1720;--raised:#121C26;--line:#1E2A36;--line2:#26333F;--text:#E6EDF3;--text2:#93A3B3;--text3:#7B8B9B;
@@ -82,7 +82,7 @@ nav button.on{background:#12302A;border-color:#2A5A4A;color:var(--mint)}
 .win.net .f{background:#3C4A58}.win.blackout .f{background:#2A2620}
 .win .f.l{left:0;border-right:2px solid #625645}.win .f.r{right:0;border-left:2px solid #625645}
 .win .h{position:absolute;top:42%;width:6px;height:28px;border-radius:3px;background:#E6EDF3}
-/* INEX 2026-10-27: curtain types, handles, light knob */
+/* SSV 2026-10-27: curtain types, handles, light knob */
 .cw{position:relative;border-radius:10px;background:#142231;overflow:hidden;border:1px solid var(--line);touch-action:none;flex:1;min-height:0;--m:14px;--g:6px}.cw i{position:absolute;display:block;pointer-events:none}.cw.both::before{content:"";position:absolute;left:50%;top:10px;bottom:0;width:1px;background:#22344A}.cw .rl{left:0;right:0;top:0;height:5px;background:#2A3744;z-index:1}.cw .pn{top:5px;bottom:0;background-color:#4A4136;background-image:repeating-linear-gradient(90deg,rgba(0,0,0,.16) 0 2px,transparent 2px 10px)}.cw.net .pn{background-color:#3C4A58}.cw.blackout .pn{background-color:#2A2620}.cw .pn.a{left:0;border-right:2px solid #625645}.cw .pn.b{right:0;border-left:2px solid #625645}.cw.net .pn.a,.cw.net .pn.b{border-color:#56677A}.cw.both .pn{width:calc(var(--m) + (50% - var(--m) - var(--g)) * (1 - var(--p)))}.cw.left .pn,.cw.right .pn{width:calc(var(--m) + (100% - 2 * var(--m)) * (1 - var(--p)))}.cw .hk{top:calc(50% + 2px);width:8px;height:30px;margin:-15px 0 0 -4px;border-radius:5px;background:#E6EDF3;border:2px solid #0F1720;box-sizing:border-box;box-shadow:0 0 0 4px rgba(230,237,243,.12);z-index:2}.cw.both .hk.a{left:calc(var(--m) + (50% - var(--m) - var(--g)) * (1 - var(--p)))}.cw.both .hk.b{left:calc(100% - var(--m) - (50% - var(--m) - var(--g)) * (1 - var(--p)))}.cw.left .hk.a{left:calc(var(--m) + (100% - 2 * var(--m)) * (1 - var(--p)))}.cw.right .hk.b{left:calc(100% - var(--m) - (100% - 2 * var(--m)) * (1 - var(--p)))}.cw.roller .pn,.cw.shutter .pn{left:0;right:0;bottom:auto;height:calc(var(--m) + (100% - 5px - 2 * var(--m)) * (1 - var(--p)));background-image:none;border-bottom:4px solid #625645;box-sizing:border-box}.cw.shutter .pn{background:repeating-linear-gradient(180deg,#5B6875 0 8px,#3F4A55 8px 10px);border-bottom-color:#8A98A6}.cw.roller .hk,.cw.shutter .hk{left:50%;width:30px;height:8px;margin:-4px 0 0 -15px;top:calc(5px + var(--m) + (100% - 5px - 2 * var(--m)) * (1 - var(--p)))}.cw.mv .hk{background:#E2B66E}.tile{--in:8px}.tile .fill.pv{height:calc(var(--in) + (100% - 2 * var(--in)) * var(--p,0))}.tile:not(.on) .fill.pv{height:0}.tile .kn{position:absolute;right:9px;bottom:calc(var(--in) + (100% - 2 * var(--in)) * var(--p,0));width:20px;height:5px;margin-bottom:-2.5px;border-radius:3px;background:#3A4856;box-shadow:0 0 0 3px rgba(7,11,16,.35);pointer-events:none}.tile.on .kn{background:#E6EDF3}.tile:not(.on) .fill.pv{height:calc(var(--in) + (100% - 2 * var(--in)) * var(--p,0));background:transparent}.tile .fill.pv::before{content:"";position:absolute;left:8px;right:8px;top:-.5px;height:1px;background:rgba(147,163,179,.35)}.tile.on .fill.pv::before{background:rgba(243,221,174,.6)}
 .empty{flex:1;display:flex;align-items:center;justify-content:center;color:var(--text3);font:500 11px var(--mono);letter-spacing:.14em;text-transform:uppercase;text-align:center}
 #night{position:fixed;inset:0;background:#000;display:none;z-index:9}
@@ -97,7 +97,7 @@ nav button.on{background:#12302A;border-color:#2A5A4A;color:var(--mint)}
 <div id="night"><div class="in" id="nightIn"></div></div>
 <div id="toast"></div>
 <script>
-/* INEX room panel 4" (480 x 480) — brand book v1.2. Own WebSocket connection to Home Assistant (uses this panel's login), single consolidated file.
+/* SSV room panel 4" (480 x 480) — brand book v1.2. Own WebSocket connection to Home Assistant (uses this panel's login), single consolidated file.
    URL: /ssv_dashboard/room.html?panel=<id> — the panel is made on the SSV Dashboard page.
    Labels (made by SSV when the panel is saved; Settings → Labels shows the names):
      Panel <Name>         (id panel_<id>)        on the room's area: the whole room; on a device: just that device
@@ -202,15 +202,15 @@ pumpc: '<circle cx="11" cy="13.5" r="7"/><path d="M11 13.5c1-2.2 3-3.2 4.5-3M11 
   recirc: '<path d="M20 12a8 8 0 0 1-14 5.3M4 12a8 8 0 0 1 14-5.3"/><path d="M18 3v4h-4M6 21v-4h4"/>',
 };
 /* ---------- Home Assistant connection: own WebSocket, independent of the parent page internals ---------- */
-const BUILD = '1.4.0';
+const BUILD = '1.5.0';
 const HC = { ready: false, states: {}, entities: {}, devices: {}, areas: {} };
 let ws = null, wsOk = false, msgId = 0, backoff = 1000, FC_ID = 0, lastMsg = Date.now(), downSince = Date.now(), reloading = false, regT = 0; const BOOT = Date.now();
 const waiters = {};
 const HA = () => HC;
-/* INEX 2026-10-27: clock comes from Home Assistant (sensor.ssv_time / sensor.inex_time: server time + HA time zone), not from the tablet's own clock */
+/* SSV 2026-10-27: clock comes from Home Assistant (sensor.ssv_time: server time + HA time zone), not from the tablet's own clock */
 var HA_OFF = 0, HA_TZ = 0, HA_TZOK = false, HA_LIVE = false;
 function haTimeSync(iso, live){ const ms = Date.parse(iso); if (isNaN(ms)) return; if (live) { HA_OFF = ms - Date.now(); HA_LIVE = true; } const z = /([+-])(\d\d):?(\d\d)$/.exec(iso); if (z) { HA_TZ = (z[1] === '-' ? -1 : 1) * (+z[2] * 60 + +z[3]); HA_TZOK = true; } }
-function haAt(t){ if (!HA_TZOK) { const s = (HC && HC.states) ? (HC.states['sensor.ssv_time'] || HC.states['sensor.inex_time']) : null; if (s && s.state) haTimeSync(s.state, false); } return HA_TZOK ? new Date(t + (HA_TZ + new Date(t).getTimezoneOffset()) * 60000) : new Date(t); }
+function haAt(t){ if (!HA_TZOK) { const s = (HC && HC.states) ? (HC.states['sensor.ssv_time']) : null; if (s && s.state) haTimeSync(s.state, false); } return HA_TZOK ? new Date(t + (HA_TZ + new Date(t).getTimezoneOffset()) * 60000) : new Date(t); }
 function haNow(){ return haAt(Date.now() + HA_OFF); }
 function safe(fn, fallback = ''){ try { return fn(); } catch (e) { console.error('[room]', e); return fallback; } }
 function wsSend(msg){ if (!wsOk || !ws) return Promise.reject(new Error('offline')); const id = ++msgId; msg.id = id; ws.send(JSON.stringify(msg));
@@ -263,7 +263,7 @@ async function connect(){
       if (m.id === FC_ID && m.event.forecast) { FC = m.event.forecast; schedule(); return; }
       const et = m.event.event_type;
       if (!HA_LIVE && m.event.time_fired) { const f = Date.parse(m.event.time_fired); if (!isNaN(f)) HA_OFF = f - Date.now(); }
-      if (et === 'state_changed') { const d = m.event.data; if (d.new_state) HC.states[d.entity_id] = d.new_state; else delete HC.states[d.entity_id]; if (/^sensor\.(ssv|inex)_time$/.test(d.entity_id) && d.new_state) haTimeSync(d.new_state.state, true); schedule(); }
+      if (et === 'state_changed') { const d = m.event.data; if (d.new_state) HC.states[d.entity_id] = d.new_state; else delete HC.states[d.entity_id]; if (/^sensor\.ssv_time$/.test(d.entity_id) && d.new_state) haTimeSync(d.new_state.state, true); schedule(); }
       else if (/_registry_updated$/.test(et || '')) { clearTimeout(regT); regT = setTimeout(() => loadRegistry().catch(() => {}), 1500); }
     }
   };
@@ -403,7 +403,7 @@ function pills(ids, groups){
   return groups.filter(g => g.ids.length).map(g => { const on = g.ids.filter(isOn); const b = on.map(bri).find(x => x != null);
     return `<button class="pill${on.length ? ' on' : ''}" data-grp="${g.ids.join(',')}"><span class="ico">${svg(g.icon)}</span><span style="min-width:0"><div class="nm">${esc(g.name)}</div><div class="lab${on.length ? ' amber' : ''}">${on.length ? 'On' + (b != null ? ' · ' + b + ' %' : '') : 'Off'}</div></span></button>`; }).join('');
 }
-function timerOf(fnLabels){ if (fnLabels[0] === 'water' && S()['timer.inex_water_' + fnLabels[1]]) return 'timer.inex_water_' + fnLabels[1]; return Object.keys(S()).find(id => dmn(id) === 'timer' && fnLabels.every(l => has(id, l)) && (has(id, ROOM) || has(id, PANEL) || fnLabels.includes('water'))) || null; }
+function timerOf(fnLabels){ if (fnLabels[0] === 'water' && S()['timer.ssv_water_' + fnLabels[1]]) return 'timer.ssv_water_' + fnLabels[1]; return Object.keys(S()).find(id => dmn(id) === 'timer' && fnLabels.every(l => has(id, l)) && (has(id, ROOM) || has(id, PANEL) || fnLabels.includes('water'))) || null; }
 function tState(tid){ const t = tid && st(tid); if (t && t.state === 'active' && t.attributes.finishes_at) return { on: true, left: Math.max(0, Math.ceil((Date.parse(t.attributes.finishes_at) - Date.now() - HA_OFF) / 1000)), dur: t.attributes.duration };
   if (t && t.state === 'paused') return { on: true, left: null, rem: t.attributes.remaining, dur: t.attributes.duration }; return { on: false }; }
 const leftText = (ts) => ts.left != null ? hms(ts.left) : (ts.rem || '');
@@ -444,7 +444,7 @@ function ufhLine(id, title){
   return `<div class="card${off ? '' : ' heat'}"><div class="row"><div style="min-width:0"><div class="nm">${esc(title)}</div><div class="lab${off ? '' : ' heat'}">${off ? 'Off' : 'On'}${cur != null ? ' · ' + fmtT(cur) + '°' : ''}</div></div><div class="sp"></div>${stepper(id, off)}<button class="btn sq${off ? '' : ' sel'}" data-mode="${id}" data-m="${off ? 'heat' : 'off'}" aria-label="Power">${svg('power')}</button></div>${ufhRunRow(id)}</div>`;
 }
 function ufhRunRow(id){
-  const r = runsOf(id, []); const tid = 'timer.inex_ufh_' + id.split('.')[1]; if (!r.length || !st(tid)) return '';
+  const r = runsOf(id, []); const tid = 'timer.ssv_ufh_' + id.split('.')[1]; if (!r.length || !st(tid)) return '';
   const ts = tState(tid);
   return `<div class="row eq">${r.map((m, i) => `<button class="btn${ts.on && String(ts.dur || '').replace(/^0/, '') === durStr(m).replace(/^0/, '') ? ' sel' : ''}" data-urun="${id}" data-min="${m}">${i ? '' : svg('run')}<span class="t">${fmtMin(m)}</span></button>`).join('')}${ts.on ? `<div class="mid" style="font-size:20px;flex:none" data-left="${tid}">${leftText(ts)}</div>` : ''}</div>`;
 }
@@ -489,7 +489,7 @@ function vCurtains(){
     <div class="row">${cbtns(id, k, moving)}</div></div>`; }).join('')}</div>`;
 }
 
-const wallTimerId = (id) => 'timer.inex_wall_' + id.split('.')[1];
+const wallTimerId = (id) => 'timer.ssv_wall_' + id.split('.')[1];
 function vWC(key){
   const Z = M.att[key] || M.att[Object.keys(M.att)[0]]; if (!Z) return '<div class="empty">Nothing here</div>';
   const out = [];
@@ -539,7 +539,7 @@ setInterval(() => { const after = 120000; const idle = Date.now() - lastTouch;
   const dark = $('night').classList.contains('show') || (false);
   dimSet(!!after && idle >= after && !dark); }, 1000);
 function nightNow(){
-  const nb = st('input_boolean.inex_night_' + ROOM); const hr = haNow().getHours();
+  const nb = (st('input_boolean.ssv_night_' + ROOM) || st('input_boolean.inex_night_' + ROOM)); const hr = haNow().getHours();
   if (!NIGHT_ON && !nb) return false;
   const inWin = nb ? nb.state === 'on' : (NIGHT_FROM > NIGHT_TO ? (hr >= NIGHT_FROM || hr < NIGHT_TO) : (hr >= NIGHT_FROM && hr < NIGHT_TO));
   return inWin && Date.now() - lastTouch > IDLE * 1000 && Date.now() > forceAwake;
@@ -597,7 +597,7 @@ function devs(fn){ return (fn === 'hot_water' ? M.hot : M.rec).filter(id => ['sw
 function devSet(ids, on){ ids.forEach(id => dmn(id) === 'water_heater' ? call('water_heater', on ? 'turn_on' : 'turn_off', { entity_id: id }) : call('homeassistant', on ? 'turn_on' : 'turn_off', { entity_id: id })); }
 async function waterRun(fn, min){
   devSet(devs(fn), true);
-  const tid = timerOf(['water', fn]) || await ensureTimer('timer.inex_water_' + fn, ['water', fn], '01:00:00');
+  const tid = timerOf(['water', fn]) || await ensureTimer('timer.ssv_water_' + fn, ['water', fn], '01:00:00');
   if (tid) { call('timer', 'start', { entity_id: tid, duration: durStr(min) }); toast((fn === 'hot_water' ? 'Hot water' : 'Recirculation') + ' · ' + fmtMin(min)); }
 }
 function waterOff(fn){ const tid = timerOf(['water', fn]); if (tid && st(tid).state !== 'idle') call('timer', 'cancel', { entity_id: tid }); devSet(devs(fn), false); }
@@ -619,13 +619,13 @@ document.addEventListener('click', (e) => {
   if (d.grp) { const ids = d.grp.split(','); const any = ids.some(isOn); call('homeassistant', any ? 'turn_off' : 'turn_on', { entity_id: ids }); return; }
   if (d.tmp) { stepTemp(d.tmp, +d.d); return; }
   if (d.relay) { const on = !!d.on; call('homeassistant', on ? 'turn_on' : 'turn_off', { entity_id: d.relay });
-    const tid = 'timer.inex_ufh_' + d.relay.split('.')[1]; if (!on && tState(tid).on) call('timer', 'cancel', { entity_id: tid }); return; }
+    const tid = 'timer.ssv_ufh_' + d.relay.split('.')[1]; if (!on && tState(tid).on) call('timer', 'cancel', { entity_id: tid }); return; }
   if (d.mode) { call('climate', 'set_hvac_mode', { entity_id: d.mode, hvac_mode: d.m }); return; }
   if (d.cv) { call('cover', d.cv, { entity_id: d.id }); return; }
   if (d.wall) { wallAct(d.wall, d.id, +d.min || 0); return; }
   if (d.fan) { call('climate', 'set_fan_mode', { entity_id: d.fan, fan_mode: d.f }); return; }
   if (d.scene) { if (dmn(d.scene) === 'script') call('script', 'turn_on', { entity_id: d.scene }); else call('ssv_dashboard', 'run_scene', { entity_id: d.scene }); toast(NM(d.scene)); return; }
-  if (d.urun) { const id = d.urun, tid = 'timer.inex_ufh_' + id.split('.')[1]; if (dmn(id) === 'climate') call('climate', 'set_hvac_mode', { entity_id: id, hvac_mode: 'heat' }); else call('homeassistant', 'turn_on', { entity_id: id });
+  if (d.urun) { const id = d.urun, tid = 'timer.ssv_ufh_' + id.split('.')[1]; if (dmn(id) === 'climate') call('climate', 'set_hvac_mode', { entity_id: id, hvac_mode: 'heat' }); else call('homeassistant', 'turn_on', { entity_id: id });
     if (st(tid)) { call('timer', 'start', { entity_id: tid, duration: durStr(+d.min) }); toast('Floor heating · ' + fmtMin(+d.min)); } return; }
   if (d.wrun) { waterRun(d.wrun, +d.min); return; }
   if (d.woff) { waterOff(d.woff); return; }
