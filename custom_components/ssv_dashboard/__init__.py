@@ -4,6 +4,7 @@ What this integration does:
   * serves the panel pages at /ssv_dashboard/panel.html, room.html, phone.html;
   * creates the labels the panels read (Light, Curtain, Scene Device, ...);
   * offers user-scene services so the people in the house can make their own (user) scenes safely;
+  * shows floor heating on a relay (valve) and makes a Home Assistant thermostat from relay + room sensor;
   * makes the run timers chosen on the SSV Dashboard page and turns heated walls,
     floor heating, hot water and recirculation off when their timer ends;
   * provides sensor.ssv_time so every panel clock follows Home Assistant;
@@ -32,6 +33,7 @@ from .http import async_register_files, local_served
 from .labels import ensure_base_labels
 from .panels import PanelStore, async_register_ws as async_register_panel_ws, restyle_panel_labels
 from .scenes import async_setup_scenes, async_unload_scenes
+from .thermostats import async_register_ws as async_register_thermostat_ws
 from .timers import async_setup_timers
 from .updates import async_watch_updates, update_info
 
@@ -50,6 +52,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     websocket_api.async_register_command(hass, ws_create_labels)
     websocket_api.async_register_command(hass, ws_update_install)
     async_register_panel_ws(hass)
+    async_register_thermostat_ws(hass)
     return True
 
 

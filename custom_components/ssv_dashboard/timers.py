@@ -94,7 +94,7 @@ def async_candidates(hass: HomeAssistant, store) -> list[dict]:
         labels = set(ent.labels or set())
         if ent.domain == "climate" and "heated_wall" in labels:
             kind, tid = "wall", f"inex_wall_{ent.entity_id.split('.', 1)[1]}"
-        elif ent.domain in ("climate", "switch") and "ufh" in labels:
+        elif ent.domain in ("climate", "switch") and "ufh" in labels and "no_panel" not in labels:
             kind, tid = "ufh", f"inex_ufh_{ent.entity_id.split('.', 1)[1]}"
         else:
             continue
