@@ -14,7 +14,7 @@ Everything on the panels is built from Home Assistant itself: floors → rooms �
 | `sensor.ssv_time` | Panel clocks follow Home Assistant time, not the tablet's clock |
 | Panels | Each screen is a panel with a name, screen type (10″, 4″, Tablet, Phone; 5.5″ Main / Room coming), purpose (residential, hotel room, office, gym, common area), rooms, attached rooms (WC, Shower…) and tabs; each gets its own dashboard and labels `Panel <Name>`, `Panel <Name> <Room>` |
 | SSV Dashboard page | Admin page in the sidebar: panels, start page, scene places and order per panel, tablet start files, run times, and a check of the integrations each tab needs with install through HACS |
-| Screen care | Panels dim to 20 % after the same idle time as the return to Home (first touch only wakes); a panel never stays on “404: Not Found” or “Bad Gateway” while Home Assistant starts |
+| Screen care | Panels dim the screen backlight to 20 % after the same idle time as the return to Home, through Fully Kiosk (first touch only wakes); a panel never stays on “404: Not Found” or “Bad Gateway” while Home Assistant starts |
 
 ## Install
 
@@ -27,6 +27,7 @@ Everything on the panels is built from Home Assistant itself: floors → rooms �
    - **Start page** makes a dashboard the start page for everyone;
    - **Tablet file** downloads the start file of a panel for its tablet (see [Tablets](#tablets-fully-kiosk));
    - in the panel editor, **Scenes** sets how many scene places Home (10″) or the button row (4″) has and the order of the scenes;
+   - **Floor heating on relays** — relays / valves with the label UFH; where the room has a temperature sensor (label Temperature Humidity), **Make thermostat** creates Home Assistant's Generic Thermostat (relay + sensor): the panels show the room temperature and the set point; without a sensor the panels show On / Off and Run;
    - **Run timers** — tick heated walls, floor heating, hot water, recirculation, type the buttons in minutes, press Save;
    - when a new SSV Dashboard is out, the page shows **Update now** and Home Assistant shows a notification (push to a phone: integration options → notify service).
 
@@ -46,7 +47,7 @@ Fully Kiosk Browser settings (menu names can differ a little between Fully versi
 | Web Content Settings → Start URL | `file:///sdcard/Download/ssv-start-<id>.html` |
 | Web Content Settings → Enable File Access / Allow local files | on |
 | Web Auto Reload → Reload on Network Reconnect | on |
-| Advanced Web Settings → Enable JavaScript Interface | on — then dimming uses the screen backlight (20 %); without it the panel dims with a dark layer |
+| Advanced Web Settings → Enable JavaScript Interface | on — the panel dims the screen backlight to 20 % when idle; without it the screen is not dimmed |
 | Device Management → Keep Screen On | on |
 
 The start file shows the time and “Reconnecting…”, checks Home Assistant every few seconds (`/ssv_dashboard/ping.png`) and opens the panel's dashboard only when SSV Dashboard answers. An open panel keeps its last view while the connection is lost and reconnects by itself.
@@ -78,6 +79,7 @@ On the SSV Dashboard page, dashboards that still use `/local/morea/…` show **M
 3. В боковом меню **SSV Dashboard**:
    - **Integrations** — чего не хватает вкладкам; недостающее из HACS ставится кнопкой, дальше перезапуск и **Add**;
    - **New panel** — название, экран, назначение, комнаты, привязанные помещения, вкладки, ночной экран. При сохранении создаются дашборд `/ssv-<id>/main` и метки `Panel <Имя>`, `Panel <Имя> <Помещение>`; у комнатной панели всегда есть `Panel <Имя> WC`;
+   - **Floor heating on relays** — тёплый пол на реле или клапане (метка UFH). Есть датчик температуры в комнате — кнопка **Make thermostat** создаёт термостат HA (реле + датчик): на панели температура и уставка. Датчика нет — на панели только Вкл / Выкл и Run;
    - **Run timers** — отметить тёплые стены, тёплые полы, бойлер, рециркуляцию, задать кнопки в минутах, Save;
    - **Labels** внизу страницы — все метки SSV, включая метки панелей, и где они уже стоят. Метки окрашены по группам: свет — жёлтые, климат — оранжевые, шторы — фиолетовые, сцены — зелёные, вода — синие, безопасность — красные, панели — бирюзовые, комнаты — серые; цвет, заданный вручную, не меняется;
    - **Tablet file** у панели — стартовый файл для планшета: положить в папку Download и указать в Fully Kiosk как Start URL (`file:///sdcard/Download/ssv-start-<id>.html`). Планшет ждёт HA и не зависает на «Bad Gateway» / «404».
@@ -111,7 +113,7 @@ Colours by group, so the list reads at a glance (a colour you set by hand is kep
 | On Off Only | `on_off_only` | Dimmable light shown as a plain On / Off switch |
 | Climate | `climate` | Climate tab: room thermostats |
 | AC | `ac` | Air conditioners (with fan speed buttons on room panels) |
-| UFH | `ufh` | Floor heating (climate or switch); can get Run buttons |
+| UFH | `ufh` | Floor heating: a climate, or a relay / valve (switch) — On / Off and Run; with a room sensor the SSV page makes a thermostat of it |
 | Heated Wall | `heated_wall` | Heated walls; can get Run buttons |
 | Temperature Humidity | `t_h` | Temperature / humidity sensors for the room header |
 | Curtain | `curtain` | Curtains |
