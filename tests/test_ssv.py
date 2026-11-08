@@ -204,9 +204,8 @@ async def test_timers_made_on_save(hass, hass_ws_client):
     ws = await hass_ws_client(hass)
     await ws.send_json({"id": 1, "type": "ssv_dashboard/timers/list"})
     items = {c["key"]: c for c in (await ws.receive_json())["result"]["items"]}
-    assert set(items) == {"climate.bath_wall", "climate.bed_floor", "fn:hot_water"}
+    assert set(items) == {"climate.bath_wall", "fn:hot_water"}   # 1.5.1: floor heating has no Run timers
     assert all(c["new"] and not c["chosen"] for c in items.values())
-    assert items["climate.bed_floor"]["kind"] == "ufh"
 
     await ws.send_json({"id": 2, "type": "ssv_dashboard/timers/save", "timers": {
         "climate.bath_wall": {"runs": [60, 120]}, "climate.bed_floor": {"runs": [30]}, "fn:hot_water": {"runs": [60, 90]}}})
@@ -214,7 +213,7 @@ async def test_timers_made_on_save(hass, hass_ws_client):
     assert r["success"], r
     await hass.async_block_till_done()
     assert hass.states.get("timer.ssv_wall_bath_wall").attributes["duration"] == "2:00:00"
-    assert hass.states.get("timer.ssv_ufh_bed_floor") is not None
+    assert hass.states.get("timer.ssv_ufh_bed_floor") is None
     t = reg.async_get("timer.ssv_water_hot_water")
     assert t is not None and {"water", "hot_water"} <= set(t.labels)
 
