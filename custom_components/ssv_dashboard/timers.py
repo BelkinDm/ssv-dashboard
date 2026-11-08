@@ -97,9 +97,7 @@ def async_candidates(hass: HomeAssistant, store) -> list[dict]:
         labels = set(ent.labels or set())
         if ent.domain == "climate" and "heated_wall" in labels:
             kind, tid = "wall", f"ssv_wall_{ent.entity_id.split('.', 1)[1]}"
-        elif ent.domain in ("climate", "switch") and "ufh" in labels and "no_panel" not in labels:
-            kind, tid = "ufh", f"ssv_ufh_{ent.entity_id.split('.', 1)[1]}"
-        else:
+        else:   # 1.5.1: floor heating has no Run timers — On / Off, set point and schedules only
             continue
         out.append({"key": ent.entity_id, "kind": kind, "name": name_of(ent.entity_id), "timer": f"timer.{tid}"})
     for fn in WATER_FUNCTIONS:
@@ -149,6 +147,15 @@ async def async_migrate_timers(hass: HomeAssistant, store) -> list[str]:
     reg = er.async_get(hass)
     have = {item["id"]: item for item in coll.async_items()}
     done: list[str] = []
+    # 1.5.1: floor heating has no Run timers — drop the ones SSV made for it
+    for key in [k for k in store.timers if not k.startswith("fn:") and not k.startswith("climate.") or (k.startswith("climate.") and "ufh" in _labels(reg, k) and "heated_wall" not in _labels(reg, k))]:
+        store.timers.pop(key, None)
+    for obj in [o for o in list(store.managed_timers) if o.startswith(("ssv_ufh_", "inex_ufh_"))]:
+        if obj in have:
+            await coll.async_delete_item(obj)
+            have.pop(obj)
+        store.managed_timers.remove(obj)
+        done.append(f"-timer.{obj}")
     for old_id, item in list(have.items()):
         if not str(old_id).startswith("inex_"):
             continue

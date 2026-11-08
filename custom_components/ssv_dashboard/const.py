@@ -71,7 +71,7 @@ LABEL_USE: dict[str, str] = {
     "on_off_only": "Dimmable light shown as a plain On / Off switch",
     "climate": "Climate tab: room thermostats",
     "ac": "Air conditioners (with fan speed buttons on room panels)",
-    "ufh": "Floor heating: a climate, or a relay / valve (On / Off; with a room sensor SSV makes a thermostat); can get Run buttons",
+    "ufh": "Floor heating: a climate, or a relay / valve (On / Off and schedules; with a room sensor SSV makes a thermostat)",
     "heated_wall": "Heated walls; can get Run buttons",
     "t_h": "Temperature / humidity sensors for the room header",
     "curtain": "Curtains",
