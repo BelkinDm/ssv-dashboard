@@ -108,7 +108,7 @@ class SSVSetup extends HTMLElement {
       S.info = info; LOADER_OK = !!info.loader; S.areas = areas.sort((a, b) => a.name.localeCompare(b.name));
       S.resources = resources; S.defaultPanel = (sys && sys.value && sys.value.default_panel) || null;
       S.ents = ents.entities || []; S.panels = panels.panels || [];
-      if (!S.tdirty) S.timers = (timers.items || []).map(c => Object.assign({}, c, { on: c.chosen || c.new, text: (c.runs || []).join(', ') }));
+      if (!S.tdirty) S.timers = (timers.items || []).map(c => Object.assign({}, c, { on: c.chosen || (c.new && c.kind !== 'ufh'), text: (c.runs || []).join(', ') }));
       S.hacs = hacs; S.dashList = dashes;
       S.legacy = [];
       for (const d of dashes) {
@@ -347,7 +347,7 @@ class SSVSetup extends HTMLElement {
 
       ${this.thermCard()}
       <div class="card"><h2>Run timers</h2>
-        <p>Everything that can run for a while: heated walls, floor heating, hot water, recirculation. Tick what should have Run buttons and type the buttons in minutes (up to 4, e.g. 60, 120, 180). Nothing is made until you press Save; untick + Save removes the timer. SSV Dashboard turns the device off when the timer ends.</p>
+        <p>Everything that can run for a while: heated walls, hot water, recirculation (floor heating has no Run buttons: On / Off, set point and schedules). Tick what should have Run buttons and type the buttons in minutes (up to 4, e.g. 60, 120, 180). Nothing is made until you press Save; untick + Save removes the timer. SSV Dashboard turns the device off when the timer ends.</p>
         <table><tr><th style="width:30%">Device</th><th style="width:14%">Kind</th><th style="width:20%">Buttons, minutes</th><th>Timer</th><th style="width:8%">Made</th></tr>${runRows}</table>
         <div class="row" style="margin-top:12px"><button data-act="tsave">Save run timers</button>${S.tdirty ? '<span class="dim">not saved yet</span>' : ''}</div>
       </div>

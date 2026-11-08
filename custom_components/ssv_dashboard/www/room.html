@@ -26,9 +26,25 @@ header{height:66px;flex:none;display:flex;align-items:center;gap:12px;margin:8px
 main{flex:1;min-height:0;display:flex;flex-direction:column;gap:8px;padding:8px}
 .row.eq>.btn,.row.eq>.pill{flex:1 1 0;min-width:0;padding:0 6px}
 .row.eq{gap:8px}
-.card{gap:8px}
+.card{gap:8px;--cp:13px}
+/* Home: a button row inside a card with as many buttons as the full-width row at the bottom lines up with it —
+   same column width, the gaps fall on the same lines; the outer two buttons give up the card padding
+   (--cp = padding + border). Set after each render by alignRows(). */
+.row.runs{display:grid;gap:8px;--c:calc((100% + 2 * var(--cp) - (var(--k) - 1) * 8px) / var(--k))}
+.row.runs>.btn{min-width:0;padding:0 6px;width:auto}
+.row.runs.k1{grid-template-columns:1fr}
+.row.runs.k2{grid-template-columns:calc(var(--c) - var(--cp)) calc(var(--c) - var(--cp))}
+.row.runs.k3{grid-template-columns:calc(var(--c) - var(--cp)) var(--c) calc(var(--c) - var(--cp))}
+.row.runs.k4{grid-template-columns:calc(var(--c) - var(--cp)) var(--c) var(--c) calc(var(--c) - var(--cp))}
+.cd{font-variant-numeric:tabular-nums}
+/* WC floor heating: same 3 columns as the Heated wall buttons — set point (− value +) = the first button, On / Off = the last */
+.row.g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.row.g3>.stp{grid-column:1;display:flex;align-items:center;justify-content:space-between;gap:4px;min-width:0}
+.row.g3>.stp .btn.sq{width:34px;min-width:34px;padding:0}.row.g3>.stp .spv{font-size:20px;min-width:0;flex:1;text-align:center}
+.row.g3>.btn{grid-column:3}.row.g3>.btn.all{grid-column:1 / 4}
+
 /* Home: everything fits one 480 px screen — same 8 px gap between all buttons and cards */
-#view.home .card{padding:10px 12px;gap:8px}
+#view.home .card{padding:10px 12px;gap:8px;--cp:13px}
 #view.home .btn{height:40px;min-width:40px}
 #view.home .btn.sq{width:40px}
 #view.home .spv{font-size:22px;min-width:64px}
@@ -38,12 +54,15 @@ main{flex:1;min-height:0;display:flex;flex-direction:column;gap:8px;padding:8px}
 .pill .lab{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #view.home .row.n4 .pill .ico{display:none}
 #view.home .row.n4 .pill{padding:0 10px}
+/* no empty space at the bottom of Home: the light / scene buttons take the height that is left (up to 120 px) */
+#view > .row.eq:last-child, #view > .row.runs:last-child{flex:1 1 auto;align-items:stretch;max-height:120px}
+#view > .row:last-child .pill{height:auto;min-height:50px}
 .pill>span:last-child{min-width:0;overflow:hidden}
 nav{height:64px;flex:none;border-top:1px solid var(--line);display:flex;gap:6px;padding:4px 8px}
 nav button{flex:1;height:56px;border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--text2);font:500 9px var(--mono);letter-spacing:.12em;text-transform:uppercase;border:1px solid transparent}
 nav button.on{background:#12302A;border-color:#2A5A4A;color:var(--mint)}
 .i{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;flex:none}
-.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:10px;min-height:0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:10px 12px;display:flex;flex-direction:column;gap:8px;min-height:0}
 .card.heat{background:#241416;border-color:#5E3330}
 .card.cool{background:#0E1C2A;border-color:#2B4A66}
 .row{display:flex;align-items:center;gap:8px}
@@ -59,7 +78,7 @@ nav button.on{background:#12302A;border-color:#2A5A4A;color:var(--mint)}
 .big{font:200 64px/1 var(--sans);letter-spacing:-.04em;font-variant-numeric:tabular-nums}
 .big small,.mid small{font-size:.38em;color:var(--text2);letter-spacing:0;margin-left:2px;font-weight:300}
 .mid{font:300 34px/1 var(--sans);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
-.spv{font:300 26px var(--sans);min-width:76px;text-align:center;font-variant-numeric:tabular-nums}
+.spv{font:300 22px var(--sans);min-width:64px;text-align:center;font-variant-numeric:tabular-nums}
 .pill{flex:1;height:58px;border-radius:14px;background:var(--surface);border:1px solid var(--line);display:flex;align-items:center;gap:10px;padding:0 10px;text-align:left}
 .pill.on{background:#2A2216;border-color:#4A3B22}
 .ico{width:36px;height:36px;border-radius:10px;background:var(--raised);display:flex;align-items:center;justify-content:center;color:var(--text2);flex:none}
@@ -71,9 +90,9 @@ nav button.on{background:#12302A;border-color:#2A5A4A;color:var(--mint)}
 .tile>*{position:relative}
 .tile .v{font:300 27px var(--sans);line-height:1}
 .tile .n{font:600 14.5px var(--sans);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tile .sd{font:500 7.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-top:4px;white-space:nowrap}
+.tile .sd{font:500 9px var(--mono);letter-spacing:.08em;overflow:hidden;text-overflow:ellipsis;text-transform:uppercase;color:var(--text3);margin-top:4px;white-space:nowrap}
 .tile.on .sd{color:#C9B48C}
-.tile .z{font:500 8px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)}
+.tile .z{font:500 9px var(--mono);letter-spacing:.08em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-transform:uppercase;color:var(--text3)}
 .tile.on .z{color:var(--amber)}
 .tile.alloff{background:var(--amber);border-color:var(--amber);color:#2A1E08;align-items:center;justify-content:center;gap:8px;font:600 11px var(--mono);letter-spacing:.14em;text-transform:uppercase}
 .tile.alloff.none{background:var(--surface);border-color:var(--line);color:var(--text3)}
@@ -202,7 +221,7 @@ pumpc: '<circle cx="11" cy="13.5" r="7"/><path d="M11 13.5c1-2.2 3-3.2 4.5-3M11 
   recirc: '<path d="M20 12a8 8 0 0 1-14 5.3M4 12a8 8 0 0 1 14-5.3"/><path d="M18 3v4h-4M6 21v-4h4"/>',
 };
 /* ---------- Home Assistant connection: own WebSocket, independent of the parent page internals ---------- */
-const BUILD = '1.5.0';
+const BUILD = '1.5.1';
 const HC = { ready: false, states: {}, entities: {}, devices: {}, areas: {} };
 let ws = null, wsOk = false, msgId = 0, backoff = 1000, FC_ID = 0, lastMsg = Date.now(), downSince = Date.now(), reloading = false, regT = 0; const BOOT = Date.now();
 const waiters = {};
@@ -415,7 +434,7 @@ const out = [];
 safe(() => { if (M.ac){ const s = st(M.ac); const off = s.state === 'off'; const act = attr(M.ac, 'hvac_action') || s.state;
     const modes = ['off', 'cool', 'heat', 'auto', 'heat_cool'].filter(m => (attr(M.ac, 'hvac_modes') || []).includes(m)).slice(0, 4);
     const fans = (attr(M.ac, 'fan_modes') || []).slice(0, 4); const fan = attr(M.ac, 'fan_mode');
-    out.push(`<div class="card ac${off ? '' : /heat/.test(act) ? ' heat' : ' cool'}"><div class="row"><div style="min-width:0"><div class="nm" style="color:${off ? 'var(--text)' : /heat/.test(act) ? 'var(--heat)' : 'var(--cool)'}">Air conditioning</div><div class="lab">${esc(off ? 'Off' : String(act).replace(/_/g, ' '))}</div></div><div class="sp"></div>${stepper(M.ac, off)}</div>
+    out.push(`<div class="card ac${off ? '' : /heat/.test(act) ? ' heat' : ' cool'}"><div class="row">${svg('snow', 'width:22px;height:22px;flex:none;color:' + (off ? 'var(--text2)' : /heat/.test(act) ? 'var(--heat)' : 'var(--cool)'))}<div style="min-width:0"><div class="nm" style="color:${off ? 'var(--text)' : /heat/.test(act) ? 'var(--heat)' : 'var(--cool)'}">Air conditioning</div><div class="lab">${esc(off ? 'Off' : String(act).replace(/_/g, ' '))}</div></div><div class="sp"></div>${stepper(M.ac, off)}</div>
       <div class="row eq">${modes.map(m => `<button class="btn${s.state === m ? ' sel' : ''}" data-mode="${M.ac}" data-m="${m}">${m === 'heat_cool' ? 'Auto' : m}</button>`).join('')}</div>
       ${fans.length ? `<div class="row eq">${fans.map(f => `<button class="btn${!off && fan === f ? ' sel' : ''}${off ? ' dim' : ''}" data-fan="${M.ac}" data-f="${esc(f)}">${svg('fan', 'width:16px;height:16px')}${esc(FAN_NAME[String(f).toLowerCase()] || f)}</button>`).join('')}</div>` : ''}</div>`); } });
 safe(() => { const z = Object.values(M.att).find(x => x.ufh); const id = M.ufh || (z && z.ufh); if (id) out.push(ufhLine(id, M.ufh ? 'Floor heating' : 'Floor heating · ' + z.z.name)); });
@@ -436,25 +455,36 @@ if (btns.length) out.push(`<div class="row eq${btns.length >= 4 ? ' n4' : ''}">$
 return out.join('');
 }
 const isRelay = (id) => !!id && ['switch', 'input_boolean'].includes(dmn(id));
+/* one card header on every page (as on Home): icon, name, and one status line (state · countdown · temperature) */
+const cardHead = (icon, tone, title, status, right) => `<div class="row">${svg(icon, 'width:22px;height:22px;flex:none;color:' + (tone ? 'var(--' + tone + ')' : 'var(--text2)'))}<div style="min-width:0"><div class="nm">${esc(title)}</div><div class="lab${tone ? ' ' + tone : ''}" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${status}</div></div><div class="sp"></div>${right || ''}</div>`;
 const relayBtn = (id, off) => `<button class="btn sq${off ? '' : ' sel'}" data-relay="${id}" data-on="${off ? '1' : ''}" aria-label="Power">${svg('power')}</button>`;
 function ufhLine(id, title){
   if (isRelay(id)) { const off = !isOn(id);
-    return `<div class="card${off ? '' : ' heat'}"><div class="row"><div style="min-width:0"><div class="nm">${esc(title)}</div><div class="lab${off ? '' : ' heat'}">${off ? 'Off' : 'On'}</div></div><div class="sp"></div>${relayBtn(id, off)}</div>${ufhRunRow(id)}</div>`; }
+    return `<div class="card${off ? '' : ' heat'}"><div class="row">${svg('waves', 'width:22px;height:22px;flex:none;color:' + (off ? 'var(--text2)' : 'var(--heat)'))}<div style="min-width:0"><div class="nm">${esc(title)}</div><div class="lab${off ? '' : ' heat'}">${ufhStatus(id, !off)}</div></div><div class="sp"></div>${relayBtn(id, off)}</div></div>`; }
   const s = st(id); const off = s.state === 'off'; const cur = attr(id, 'current_temperature');
-  return `<div class="card${off ? '' : ' heat'}"><div class="row"><div style="min-width:0"><div class="nm">${esc(title)}</div><div class="lab${off ? '' : ' heat'}">${off ? 'Off' : 'On'}${cur != null ? ' · ' + fmtT(cur) + '°' : ''}</div></div><div class="sp"></div>${stepper(id, off)}<button class="btn sq${off ? '' : ' sel'}" data-mode="${id}" data-m="${off ? 'heat' : 'off'}" aria-label="Power">${svg('power')}</button></div>${ufhRunRow(id)}</div>`;
+  return `<div class="card${off ? '' : ' heat'}"><div class="row">${svg('waves', 'width:22px;height:22px;flex:none;color:' + (off ? 'var(--text2)' : 'var(--heat)'))}<div style="min-width:0"><div class="nm">${esc(title)}</div><div class="lab${off ? '' : ' heat'}" style="white-space:nowrap">${ufhStatus(id, !off)}${cur != null ? ' · ' + fmtT(cur) + '°' : ''}</div></div><div class="sp"></div>${stepper(id, off)}<button class="btn sq${off ? '' : ' sel'}" data-mode="${id}" data-m="${off ? 'heat' : 'off'}" aria-label="Power">${svg('power')}</button></div></div>`;
 }
 function ufhRunRow(id){
   const r = runsOf(id, []); const tid = 'timer.ssv_ufh_' + id.split('.')[1]; if (!r.length || !st(tid)) return '';
   const ts = tState(tid);
-  return `<div class="row eq">${r.map((m, i) => `<button class="btn${ts.on && String(ts.dur || '').replace(/^0/, '') === durStr(m).replace(/^0/, '') ? ' sel' : ''}" data-urun="${id}" data-min="${m}">${i ? '' : svg('run')}<span class="t">${fmtMin(m)}</span></button>`).join('')}${ts.on ? `<div class="mid" style="font-size:20px;flex:none" data-left="${tid}">${leftText(ts)}</div>` : ''}</div>`;
+  return `<div class="row eq">${r.slice(0, 4).map((m, i) => `<button class="btn${ts.on && String(ts.dur || '').replace(/^0/, '') === durStr(m).replace(/^0/, '') ? ' sel' : ''}" data-urun="${id}" data-min="${m}">${i ? '' : svg('run')}<span class="t">${fmtMin(m)}</span></button>`).join('')}</div>`;
 }
-function ufhCard(id, title, th){
-  if (isRelay(id)) { const off = !isOn(id); const cur = th && th.t != null ? th.t : null;
-    return `<div class="card${off ? '' : ' heat'}"><div class="row"><div class="lab">${title}${off ? '' : ' <span class="lab heat">On</span>'}</div><div class="sp"></div>${cur != null ? `<div class="mid" style="font-size:22px">${fmtT(cur)}<small>°C</small></div>` : ''}</div>
-    <div class="row"><div class="sp"></div>${relayBtn(id, off)}</div>${ufhRunRow(id)}</div>`; }
-  const s = st(id); const off = s.state === 'off'; const cur = th && th.t != null ? th.t : attr(id, 'current_temperature');
-  return `<div class="card${off ? '' : ' heat'}"><div class="row"><div class="lab">${title}${off ? '' : ' <span class="lab heat">On</span>'}</div><div class="sp"></div>${cur != null ? `<div class="mid" style="font-size:22px">${fmtT(cur)}<small>°C</small></div>` : ''}${th && th.h != null ? `<div class="mid" style="font-size:22px;margin-left:8px">${th.h}<small>%</small></div>` : ''}</div>
-    <div class="row">${stepper(id, off)}<div class="sp"></div><button class="btn sq${off ? '' : ' sel'}" data-mode="${id}" data-m="${off ? 'heat' : 'off'}" aria-label="Power">${svg('power')}</button></div>${ufhRunRow(id)}</div>`;
+/* status under the name: Off / On / Run 1:59:59 — the countdown lives here, so no button moves or changes size */
+function ufhStatus(id, on){
+  const tid = 'timer.ssv_ufh_' + id.split('.')[1]; const ts = tState(tid);
+  if (on && ts.on) return `Run · <span class="cd" data-left="${tid}">${leftText(ts)}</span>`;
+  return on ? 'On' : 'Off';
+}
+/* WC / attached room: floor heating is the same card as the heated wall, same height — header with name, room
+   temperature and status on the right; one row: set point (thermostat only), Manual (on) and Off. No Run buttons here. */
+function ufhCard(id, title, th, zone){
+  const relay = isRelay(id); const off = relay ? !isOn(id) : st(id).state === 'off';
+  const tid = 'timer.ssv_ufh_' + id.split('.')[1]; const ts = tState(tid); const timed = !off && ts.on;
+  const cur = th && th.t != null ? th.t : (relay ? null : attr(id, 'current_temperature'));
+  /* the room it heats, as on the Heated wall card: Off · Master Bathroom · 24.6° */
+  const rr = roomOf(id); const where = rr && rr !== ROOM ? pretty(rr) : (zone || '');
+  return `<div class="card${off ? '' : ' heat'}">${cardHead('waves', off ? '' : 'heat', title, (off ? 'Off' : timed ? `Run · <span class="cd" data-left="${tid}">${leftText(ts)}</span>` : 'On') + (where ? ' · ' + esc(where) : '') + (cur != null ? ' · ' + fmtT(cur) + '°' : ''))}
+    <div class="row g3">${relay ? '' : `<div class="stp">${stepper(id, off)}</div>`}<button class="btn${off ? '' : ' sel'}${relay ? ' all' : ''}" data-ufh="${off ? 'man' : 'off'}" data-id="${id}">${svg('power')}${off ? 'Off' : 'On'}</button></div></div>`;
 }
 let lpage = 0;
 function vLight(){
@@ -493,9 +523,9 @@ const wallTimerId = (id) => 'timer.ssv_wall_' + id.split('.')[1];
 function vWC(key){
   const Z = M.att[key] || M.att[Object.keys(M.att)[0]]; if (!Z) return '<div class="empty">Nothing here</div>';
   const out = [];
-  if (Z.ufh) out.push(ufhCard(Z.ufh, 'Floor heating', Z.th));
+  if (Z.ufh) out.push(ufhCard(Z.ufh, 'Floor heating', Z.th, Z.z.area ? pretty(Z.z.area) : Z.z.name));
   Z.walls.slice(0, 1).forEach(id => out.push(wallCard(id)));
-  if (Z.lights.length) out.push(`<div class="row">${pills(Z.lights, Z.lights.slice().sort(lightSort).slice(0, 2).map(id => ({ name: NM(id), icon: lightIcon(id), ids: [id] })))}</div>`);
+  if (Z.lights.length) out.push(`<div class="row eq">${pills(Z.lights, Z.lights.slice().sort(lightSort).slice(0, 2).map(id => ({ name: NM(id), icon: lightIcon(id), ids: [id] })))}</div>`);
   return out.join('') || '<div class="empty">Put the label ' + esc(pretty(PANEL + '_' + Z.z.key)) + ' on devices of ' + esc(Z.z.name || Z.z.key) + '</div>';
 }
 function vWater(){
@@ -504,11 +534,11 @@ function vWater(){
   if (hotDev.length){ const devOn = hotDev.some(id => dmn(id) === 'water_heater' ? st(id).state !== 'off' : isOn(id));
     const tid = timerOf(['water', 'hot_water']); const ts = tState(tid); const timed = ts.on; const on = devOn || timed;
     const sid = M.hot.find(id => dmn(id) === 'sensor'); let t = sid ? parseFloat(st(sid).state) : null; if (t == null || isNaN(t)) { const wh = hotDev.find(id => dmn(id) === 'water_heater'); t = wh ? attr(wh, 'current_temperature') : null; }
-    out.push(`<div class="card${on ? ' heat' : ''}"><div class="row hd">${svg('boiler', 'width:18px;height:18px;color:' + (on ? 'var(--heat)' : 'var(--text2)'))}<div class="lab">Hot water</div>${t != null ? `<div class="mid" style="font-size:24px;margin-left:8px">${Math.round(t)}<small>°C</small></div>` : ''}<div class="sp"></div>${on ? `<span class="lab heat">On</span><div class="mid" style="font-size:24px;margin-left:6px" data-left="${tid || ''}">${timed ? leftText(ts) : 'Manual'}</div>` : '<div class="lab">Off</div>'}</div>
+    out.push(`<div class="card${on ? ' heat' : ''}">${cardHead('boiler', on ? 'heat' : '', 'Hot water', (!on ? 'Off' : timed ? `Run · <span class="cd" data-left="${tid || ''}">${leftText(ts)}</span>` : 'Manual') + (t != null ? ' · ' + Math.round(t) + '°C' : ''))}
       <div class="row">${runsOf('fn:hot_water', WATER_RUNS).map(m => `<button class="btn${timed && String(ts.dur || '').replace(/^0/, '') === durStr(m).replace(/^0/, '') ? ' sel' : ''}" data-wrun="hot_water" data-min="${m}">${svg('run')}<span class="t">${fmtMin(m)}</span></button>`).join('')}<button class="btn${on ? '' : ' sel'}" data-woff="hot_water">${svg('power')}Off</button></div></div>`); }
   const recDev = M.rec.filter(id => ['switch', 'fan', 'input_boolean'].includes(dmn(id)));
   if (recDev.length){ const tid = timerOf(['water', 'recirculation']); const ts = tState(tid); const on = recDev.some(isOn) || ts.on;
-    out.push(`<div class="card${on ? ' cool' : ''}"><div class="row hd">${svg('pumpc', 'width:18px;height:18px;color:' + (on ? 'var(--cool)' : 'var(--text2)'))}<div class="lab">Recirculation</div><div class="sp"></div>${on ? `<span class="lab cool">On</span>${ts.on ? `<div class="mid" style="font-size:24px;margin-left:6px" data-left="${tid || ''}">${leftText(ts)}</div>` : ''}` : '<div class="lab">Off</div>'}</div>
+    out.push(`<div class="card${on ? ' cool' : ''}">${cardHead('pumpc', on ? 'cool' : '', 'Recirculation', !on ? 'Off' : ts.on ? `Run · <span class="cd" data-left="${tid || ''}">${leftText(ts)}</span>` : 'On')}
       <div class="row"><button class="btn${on && ts.on ? ' sel' : ''}" data-wrun="recirculation" data-min="${runsOf('fn:recirculation', [REC_RUN])[0]}">${svg('run')}Run <span class="t">${fmtMin(runsOf('fn:recirculation', [REC_RUN])[0])}</span></button><button class="btn${on ? '' : ' sel'}" data-woff="recirculation">${svg('power')}Off</button></div></div>`); }
   return out.join('') || '<div class="empty">Put the label ' + esc(pretty(PANEL)) + ' on the heated wall</div>';
 }
@@ -566,7 +596,15 @@ function render(){
   $('nav').innerHTML = T.map(([k, n, ic]) => `<button class="${k === view ? 'on' : ''}" data-tab="${k}">${svg(ic)}<span>${n}</span></button>`).join('');
   $('view').classList.toggle('home', view === 'home');
   $('view').innerHTML = safe(view.startsWith('att:') ? () => vWC(view.slice(4)) : ({ home: vHome, light: vLight, curtains: vCurtains, wc: () => vWC('wc'), water: vWater }[view] || vHome), '<div class="empty">This section is temporarily unavailable</div>');
+  safe(alignRows);
   const night = safe(nightNow, false); $('night').classList.toggle('show', night); if (night) safe(renderNight);
+}
+function alignRows(){
+  const v = $('view'); const home = v.classList.contains('home');
+  const bottom = [...v.children].filter(e => e.matches('.row.eq')).pop(); const n = home && bottom ? bottom.children.length : 0;
+  v.querySelectorAll('.card .row.eq, .card .row.runs').forEach(r => { const k = r.children.length; const ok = n > 1 && k === n;
+    r.classList.remove('k1', 'k2', 'k3', 'k4'); r.classList.toggle('runs', ok); r.classList.toggle('eq', !ok);
+    if (ok) { r.classList.add('k' + k); r.style.setProperty('--k', k); } });
 }
 function tick(){
   const d = haNow(); $('clock').textContent = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
@@ -623,6 +661,9 @@ document.addEventListener('click', (e) => {
   if (d.mode) { call('climate', 'set_hvac_mode', { entity_id: d.mode, hvac_mode: d.m }); return; }
   if (d.cv) { call('cover', d.cv, { entity_id: d.id }); return; }
   if (d.wall) { wallAct(d.wall, d.id, +d.min || 0); return; }
+  if (d.ufh) { const id = d.id, on = d.ufh === 'man', tid = 'timer.ssv_ufh_' + id.split('.')[1];
+    if (tState(tid).on) call('timer', 'cancel', { entity_id: tid });
+    if (dmn(id) === 'climate') call('climate', 'set_hvac_mode', { entity_id: id, hvac_mode: on ? 'heat' : 'off' }); else call('homeassistant', on ? 'turn_on' : 'turn_off', { entity_id: id }); return; }
   if (d.fan) { call('climate', 'set_fan_mode', { entity_id: d.fan, fan_mode: d.f }); return; }
   if (d.scene) { if (dmn(d.scene) === 'script') call('script', 'turn_on', { entity_id: d.scene }); else call('ssv_dashboard', 'run_scene', { entity_id: d.scene }); toast(NM(d.scene)); return; }
   if (d.urun) { const id = d.urun, tid = 'timer.ssv_ufh_' + id.split('.')[1]; if (dmn(id) === 'climate') call('climate', 'set_hvac_mode', { entity_id: id, hvac_mode: 'heat' }); else call('homeassistant', 'turn_on', { entity_id: id });
@@ -667,7 +708,7 @@ function start(){
 
 function wallCard(id){
   const off = st(id).state === 'off'; const ts = tState(wallTimerId(id)); const timed = !off && ts.on; const cur = attr(id, 'current_temperature'); const r = roomOf(id);
-  return `<div class="card${off ? '' : ' heat'}"><div class="row hd">${svg('waves', 'width:18px;height:18px;color:' + (off ? 'var(--text2)' : 'var(--heat)'))}<div class="lab">Heated wall${r && r !== ROOM ? ' · ' + esc(pretty(r)) : ''}${cur != null ? ' · ' + fmtT(cur) + '°' : ''}</div><div class="sp"></div>${off ? '<div class="lab">Off</div>' : `<span class="lab heat">On</span><div class="mid" style="font-size:24px;margin-left:6px" data-left="${wallTimerId(id)}">${timed ? leftText(ts) : 'Manual'}</div>`}</div>
+  return `<div class="card${off ? '' : ' heat'}">${cardHead('waves', off ? '' : 'heat', 'Heated wall', (off ? 'Off' : timed ? `Run · <span class="cd" data-left="${wallTimerId(id)}">${leftText(ts)}</span>` : 'Manual') + (r && r !== ROOM ? ' · ' + esc(pretty(r)) : '') + (cur != null ? ' · ' + fmtT(cur) + '°' : ''))}
     <div class="row">${runsOf(id, [WALL_RUN]).map((m, i) => `<button class="btn${timed && String(ts.dur || '').replace(/^0/, '') === durStr(m).replace(/^0/, '') ? ' sel' : ''}" data-wall="run" data-id="${id}" data-min="${m}">${i ? '' : svg('run')}<span class="t">${fmtMin(m)}</span></button>`).join('')}<button class="btn${!off && !timed ? ' sel' : ''}" data-wall="man" data-id="${id}">${svg('hand')}Manual</button><button class="btn${off ? ' sel' : ''}" data-wall="off" data-id="${id}">${svg('power')}Off</button></div></div>`;
 }
 

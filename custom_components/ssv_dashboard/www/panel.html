@@ -208,7 +208,7 @@ button{font:inherit;color:inherit;cursor:pointer;margin:0}
 <script>
 /* SSV wall panel 10" — single consolidated file (no override blocks).
    BUILD changes on every deploy; open panels compare it every 10 min and reload themselves. */
-const BUILD = '1.5.0';
+const BUILD = '1.5.1';
 let lastMsg = Date.now(), downSince = 0, noData = 0, reloading = false; const BOOT = Date.now();
 const UNAVAILABLE = '<div class="empty">This section is temporarily unavailable</div>';
 function safe(fn, fallback = ''){ try { return fn(); } catch (e) { console.error('[panel]', e); return fallback; } }
@@ -772,7 +772,7 @@ function tabs(){
   if (R.some(r => roomHasAny(r))) t.push(['rooms','Rooms','rooms']);
   if (R.some(r => avail(r.lights).length)) t.push(['lights','Lights','bulb']);
   if (zonesBy(CL.climate).length) t.push(['climate','Climate','climate']);
-  if (zonesBy(CL.wall).length) t.push(['heating','Heating','waves']);
+  if (zonesBy(CL.wall).length || ufhZones().length) t.push(['heating','Heating','waves']);
   if (curtEnts().length) t.push(['curtains','Curtains','curtains']);
   if (wEnts().length) t.push(['water','Water','water']);
   if (avail(M.g.cams).length) t.push(['cameras','Cameras','camera']);
@@ -926,22 +926,24 @@ function roomCard(r){
   const co2 = r.co2.filter(real).map(id => +S[id].state)[0];
   const on = lightsOnIn(r); const L = avail(r.lights);
   const chips = [];
+  /* alarms and open doors first: they sit in the bottom line, the one that is always visible */
+  r.hazards.filter(isOpen).forEach(id => chips.push(`<span class="chip crit">${esc(NM(id))}</span>`));
+  r.openings.filter(isOpen).forEach(id => chips.push(`<span class="chip amber">${esc(NM(id))} open</span>`));
   if (on.length) chips.push(`<span class="chip amber">${on.length} light${on.length>1?'s':''}</span>`);
   avail(r.ac).forEach(id => { const s = st(id); if (s.state !== 'off') chips.push(`<span class="chip ${/heat/.test(s.attributes.hvac_action||s.state)?'heat':'cool'}">${esc(MODE[s.state]||s.state)} ${fmtT(s.attributes.temperature)}°</span>`); });
   avail(r.heat).forEach(id => { const s = st(id); if (s.state !== 'off') chips.push(`<span class="chip heat">${esc(heatLabel(id))}${s.attributes.temperature != null ? ' → ' + fmtT(s.attributes.temperature) + '°' : ' on'}</span>`); });
   const cov = avail(r.covers).filter(real);
   if (cov.length) { const p = cov.map(id => S[id].attributes.current_position).filter(v => v != null); chips.push(`<span class="chip">${p.length ? 'Curtains ' + Math.round(p.reduce((a,b)=>a+b,0)/p.length) + ' %' : 'Curtains ' + S[cov[0]].state}</span>`); }
-  r.openings.filter(isOpen).forEach(id => chips.push(`<span class="chip amber">${esc(NM(id))} open</span>`));
-  r.hazards.filter(isOpen).forEach(id => chips.push(`<span class="chip crit">${esc(NM(id))}</span>`));
   if (!chips.length) chips.push(`<span class="chip">All off</span>`);
   const heatOn = r.heat.some(id => real(id) && S[id].state !== 'off'), acOn = r.ac.some(id => real(id) && S[id].state !== 'off');
-  const icon = on.length ? svg('bulb','color:var(--amber)') : heatOn ? svg('waves','color:var(--heat)') : acOn ? svg('snow','color:var(--cool)') : '';
   const go = L.length ? 'lights' : (r.ac.length || r.heat.length) ? 'climate' : r.covers.length ? 'curtains' : 'lights';
+  /* top: name + room climate (like the Climate cards); bottom: up to 3 lines of states, filled from the bottom up
+     right above the buttons, so there is never a gap between the states and Lights on */
   return `<div class="card${on.length?' on':''}">
-    <div class="row"><div class="col"><div class="t" style="font-size:22px">${esc(r.name)}</div><div class="s">${esc(r.floorName)}</div></div>${icon}</div>
-    ${t != null ? `<div class="row" style="align-items:baseline;gap:16px"><div class="v">${fmtT(t)}<span class="u">°C</span></div>${h!=null?`<div class="s">${h} % RH</div>`:''}${co2!=null&&!isNaN(co2)?`<div class="s ${co2>1000?'amber':''}">CO₂ ${Math.round(co2)}</div>`:''}</div>` : ''}
-    <div class="row" style="gap:8px;height:30px;overflow:hidden;flex-wrap:wrap">${chips.join('')}</div>
+    <div class="row" style="align-items:flex-start"><div class="col"><div class="t" style="font-size:22px">${esc(r.name)}</div><div class="s">${esc(r.floorName)}</div></div>
+      <div class="col" style="flex:none;align-items:flex-end;gap:4px">${t != null ? `<div class="rt">${fmtT(t)}<span>°C</span></div>` : ''}<div class="row" style="gap:10px;justify-content:flex-end">${h!=null?`<div class="s">${h} % RH</div>`:''}${co2!=null&&!isNaN(co2)?`<div class="s ${co2>1000?'amber':''}">CO₂ ${Math.round(co2)}</div>`:''}</div></div></div>
     <div class="sp"></div>
+    <div style="display:flex;flex-wrap:wrap-reverse;align-content:flex-start;gap:8px;max-height:${3 * 30 + 2 * 8}px;overflow:hidden;flex:none">${chips.join('')}</div>
     <div class="row" style="gap:8px">${L.length ? `<button class="btn${on.length?' lit':''}" data-roomlights="${r.id}">${on.length?'Lights off':'Lights on'}</button>` : '<div class="sp"></div>'}<button class="btn sq" data-goroom="${r.id}" data-go="${go}" aria-label="Open ${esc(r.name)}">${svg('chev')}</button></div></div>`;
 }
 
@@ -1027,8 +1029,9 @@ function climateCard(r){
   const blocks = [];
   ac.slice(0, 2).forEach(id => blocks.push(acBlock(id, ac.length === 1 && ht.length === 0)));
   /* Run buttons of floor heating only when the card has room for them (no AC in the same card) */
-  ht.slice(0, Math.max(1, 3 - blocks.length)).forEach(id => blocks.push(heatBlock(id, ac.length === 0)));
-  const tight = blocks.length > 1;   /* AC + floor heating: tighter so both fit in the card */
+  /* floor heating: name · state, set point (thermostat only), power; its schedule below, if there is one. No Run timers */
+  ht.slice(0, ac.length ? 1 : 3).forEach(id => blocks.push(heatBlock(id)));
+  const tight = ac.length > 0 && ht.length > 0 || blocks.length > 2;   /* AC + floor heating: tighter so both fit in the card */
   return `<div class="card" style="padding:${tight ? '12px 20px;gap:8px' : '18px 20px'}">
     <div class="row"><div class="col"><div class="e w">${esc(r.name)}</div><div class="s">${esc(r.floorName)}</div></div>
       <div class="row" style="flex:none;gap:16px;align-items:baseline">${t!=null?`<div class="rt">${fmtT(t)}<span>°C</span></div>`:''}${h!=null?`<div class="rh">${h}<span>%</span></div>`:''}</div></div>
@@ -1047,25 +1050,32 @@ function acBlock(id, roomy){
     <div class="row" style="gap:6px">${modes.map(m => `<button class="btn${m===mode?' sel':''}" data-mode="${id}" data-m="${m}">${MODE[m]}</button>`).join('')}</div>
     ${roomy && fans.length ? `<div class="row" style="gap:6px"><span class="s" style="width:44px">Fan</span>${fans.map(f => `<button class="btn${f===a.fan_mode?' sel':''}" data-fan="${id}" data-m="${esc(f)}">${esc(f)}</button>`).join('')}</div>` : ''}</div>`;
 }
+/* status under the name: Off / Heating (On) / Run 1:59:59 — the countdown lives here, so the buttons never change size */
+const ufhStat = (id, off, onTxt) => { const tid = 'timer.ssv_ufh_' + id.split('.')[1]; return off ? 'Off' : tOn(tid) ? 'Run · ' + cdSpan(tid) : onTxt; };
 /* floor heating on a relay (valve): On / Off and Run, no set point (Home Assistant thermostat = climate, made on the SSV page) */
 const isRelay = (id) => /^(switch|input_boolean)\./.test(id);
-function relayBlock(id, runs = true){
+function relayBlock(id){
   const s = st(id); const na = !real(id); const off = s.state !== 'on';
-  return `<div class="blk ${off?'':'heat'}"><div class="row" style="gap:8px"><div class="lab">${svg('waves', `color:${off?'var(--text2)':'var(--heat)'}`)}<div class="col" style="gap:2px"><b style="color:${off?'var(--soft)':'var(--heat)'}">${esc(heatLabel(id))}</b><span class="s ${off?'dim':'heat'}">${na?'Unavailable':off?'Off':'On'}</span></div></div>
-    <div class="sp"></div><button class="btn sq${off?'':' sel'}" data-relay="${id}" data-on="${off?'1':''}" aria-label="Power">${svg('power')}</button></div>${runs ? ufhRuns(id) : ''}</div>`;
+  return `<div class="blk ${off?'':'heat'}"><div class="row" style="gap:8px"><div class="lab">${svg('waves', `color:${off?'var(--text2)':'var(--heat)'}`)}<b style="color:${off?'var(--soft)':'var(--heat)'};white-space:nowrap;font-size:12px;letter-spacing:.08em">${esc(blkLabel(id))} · ${na?'Unavailable':off?'Off':'On'}</b></div>
+    <button class="btn sq${off?'':' sel'}" data-relay="${id}" data-on="${off?'1':''}" aria-label="Power">${svg('power')}</button></div>${schedChip([id])}</div>`;
 }
-function heatBlock(id, runs = true){
-  if (isRelay(id)) return relayBlock(id, runs);
+function heatLine(id){
+  const relay = isRelay(id); const s = st(id); const na = !real(id); const off = na || (relay ? s.state !== 'on' : s.state === 'off');
+  const sp = relay ? null : attr(id, 'temperature');
+  return `<button class="ln" data-tab="heating" style="min-height:0;height:40px;padding:0 12px;flex:none">${svg('waves', `color:${off ? 'var(--text2)' : 'var(--heat)'}`)}<b>${esc(heatLabel(id))}</b><em class="${off ? '' : 'heat'}">${na ? 'Unavailable' : off ? 'Off' : ufhStat(id, false, relay ? 'On' : 'Heating')}${!off && sp != null ? ' · ' + fmtT(sp) + '°' : ''}</em></button>`;
+}
+const blkLabel = (id) => heatLabel(id).replace(/^Floor heating$/, 'Floor heat');
+function heatBlock(id){
+  if (isRelay(id)) return relayBlock(id);
   const s = st(id); const na = !real(id); const off = s.state === 'off' || na;
-  return `<div class="blk ${off?'':'heat'}"><div class="row" style="gap:8px"><div class="lab">${svg('waves', `color:${off?'var(--text2)':'var(--heat)'}`)}<div class="col" style="gap:2px"><b style="color:${off?'var(--soft)':'var(--heat)'}">${esc(heatLabel(id))}</b><span class="s ${off?'dim':'heat'}">${na?'Unavailable':off?'Off':'Heating'}</span></div></div>
-    ${stepper(id, off)}<button class="btn sq${off?'':' sel'}" data-mode="${id}" data-m="${off?'heat':'off'}" aria-label="Power">${svg('power')}</button></div>${runs ? ufhRuns(id) : ''}</div>`;
+  return `<div class="blk ${off?'':'heat'}"><div class="row" style="gap:8px"><div class="lab">${svg('waves', `color:${off?'var(--text2)':'var(--heat)'}`)}<b style="color:${off?'var(--soft)':'var(--heat)'};white-space:nowrap;font-size:12px;letter-spacing:.08em">${esc(blkLabel(id))} · ${na?'Unavailable':off?'Off':'On'}</b></div>
+    ${stepper(id, off)}<button class="btn sq${off?'':' sel'}" data-mode="${id}" data-m="${off?'heat':'off'}" aria-label="Power">${svg('power')}</button></div>${schedChip([id])}</div>`;
 }
 function ufhRuns(id){
   const r = CFG && CFG.runs && CFG.runs[id]; const tid = 'timer.ssv_ufh_' + id.split('.')[1];
   if (!Array.isArray(r) || !r.length || !S[tid]) return '';
   const t = S[tid]; const on = tOn(tid);
-  const left = on ? cdSpan(tid) : '';
-  return `<div class="row" style="gap:8px;margin-top:8px">${r.slice(0, 4).map((m, i) => `<button class="btn f${on && t.attributes.duration === durStr(m).replace(/^0/, '') ? ' sel' : ' ghost'}" data-urun="${id}" data-min="${m}" style="flex:1;gap:6px">${i ? '' : WI.run}<span style="text-transform:none">${fmtMin(m)}</span></button>`).join('')}${left ? `<span class="s heat" style="flex:none">${left}</span>` : ''}</div>`;
+  return `<div class="row" style="gap:8px;margin-top:8px">${r.slice(0, 4).map((m, i) => `<button class="btn f${on && t.attributes.duration === durStr(m).replace(/^0/, '') ? ' sel' : ' ghost'}" data-urun="${id}" data-min="${m}" style="flex:1;gap:6px">${i ? '' : WI.run}<span style="text-transform:none">${fmtMin(m)}</span></button>`).join('')}</div>`;
 }
 
 function viewCurtains(){
@@ -1354,6 +1364,11 @@ stage.addEventListener('click', (e) => {
   if (d.bp != null && d.id) { setBri(d.id, +d.bp); closeOv(); return; }
   if (d.preset) { applyPreset(d.id, d.preset); return; }
   if (d.tmp) { stepTemp(d.tmp, +d.d); return; }
+  if (d.hman || d.hoff) { const id = d.hman || d.hoff, on = !!d.hman, tid = 'timer.ssv_ufh_' + id.split('.')[1];
+    if (tOn(tid)) call('timer', 'cancel', {}, { entity_id:tid });
+    if (isRelay(id)) { optimistic(id, on ? 'on' : 'off'); call('homeassistant', on ? 'turn_on' : 'turn_off', {}, { entity_id:id }); }
+    else { optimistic(id, on ? 'heat' : 'off'); call('climate', 'set_hvac_mode', { hvac_mode: on ? 'heat' : 'off' }, { entity_id:id }); }
+    return; }
   if (d.relay) { const on = !!d.on; optimistic(d.relay, on ? 'on' : 'off'); call('homeassistant', on ? 'turn_on' : 'turn_off', {}, { entity_id:d.relay });
     const tid = 'timer.ssv_ufh_' + d.relay.split('.')[1]; if (!on && tOn(tid)) call('timer', 'cancel', {}, { entity_id:tid }); return; }
   if (d.mode) { optimistic(d.mode, d.m); call('climate', 'set_hvac_mode', { hvac_mode:d.m }, { entity_id:d.mode }); return; }
@@ -1482,18 +1497,40 @@ function zonesBy(fn){
 }
 const waterTimers = () => M.g.timers.filter(x => !hasLabel(x.timer, [CL.wall, 'ufh']));
 
+/* floor heating per room: climate (thermostat) or relay with label UFH — not AC, not heated wall */
+function ufhZones(){
+  const isAcId = (id) => !isRelay(id) && (hasLabel(id, ['ac']) || climateKind(id) === 'ac');
+  return zonesBy(CL.climate).map(({ r, ids }) => ({ r, ids: ids.filter(id => !isAcId(id) && !hasLabel(id, [CL.wall]) && (isRelay(id) || hasLabel(id, ['ufh']) || /floor|ufh/i.test(id + NM(id)))) })).filter(z => z.ids.length);
+}
+/* Heating tab: floor heating card, same look as the heated wall card — room temperature, set point (thermostat
+   only), status with the Run countdown, Manual on / Off (+ Run buttons only when chosen on the SSV page) */
+function ufhHeatCard(z){
+  const id = z.id, relay = isRelay(id); const s = st(id); const na = !real(id); const off = na || (relay ? s.state !== 'on' : s.state === 'off');
+  const tid = 'timer.ssv_ufh_' + id.split('.')[1]; const timed = !off && tOn(tid);
+  const cur = relay ? roomTemp(z.r) : (attr(id, 'current_temperature') ?? roomTemp(z.r));
+  const r = [];   /* floor heating has no Run timers: On / Off, set point and its schedule */
+  const dur = S[tid] ? S[tid].attributes.duration : '';
+  const b = (on, attr, icon, label) => `<button class="btn${on ? ' sel' : ' ghost'}" ${attr}="${id}" style="gap:8px;flex:${label ? '1 1 0' : 'none'};min-width:${label ? '0' : '56px'}">${icon}${label}</button>`;
+  return `<div class="card${off ? '' : ' heat'}${na ? ' na' : ''}" style="gap:10px">
+      <div class="row"><div class="col"><div class="e w">${esc(z.r.name)}</div><div class="s">Floor heating</div></div>${svg('waves', `width:30px;height:30px;color:${off ? 'var(--text2)' : 'var(--heat)'}`)}</div>
+      <div style="flex:1;display:flex;align-items:center;justify-content:space-between;gap:16px">
+        <div class="col" style="gap:6px"><div style="font-size:64px;font-weight:200;letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums">${cur != null ? fmtT(cur) : '--'}<span style="font-size:24px;color:var(--text2);margin-left:4px">°C</span></div><div class="s${off ? '' : ' heat'}" style="font-size:14px">${na ? 'Unavailable' : ufhStat(id, off, relay ? 'On' : 'Heating')}</div></div>
+        ${relay ? '' : `<div class="row" style="flex:none;gap:10px">${stepper(id, off)}</div>`}</div>
+      <div style="height:40px;flex:none;display:flex">${schedChip([id])}</div><div class="row" style="gap:10px;flex:none">${r.map((m, i) => `<button class="btn${timed && dur === durStr(m).replace(/^0/, '') ? ' sel' : ' ghost'}" data-urun="${id}" data-min="${m}" style="gap:8px;flex:1 1 0;min-width:0">${i ? '' : WI.run}<span style="text-transform:none">${fmtMin(m)}</span></button>`).join('')}<button class="btn${off ? ' ghost' : ' sel'}" ${off ? 'data-hman' : 'data-hoff'}="${id}" style="gap:8px;flex:1 1 0;min-width:0">${WI.off}${off ? 'Off' : 'On'}</button></div></div>`;
+}
 function viewHeating(){
   const zones = [];
   zonesBy(CL.wall).forEach(({ r, ids }) => ids.forEach(id => zones.push({ r, id })));
+  ufhZones().forEach(({ r, ids }) => ids.forEach(id => zones.push({ r, id, ufh: true })));
   const { items, pager } = paged('heating', zones, 4);
-  const cards = items.map(z => { const w = wallState(z.id);
+  const cards = items.map(z => { if (z.ufh) return ufhHeatCard(z); const w = wallState(z.id);
     const b = (on, attr, icon, label) => `<button class="btn${on ? ' sel' : ' ghost'}" ${attr}="${z.id}" style="gap:8px;flex:${label ? '1 1 0' : 'none'};min-width:${label ? '0' : '56px'}">${icon}${label}</button>`;
-    return `<div class="card${w.off ? '' : ' heat'}${w.na ? ' na' : ''}" style="gap:14px">
+    return `<div class="card${w.off ? '' : ' heat'}${w.na ? ' na' : ''}" style="gap:10px">
       <div class="row"><div class="col"><div class="e w">${esc(z.r.name)}</div><div class="s">Heated wall</div></div>${svg('waves', `width:30px;height:30px;color:${w.off ? 'var(--text2)' : 'var(--heat)'}`)}</div>
       <div style="flex:1;display:flex;align-items:center;justify-content:space-between;gap:16px">
         <div class="col" style="gap:6px"><div style="font-size:64px;font-weight:200;letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums">${w.cur != null ? fmtT(w.cur) : '--'}<span style="font-size:24px;color:var(--text2);margin-left:4px">°C</span></div><div class="s${w.off ? '' : ' heat'}" style="font-size:14px">${stHtml(w)}</div></div>
         <div class="row" style="flex:none;gap:10px">${stepper(z.id, w.off)}</div></div>
-      ${schedChip([z.id])}<div class="row" style="gap:10px">${runsOf(z.id, [180]).map((m, i) => `<button class="btn${w.timed && w.dur === durStr(m).replace(/^0/, '') ? ' sel' : ' ghost'}" data-wrun="${z.id}" data-min="${m}" style="gap:8px;flex:1 1 0;min-width:0">${i ? '' : WI.run}${i ? '' : 'Run '}<span style="text-transform:none">${fmtMin(m)}</span></button>`).join('')}${runsOf(z.id, [180]).length > 1 ? b(!w.off && !w.timed, 'data-wman', WI.hand, '') + b(w.off, 'data-woff', WI.off, '') : b(!w.off && !w.timed, 'data-wman', WI.hand, 'Manual on') + b(w.off, 'data-woff', WI.off, 'Off')}</div></div>`;
+      <div style="height:40px;flex:none;display:flex">${schedChip([z.id])}</div><div class="row" style="gap:10px;flex:none">${runsOf(z.id, [180]).map((m, i) => `<button class="btn${w.timed && w.dur === durStr(m).replace(/^0/, '') ? ' sel' : ' ghost'}" data-wrun="${z.id}" data-min="${m}" style="gap:8px;flex:1 1 0;min-width:0">${i ? '' : WI.run}${i ? '' : 'Run '}<span style="text-transform:none">${fmtMin(m)}</span></button>`).join('')}${runsOf(z.id, [180]).length > 1 ? b(!w.off && !w.timed, 'data-wman', WI.hand, '') + b(w.off, 'data-woff', WI.off, '') : b(!w.off && !w.timed, 'data-wman', WI.hand, 'Manual on') + b(w.off, 'data-woff', WI.off, 'Off')}</div></div>`;
   }).join('');
   return `<div class="vw" style="gap:${pager ? '16px' : '0'}">${pager ? `<div class="bar"><div class="sp"></div>${pager}</div>` : ''}
     <div class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr))">${cards || '<div class="empty" style="grid-column:1/-1">No heating zones</div>'}</div></div>`;
@@ -1602,7 +1639,7 @@ function fnCard(fn){
     <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:6px">
       ${w.temp != null ? `<div style="font-size:64px;font-weight:200;letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums">${fmtT(w.temp)}<span style="font-size:24px;color:var(--text2);margin-left:4px">°C</span></div>` : ''}
       <div class="s${w.on ? ' heat' : ''}" style="font-size:14px">${stHtml(w)}</div></div>
-    ${schedChip(g.dev)}<div class="row" style="gap:10px">${runs}<button class="btn${w.on ? ' ghost' : ' sel'}" data-wtoff="${fn}" style="gap:8px">${WI.off}Off</button></div></div>`;
+    <div style="height:40px;flex:none;display:flex">${schedChip(g.dev)}</div><div class="row" style="gap:10px;flex:none">${runs}<button class="btn${w.on ? ' ghost' : ' sel'}" data-wtoff="${fn}" style="gap:8px">${WI.off}Off</button></div></div>`;
 }
 function valveCard(id){
   const o = valveOpen(id); const na = !real(id);
