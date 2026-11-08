@@ -98,11 +98,12 @@ class PanelStore:
             # 1.1 made timers by itself: keep those as chosen, with the run time it used
             old = data.get("runs") or {}
             for obj in data["managed_timers"]:
-                if obj.startswith("inex_wall_"):
-                    eid = "climate." + obj[len("inex_wall_"):]
+                obj = "ssv_" + obj[len("inex_"):] if obj.startswith("inex_") else obj
+                if obj.startswith("ssv_wall_"):
+                    eid = "climate." + obj[len("ssv_wall_"):]
                     self.timers[eid] = {"runs": [int((old.get("per") or {}).get(eid) or old.get("wall") or 180)]}
-                elif obj.startswith("inex_water_"):
-                    self.timers["fn:" + obj[len("inex_water_"):]] = {"runs": [60, 90, 120] if obj.endswith("hot_water") else [10]}
+                elif obj.startswith("ssv_water_"):
+                    self.timers["fn:" + obj[len("ssv_water_"):]] = {"runs": [60, 90, 120] if obj.endswith("hot_water") else [10]}
         self.seen = data.get("seen", [])
         self.notified = data.get("notified")
         self.managed_timers = data.get("managed_timers", [])

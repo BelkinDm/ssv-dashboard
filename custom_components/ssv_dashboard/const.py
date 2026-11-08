@@ -102,7 +102,7 @@ LABEL_USE: dict[str, str] = {
 # ---------------------------------------------------------------- user scenes
 SCENES_FILE = "scenes.yaml"
 ID_PREFIX = "ssv_user_"
-LEGACY_PREFIXES = ("inex_user_",)  # scenes made with the old inex_scenes integration
+LEGACY_PREFIXES = ("inex_user_",)  # scenes made before 1.5 — renamed to ssv_user_ at start
 DEVICE_LABEL = "scene_device"
 SCENE_LABELS = ("scene", "user_scene")
 MAX_SCENES = 40
@@ -113,10 +113,10 @@ STORE_VERSION = 1
 # ---------------------------------------------------------------- timers
 # Heated wall: timer.<prefix>wall_<climate object id>  → climate off when it ends
 # Water:       timer with labels "water" + <function>  → that function off when it ends
-TIMER_PREFIXES = ("inex_", "ssv_")
+TIMER_PREFIXES = ("ssv_", "inex_")   # inex_: timers from before 1.5 that are still running
 # Run timers chosen on the SSV Dashboard page: key -> timer object id
-#   climate.<x> labelled Heated Wall -> inex_wall_<x>;  climate/switch.<x> labelled UFH -> inex_ufh_<x>
-#   fn:hot_water / fn:recirculation   -> inex_water_<fn> (labelled Water + <fn>)
+#   climate.<x> labelled Heated Wall -> ssv_wall_<x>;  climate/switch.<x> labelled UFH -> ssv_ufh_<x>
+#   fn:hot_water / fn:recirculation   -> ssv_water_<fn> (labelled Water + <fn>)
 WATER_FUNCTIONS = ("hot_water", "recirculation")
 WATER_CONTROL_DOMAINS = ("switch", "fan", "water_heater", "input_boolean")
 

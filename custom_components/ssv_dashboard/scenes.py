@@ -262,6 +262,36 @@ async def async_setup_scenes(hass: HomeAssistant) -> None:
     def _persist() -> None:
         store.async_delay_save(lambda: {"owners": owners, "timing": timing}, 1)
 
+    # 1.5: scenes made before (id inex_user_…) get the id ssv_user_…; the scene entity keeps its name and labels
+    async with _LOCK:
+        try:
+            data = await hass.async_add_executor_job(_read, path)
+        except HomeAssistantError:
+            data = []
+        reg = er.async_get(hass)
+        moved = []
+        for item in data:
+            sid = str(item.get("id", "")) if isinstance(item, dict) else ""
+            pre = next((p for p in LEGACY_PREFIXES if sid.startswith(p)), None)
+            if not pre:
+                continue
+            new = ID_PREFIX + sid[len(pre):]
+            eid = reg.async_get_entity_id("scene", "homeassistant", sid)
+            if eid and not reg.async_get_entity_id("scene", "homeassistant", new):
+                reg.async_update_entity(eid, new_unique_id=new)
+            item["id"] = new
+            for d in (owners, timing):
+                if sid in d:
+                    d[new] = d.pop(sid)
+            moved.append(new)
+        if moved:
+            await hass.async_add_executor_job(_write, path, data)
+            _persist()
+            if hass.services.has_service("scene", "reload"):
+                await hass.services.async_call("scene", "reload", blocking=True)
+            _LOGGER.info("User scenes renamed to ssv_user_: %s", ", ".join(moved))
+
+
     async def save(call: ServiceCall) -> ServiceResponse:
         d = SAVE_SCHEMA(dict(call.data))
         ents = {eid: _clean(hass, eid, v) for eid, v in d["entities"].items()}
