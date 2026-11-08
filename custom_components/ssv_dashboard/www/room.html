@@ -37,11 +37,8 @@ main{flex:1;min-height:0;display:flex;flex-direction:column;gap:8px;padding:8px}
 .row.runs.k3{grid-template-columns:calc(var(--c) - var(--cp)) var(--c) calc(var(--c) - var(--cp))}
 .row.runs.k4{grid-template-columns:calc(var(--c) - var(--cp)) var(--c) var(--c) calc(var(--c) - var(--cp))}
 .cd{font-variant-numeric:tabular-nums}
-/* WC floor heating: same 3 columns as the Heated wall buttons — set point (− value +) = the first button, On / Off = the last */
-.row.g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-.row.g3>.stp{grid-column:1;display:flex;align-items:center;justify-content:space-between;gap:4px;min-width:0}
-.row.g3>.stp .btn.sq{width:34px;min-width:34px;padding:0}.row.g3>.stp .spv{font-size:20px;min-width:0;flex:1;text-align:center}
-.row.g3>.btn{grid-column:3}.row.g3>.btn.all{grid-column:1 / 4}
+/* WC floor heating: power in the header; − set point + as three equal cells on the columns of the Heated wall buttons */
+.row.g3e{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.spbox{height:48px;border-radius:12px;border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;font:300 24px var(--sans);font-variant-numeric:tabular-nums}.spbox.off{color:var(--text3)}
 
 /* Home: everything fits one 480 px screen — same 8 px gap between all buttons and cards */
 #view.home .card{padding:10px 12px;gap:8px;--cp:13px}
@@ -483,8 +480,8 @@ function ufhCard(id, title, th, zone){
   const cur = th && th.t != null ? th.t : (relay ? null : attr(id, 'current_temperature'));
   /* the room it heats, as on the Heated wall card: Off · Master Bathroom · 24.6° */
   const rr = roomOf(id); const where = rr && rr !== ROOM ? pretty(rr) : (zone || '');
-  return `<div class="card${off ? '' : ' heat'}">${cardHead('waves', off ? '' : 'heat', title, (off ? 'Off' : timed ? `Run · <span class="cd" data-left="${tid}">${leftText(ts)}</span>` : 'On') + (where ? ' · ' + esc(where) : '') + (cur != null ? ' · ' + fmtT(cur) + '°' : ''))}
-    <div class="row g3">${relay ? '' : `<div class="stp">${stepper(id, off)}</div>`}<button class="btn${off ? '' : ' sel'}${relay ? ' all' : ''}" data-ufh="${off ? 'man' : 'off'}" data-id="${id}">${svg('power')}${off ? 'Off' : 'On'}</button></div></div>`;
+  return `<div class="card${off ? '' : ' heat'}">${cardHead('waves', off ? '' : 'heat', title, (off ? 'Off' : timed ? `Run · <span class="cd" data-left="${tid}">${leftText(ts)}</span>` : 'On') + (where ? ' · ' + esc(where) : '') + (cur != null ? ' · ' + fmtT(cur) + '°' : ''), `<button class="btn sq${off ? '' : ' sel'}" data-ufh="${off ? 'man' : 'off'}" data-id="${id}" aria-label="Power">${svg('power')}</button>`)}
+    ${relay ? '' : `<div class="row g3e"><button class="btn${off ? ' dim' : ''}" data-tmp="${id}" data-d="-0.5" aria-label="Lower">${svg('minus')}</button><div class="spbox${off ? ' off' : ''}">${attr(id, 'temperature') != null ? fmtT(attr(id, 'temperature')) + '°' : '--'}</div><button class="btn${off ? ' dim' : ''}" data-tmp="${id}" data-d="0.5" aria-label="Higher">${svg('plus')}</button></div>`}</div>`;
 }
 let lpage = 0;
 function vLight(){

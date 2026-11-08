@@ -1032,7 +1032,7 @@ function climateCard(r){
   /* floor heating: name · state, set point (thermostat only), power; its schedule below, if there is one. No Run timers */
   ht.slice(0, ac.length ? 1 : 3).forEach(id => blocks.push(heatBlock(id)));
   const tight = ac.length > 0 && ht.length > 0 || blocks.length > 2;   /* AC + floor heating: tighter so both fit in the card */
-  return `<div class="card" style="padding:${tight ? '12px 20px;gap:8px' : '18px 20px'}">
+  return `<div class="card" style="padding:${tight ? '12px 20px;gap:8px' : '20px'}">
     <div class="row"><div class="col"><div class="e w">${esc(r.name)}</div><div class="s">${esc(r.floorName)}</div></div>
       <div class="row" style="flex:none;gap:16px;align-items:baseline">${t!=null?`<div class="rt">${fmtT(t)}<span>°C</span></div>`:''}${h!=null?`<div class="rh">${h}<span>%</span></div>`:''}</div></div>
     ${blocks.join('')}</div>`;
@@ -1118,7 +1118,7 @@ function coverCard(id, r){
   const label = { open:'Open', closed:'Closed', opening:'Opening…', closing:'Closing…' }[s.state] || (na ? 'Unavailable' : s.state);
   const name = NM(id); const tname = k === 'shutter' ? 'Shutter' : k === 'roller' ? 'Roller' : sheer ? 'Net' : blackout ? 'Blackout' : 'Curtain';
   const sub = (name.toLowerCase() === r.name.toLowerCase() ? tname : name) + ' · ' + label;
-  return `<div class="card${moving?' on':''}${na?' na':''}" style="padding:18px 20px;gap:14px">
+  return `<div class="card${moving?' on':''}${na?' na':''}" style="padding:20px;gap:12px">
     <div class="row"><div class="d" style="width:44px;height:44px;border-radius:14px">${svg(CICON[k])}</div><div class="col"><div class="t">${esc(r.name)}</div><div class="s${moving?' amber':''}">${esc(sub)}</div></div><div class="rt">${Math.round(pos)}<span>%</span></div></div>
     ${cwin(id, k, pos, sheer, blackout, moving)}
     <div class="row" style="gap:8px">${cbtns(id, k, moving)}</div></div>`;
@@ -1634,7 +1634,7 @@ function fnCard(fn){
   const g = wGroup(fn); if (!g.dev.length) return '';
   const w = wState(g); const F = Object.assign({}, WFN[fn], { runs: runsOf('fn:' + fn, WFN[fn].runs) });
   const runs = F.runs.map(m => `<button class="btn${w.timed && w.dur === durStr(m).replace(/^0/, '') ? ' sel' : ' ghost'}" data-wtrun="${fn}" data-min="${m}" style="gap:8px">${WI.run}${F.runs.length > 2 ? '' : 'Run '}<span style="text-transform:none">${fmtMin(m)}</span></button>`).join('');
-  return `<div class="card${w.on ? ' heat' : ''}${w.na ? ' na' : ''}" style="gap:14px">
+  return `<div class="card${w.on ? ' heat' : ''}${w.na ? ' na' : ''}" style="gap:10px">
     <div class="row"><div class="col"><div class="e w">${F.name}</div><div class="s">${F.sub}</div></div>${svg(F.icon, `width:30px;height:30px;color:${w.on ? 'var(--heat)' : 'var(--text2)'}`)}</div>
     <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:6px">
       ${w.temp != null ? `<div style="font-size:64px;font-weight:200;letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums">${fmtT(w.temp)}<span style="font-size:24px;color:var(--text2);margin-left:4px">°C</span></div>` : ''}
@@ -1643,7 +1643,7 @@ function fnCard(fn){
 }
 function valveCard(id){
   const o = valveOpen(id); const na = !real(id);
-  return `<div class="card${na ? ' na' : ''}" style="gap:14px">
+  return `<div class="card${na ? ' na' : ''}" style="gap:10px">
     <div class="row"><div class="col"><div class="e w">${esc(NM(id))}</div><div class="s">Water valve</div></div>${svg('water', `width:30px;height:30px;color:${o ? 'var(--cool)' : 'var(--amber)'}`)}</div>
     <div style="flex:1;display:flex;flex-direction:column;justify-content:center"><div style="font-size:40px;font-weight:300">${na ? 'Unavailable' : o ? 'Open' : 'Closed'}</div></div>
     <div class="row" style="gap:10px"><button class="btn${o ? ' sel' : ' ghost'}" data-vopen="${id}" style="gap:8px">${VI.open}Open</button><button class="btn${o ? ' ghost' : ' sel'}" data-vclose="${id}" style="gap:8px">${VI.close}Close</button></div></div>`;
