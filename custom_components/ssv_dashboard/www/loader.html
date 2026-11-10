@@ -1,32 +1,75 @@
 <!DOCTYPE html>
-<!-- SSV Dashboard loader. Copied by the integration to /config/www/ssv/loader.html and served by Home Assistant
+<!-- SSV Dashboard loader and guard. Copied by the integration to /config/www/ssv/loader.html and served by Home Assistant
      itself at /local/ssv/loader.html, so it answers even while Home Assistant is still starting and SSV Dashboard
-     is not loaded yet (that is when a panel used to get the plain "404: Not Found" and stay on it).
-     The dashboards open it as  /local/ssv/loader.html?to=/ssv_dashboard/room.html%3Fpanel%3D<id>
-     It waits until the SSV page answers 200 and only then opens it. Build __SSV_VERSION__ -->
+     is not loaded yet. The dashboards open it as  /local/ssv/loader.html?to=/ssv_dashboard/room.html%3Fpanel%3D<id>
+     1.3: it waited until the SSV page answered 200 and then opened it.
+     1.5.2: it stays and keeps the SSV page in a frame. Every 15 s it checks the page is still an SSV page; after an
+     update or a restart the page could be left on "404: Not Found", "Bad Gateway" or blank — then the guard shows
+     "Reconnecting…", waits until SSV Dashboard answers and opens the page again. Build __SSV_VERSION__ -->
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>SSV Dashboard</title>
 <style>
 html,body{margin:0;height:100%;background:#070B10;color:#8C9AA8;font:500 14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;overflow:hidden}
-.c{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:16px}
+#f{position:absolute;inset:0;width:100%;height:100%;border:0;display:block;background:#070B10}
+.c{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:16px;background:#070B10;z-index:2}
+.c.off{display:none}
 .d{width:10px;height:10px;border-radius:50%;background:#E5B567;animation:p 1.4s ease-in-out infinite}
 @keyframes p{0%,100%{opacity:.25;transform:scale(.8)}50%{opacity:1;transform:scale(1)}}
 b{color:#E8EDF2;font-weight:500;font-size:18px;letter-spacing:.02em}
 small{font:12px/1 ui-monospace,Menlo,Consolas,monospace;letter-spacing:.12em;text-transform:uppercase;color:#56636F}
 </style></head>
-<body><div class="c"><div class="d"></div><b id="t">Reconnecting…</b><small id="s">Waiting for Home Assistant</small></div>
+<body><iframe id="f" title="SSV Dashboard" allow="fullscreen; autoplay; microphone; camera"></iframe>
+<div class="c" id="c"><div class="d"></div><b id="t">Reconnecting…</b><small id="s">Waiting for Home Assistant</small></div>
 <script>
 (() => {
+  const LOADER_BUILD = '__SSV_VERSION__';
+  const $ = (id) => document.getElementById(id);
   const to = new URLSearchParams(location.search).get('to') || '';
-  const ok = /^\/ssv_dashboard\/[a-z]+\.html(\?|$)/.test(to);
-  if (!ok) { document.getElementById('t').textContent = 'Wrong panel address'; document.getElementById('s').textContent = to || 'no ?to='; return; }
-  let n = 0;
-  const go = async () => {
-    n++;
-    try { const r = await fetch(to, { cache: 'no-store' }); if (r.ok) { location.replace(to); return; } } catch (e) {}
-    document.getElementById('s').textContent = n > 2 ? 'Home Assistant is starting · try ' + n : 'Waiting for Home Assistant';
-    setTimeout(go, Math.min(2000 * n, 10000));
+  if (!/^\/ssv_dashboard\/[a-z]+\.html(\?|$)/.test(to)) { $('t').textContent = 'Wrong panel address'; $('s').textContent = to || 'no ?to='; return; }
+  const frame = $('f'), cover = $('c');
+  let state = 'wait', n = 0, loadedAt = 0, bad = 0, timer = 0;
+
+  /* the page in the frame is a live SSV page: same origin, its title starts with "SSV Dashboard".
+     "404: Not Found" (plain text), "502 Bad Gateway", a browser error page or a blank frame are not. */
+  const alive = () => {
+    try { const d = frame.contentDocument; if (!d || !d.body) return false;
+      if (/^about:/.test(String(frame.contentWindow.location.href))) return false;
+      return /^SSV Dashboard/.test(d.title || ''); } catch (e) { return false; }
   };
-  go();
+  const show = (on, text) => { cover.classList.toggle('off', !on); if (text) $('s').textContent = text; };
+
+  /* wait until SSV Dashboard answers 200, then (re)open the page */
+  const wait = async () => {
+    clearTimeout(timer); state = 'wait'; n++; frame._t0 = Date.now();
+    try { const r = await fetch(to, { cache: 'no-store' });
+      if (r.ok) { state = 'open'; loadedAt = 0; bad = 0;
+        frame._t0 = Date.now();
+        try { frame.contentWindow.location.replace(to); } catch (e) { frame.src = to; }
+        return; } } catch (e) {}
+    show(true, n > 2 ? 'Home Assistant is starting · try ' + n : 'Waiting for Home Assistant');
+    timer = setTimeout(wait, Math.min(2000 * n, 10000));
+  };
+  frame.addEventListener('load', () => {
+    if (state !== 'open') return;
+    loadedAt = Date.now();
+    if (alive()) { n = 0; bad = 0; show(false); }
+  });
+
+  /* every 15 s: still an SSV page? Two misses in a row (not while a reload is in progress) → reconnect. */
+  setInterval(() => {
+    if (state !== 'open') return;
+    if (alive()) { bad = 0; if (!cover.classList.contains('off')) show(false); return; }
+    if (!loadedAt && Date.now() - (frame._t0 || 0) < 30000) return;   /* first load still running */
+    if (++bad >= 2) { n = 0; show(true, 'Waiting for Home Assistant'); wait(); }
+  }, 15000);
+
+  /* the guard itself updates with SSV Dashboard: reload when a newer loader is installed and answers */
+  setInterval(async () => {
+    try { const r = await fetch(location.href, { cache: 'no-store' }); if (!r.ok) return;
+      const m = (await r.text()).match(/const LOADER_BUILD = '([^']+)'/);
+      if (m && m[1] !== LOADER_BUILD && !/^__/.test(m[1])) location.reload(); } catch (e) {}
+  }, 600000);
+
+  wait();
 })();
 </script></body></html>

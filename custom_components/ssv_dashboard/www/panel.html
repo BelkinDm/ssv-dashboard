@@ -168,6 +168,45 @@ button{font:inherit;color:inherit;cursor:pointer;margin:0}
 .scrim{position:absolute;inset:0;background:rgba(3,6,9,.84);display:none;align-items:center;justify-content:center}
 .scrim.show{display:flex}
 #ov{z-index:20}#crit{z-index:35}
+/* 1.6.0: dialogs open and close softly; schedule pickers in the panel style (no white Android lists) */
+@keyframes ovIn{from{opacity:0}}@keyframes dlgIn{from{opacity:0;transform:translateY(14px) scale(.985)}}
+.scrim.show{animation:ovIn .18s ease-out}.scrim.show>.dlg{animation:dlgIn .22s cubic-bezier(.2,.8,.2,1)}
+.scrim.still,.scrim.still>.dlg{animation:none}
+.scrim.out{opacity:0;transition:opacity .16s ease-in;pointer-events:none}
+.dic{flex:none;border-radius:12px;display:inline-flex;align-items:center;justify-content:center}.dic .i{width:58%;height:58%}
+.btn.dd{justify-content:space-between;gap:10px;padding:0 14px 0 18px}.btn.dd>.i:last-child{width:20px;height:20px;color:var(--text3)}
+.btn.dd .tv{font:300 22px var(--sans);letter-spacing:0;text-transform:none;font-variant-numeric:tabular-nums}
+.btn.dd.dev{flex:1;justify-content:flex-start;padding-left:8px;font:400 18px var(--sans);letter-spacing:0;text-transform:none}.btn.dd.dev .dn{flex:1;min-width:0;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pkw{position:absolute;inset:0;z-index:5;background:rgba(3,6,9,.55);display:flex;align-items:center;justify-content:center}
+.pkw.anim{animation:ovIn .16s ease-out}.pkw.anim>.pk{animation:dlgIn .2s cubic-bezier(.2,.8,.2,1)}
+.pk{background:#16212C;border:1px solid var(--line2);border-radius:22px;box-shadow:0 30px 80px rgba(0,0,0,.6);padding:20px 22px;display:flex;flex-direction:column;gap:14px;width:340px}
+.pkh{display:flex;align-items:center;justify-content:space-between;min-height:40px}.pkh b{font:500 12px var(--mono);letter-spacing:.18em;text-transform:uppercase;color:var(--text2);font-weight:500}
+.pkl{display:grid;gap:8px}
+.pko{height:56px;border-radius:12px;border:1px solid transparent;background:transparent;color:var(--text);font:500 15px var(--mono);letter-spacing:.12em;text-transform:uppercase;display:flex;align-items:center;justify-content:space-between;padding:0 16px}
+.pko.cur{background:var(--raised);border-color:var(--line2)}.pko .i{width:20px;height:20px;color:var(--text2)}
+.pk.off{width:620px}.pk.off .pko{justify-content:center;gap:10px}
+.pk.dev{width:860px;height:560px}
+.pkc{display:flex;gap:14px;flex:1;min-height:0}
+.pkrs{width:230px;flex:none;display:flex;flex-direction:column;gap:6px;overflow:auto}
+.pkr{min-height:52px;border-radius:12px;border:1px solid transparent;background:transparent;color:var(--text2);font:500 16px var(--sans);text-align:left;padding:0 14px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.pkr i{font:500 12px var(--mono);font-style:normal;color:var(--text3)}.pkr.cur{background:var(--raised);border-color:var(--line2);color:var(--text)}
+.pkds{flex:1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:76px;gap:8px;align-content:start;overflow:auto;border-left:1px solid var(--line);padding-left:14px}
+.pkd{border-radius:14px;border:1px solid var(--line2);background:var(--raised);color:var(--text);text-align:left;padding:0 14px;display:flex;align-items:center;gap:14px;min-width:0}
+.pkd .tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}.pkd b{font:500 17px var(--sans);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pkd small{font:500 11px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pkd>.i{width:20px;height:20px;color:var(--text2)}
+.pk.time{width:600px;gap:16px}
+.tpr{display:flex;align-items:center;justify-content:center;gap:12px}
+.tpf{width:200px;height:116px;border-radius:18px;background:var(--raised);border:2px solid var(--line2);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--text)}
+.tpf .tv{font:200 68px/1 var(--sans);font-variant-numeric:tabular-nums;letter-spacing:-.02em;display:flex;align-items:center}
+.tpf .tv i{font-style:normal;color:var(--text3)}.tpf .tv u{display:inline-block;width:3px;height:54px;background:var(--mint);margin-left:4px;animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.tpf small{font:500 11px var(--mono);letter-spacing:.16em;color:var(--text3);text-transform:uppercase}
+.tpf.on{border-color:var(--mint);background:rgba(143,217,182,.06)}.tpf.on small{color:var(--mint)}
+.tpc{font:200 60px var(--sans);color:var(--text3);margin-top:-16px}
+.tpg{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.tpk{height:60px;border-radius:14px;background:var(--raised);border:1px solid var(--line2);color:var(--text);font:300 28px var(--sans)}
+.tpk:disabled{opacity:.22}.tpk.z{grid-column:span 2}.tpk .i{width:26px;height:26px}
+.tpa{display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:8px}.tpa .btn:disabled{opacity:.35}
 .dlg{width:640px;max-width:1000px;background:var(--surface);border:1px solid var(--line2);border-radius:26px;padding:28px;display:flex;flex-direction:column;gap:22px}
 .dlg.wide{width:1000px;height:640px}
 .dlg.critical{background:#241416;border-color:#6A302A}
@@ -208,7 +247,7 @@ button{font:inherit;color:inherit;cursor:pointer;margin:0}
 <script>
 /* SSV wall panel 10" — single consolidated file (no override blocks).
    BUILD changes on every deploy; open panels compare it every 10 min and reload themselves. */
-const BUILD = '1.5.1';
+const BUILD = '1.6.0';
 let lastMsg = Date.now(), downSince = 0, noData = 0, reloading = false; const BOOT = Date.now();
 const UNAVAILABLE = '<div class="empty">This section is temporarily unavailable</div>';
 function safe(fn, fallback = ''){ try { return fn(); } catch (e) { console.error('[panel]', e); return fallback; } }
@@ -332,6 +371,10 @@ pumpc: '<circle cx="11" cy="13.5" r="7"/><path d="M11 13.5c1-2.2 3-3.2 4.5-3M11 
   snow:'<path d="M12 2v20M4 6l16 12M20 6L4 18"/>',
   waves:'<path d="M3 20h18"/><path d="M6 16c0-2 2-2 2-4s-2-2-2-4M12 16c0-2 2-2 2-4s-2-2-2-4M18 16c0-2 2-2 2-4s-2-2-2-4"/>',
   flame:'<path d="M12 3c1 4 5 5 5 10a5 5 0 0 1-10 0c0-3 2-4 2-6 1.5 1 2 2 2 3 0-3 1-5 1-7z"/>',
+  hwall:'<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8c1.5-1 3 1 4 0s2.5 1 4 0M8 12c1.5-1 3 1 4 0s2.5 1 4 0M8 16c1.5-1 3 1 4 0s2.5 1 4 0"/>',
+  sprinkler:'<path d="M12 21v-7M8 14h8M12 10V4"/><path d="M12 14c0-4-3-6-6-7M12 14c0-4 3-6 6-7"/>',
+  chevd:'<path d="M6 9l6 6 6-6"/>',
+  bksp:'<path d="M21 6H9l-6 6 6 6h12z"/><path d="M17 10l-4 4M13 10l4 4"/>',
   pump:'<circle cx="12" cy="12" r="8"/><path d="M8 12a4 4 0 0 1 7-2.6M16 12a4 4 0 0 1-7 2.6"/><path d="M15 6.5v3h-3M9 17.5v-3h3"/>',
   timer:'<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 1.5M10 2h4"/>',
   play:'<path d="M7 5l12 7-12 7z"/>',
@@ -544,7 +587,7 @@ function dbAttachCams(list){
   return list;
 }
 let rtcEl = null, rtcLoading = false;
-function rtcHass(){ try { const ha = parent.document.querySelector('home-assistant'); return ha && ha.hass; } catch(e){ return null; } }
+function rtcHass(){ try { const ha = haHost(); return ha && ha.hass; } catch(e){ return null; } }
 function dbRtcSlot(x){ return '<div style="flex:1;min-height:0;border-radius:16px;overflow:hidden;background:#000;position:relative"><div class="rtcslot" style="position:absolute;inset:0"></div></div>'; }
 function mountRtc(){
   const slots = document.querySelectorAll('.rtcslot');
@@ -631,9 +674,11 @@ function since(id){ const m = Math.round(openFor(id)); return m < 1 ? 'now' : m 
 let ws = null, msgId = 10, backoff = 1000;
 let FC = null, FC_ID = 0;
 const waiters = {};
+/* the Home Assistant frontend that hosts this page: the parent, or higher up when the SSV loader guard sits in between (1.5.2) */
+function haHost(){ let w = window; for (let i = 0; i < 4 && w !== w.parent; i++) { w = w.parent; try { const ha = w.document.querySelector('home-assistant'); if (ha) return ha; } catch (e) { return null; } } return null; }
 async function getToken(){
   try {
-    const ha = window.parent !== window && window.parent.document.querySelector('home-assistant');
+    const ha = haHost();
     if (ha && ha.hass && ha.hass.auth) {
       if (ha.hass.auth.expired) await ha.hass.auth.refreshAccessToken();
       return ha.hass.auth.data.access_token;
@@ -1203,7 +1248,10 @@ function confirmLock(id, service){
 
 
 let ovKind = null;
-function openOv(html, kind){ ovKind = kind || 'dlg'; $('ov').innerHTML = html; $('ov').classList.add('show'); safe(mountRtc); }
+let ovSeq = 0;
+function openOv(html, kind){ ovKind = kind || 'dlg'; const ov = $('ov'); ovSeq++;
+  ov.classList.toggle('still', ov.classList.contains('show') && !ov.classList.contains('out'));   /* re-render of an open dialog: no animation */
+  ov.classList.remove('out'); ov.innerHTML = html; ov.classList.add('show'); safe(mountRtc); }
 function closeOv(){ ovKind = null; $('ov').classList.remove('show'); $('ov').innerHTML = ''; }
 let toastT = 0;
 function toast(text){ const t = $('toast'); t.innerHTML = svg('scene') + esc(text); t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 3000); }
@@ -1329,7 +1377,7 @@ stage.addEventListener('click', (e) => {
     if (el && el.dataset.act === 'nightcov') { coversAll('close_cover', 'all'); return; }
     leaveNight(); return;
   }
-  if (!el) { if (e.target === $('ov')) closeOv(); return; }
+  if (!el) { if (e.target.classList && e.target.classList.contains('pkw')) { schAct('pkclose', {}); return; } if (e.target === $('ov')) closeOv(); return; }
   const d = el.dataset;
   if (d.ack) { acked[d.ack] = S[d.ack] && S[d.ack].last_changed; store.set('acked', acked); checkHazards(); return; }
   if (d.tab) { view = d.tab; closeOv(); render(); return; }
@@ -1410,7 +1458,7 @@ function touched(){ lastTouch = Date.now(); }
    Enable JavaScript Interface). Without it the screen is not dimmed at all — no dark layer over the page.
    The first touch only wakes the panel; it does not press anything. A doorbell or alarm wakes it too. ===== */
 const DIM = { on: false, b: null, eat: 0 };
-const fullyApi = () => { try { const F = window.fully || (window.parent !== window && window.parent.fully); return F && F.setScreenBrightness && F.getScreenBrightness ? F : null; } catch (e) { return null; } };
+const fullyApi = () => { try { const F = window.fully || (window.parent !== window && window.parent.fully) || (window.top !== window && window.top.fully); return F && F.setScreenBrightness && F.getScreenBrightness ? F : null; } catch (e) { return null; } };
 function dimSet(on){
   if (on === DIM.on) return; const F = fullyApi(); if (!F) { DIM.on = false; return; }
   try {
@@ -1685,11 +1733,11 @@ function dayText(w){ const d = (w || []).flatMap(x => DPRE[x] || [x]); const k =
   return k.map(x => DAYS.find(y => y[0] === x)[1]).join(' '); }
 function timeText(t){ const m = /^(sunrise|sunset)(?:([+-])(\d\d):(\d\d))?/.exec(t || ''); if (m) { const off = m[3] ? (+m[3]) * 60 + (+m[4]) : 0; return (m[1] === 'sunrise' ? 'Sunrise' : 'Sunset') + (off ? ' ' + m[2] + fmtMin(off) : ''); } return (t || '').slice(0, 5); }
 function evOf(ts){ const a = (ts.actions || [])[0] || {}; const sd = a.service_data || {}; const off = /turn_off|close/.test(a.service || '') || sd.hvac_mode === 'off'; return { time: ts.start, on: !off, temp: sd.temperature }; }
-const evText = (e) => e.on ? 'On' + (e.temp != null ? ' ' + e.temp + '°' : '') : 'Off';
+const evText = (e, id) => (id && S[id] ? evLabel(id, e) : (e.on ? 'On' : 'Off')) + (e.on && e.temp != null ? ' ' + e.temp + '°' : '');
 function schedChip(ids){
   loadSched(); const L = schFor(ids); if (!L.length) return '';
   const it = L[0]; const on = schOn(it);
-  return `<button class="ln" data-sch="open" data-id="${it.entity_id}" style="min-height:40px">${svg('timer', `color:${on ? 'var(--mint)' : 'var(--text3)'}`)}<b>${esc(dayText(it.weekdays))}</b><em style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${on ? '' : 'Paused · '}${esc((it.timeslots || []).map(evOf).map(e => timeText(e.time) + ' ' + evText(e)).join(' · '))}${L.length > 1 ? ' +' + (L.length - 1) : ''}</em></button>`;
+  return `<button class="ln" data-sch="open" data-id="${it.entity_id}" style="min-height:40px">${svg('timer', `color:${on ? 'var(--mint)' : 'var(--text3)'}`)}<b>${esc(dayText(it.weekdays))}</b><em style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${on ? '' : 'Paused · '}${esc((it.timeslots || []).map(evOf).map(e => timeText(e.time) + ' ' + evText(e, schTarget(it))).join(' · '))}${L.length > 1 ? ' +' + (L.length - 1) : ''}</em></button>`;
 }
 function viewSchedule(){
   loadSched();
@@ -1697,9 +1745,9 @@ function viewSchedule(){
   const cards = list.map(it => { const tgt = schTarget(it); const on = schOn(it); const r = tgt && schRoom(tgt);
     const nx = it.timestamps && (it.next_entries || []).length ? it.timestamps[it.next_entries[0]] : null;
     return `<div class="card" style="gap:12px">
-      <div class="row"><div class="col"><div class="e w">${esc(tgt && S[tgt] ? NM(tgt) : it.name || 'Schedule')}</div><div class="s">${esc((r ? r.name + ' · ' : '') + dayText(it.weekdays))}</div></div>
+      <div class="row" style="gap:14px">${tgt && S[tgt] ? devIcon(tgt, 44) : ''}<div class="col"><div class="e w">${esc(tgt && S[tgt] ? NM(tgt) : it.name || 'Schedule')}</div><div class="s">${esc((r ? r.name + ' · ' : '') + dayText(it.weekdays))}</div></div>
         <button class="sw${on ? ' on' : ''}" data-sch="toggle" data-id="${it.entity_id}" aria-label="Enable schedule"><i></i></button></div>
-      <div style="flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;gap:6px;justify-content:center">${(it.timeslots || []).map(evOf).map(e => `<div class="row" style="gap:12px;justify-content:flex-start"><div style="font-size:22px;font-weight:300;min-width:150px">${esc(timeText(e.time))}</div><div class="s${e.on ? ' heat' : ''}">${esc(evText(e))}</div></div>`).join('')}</div>
+      <div style="flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;gap:6px;justify-content:center">${(it.timeslots || []).map(evOf).map(e => `<div class="row" style="gap:12px;justify-content:flex-start"><div style="font-size:22px;font-weight:300;min-width:150px">${esc(timeText(e.time))}</div><div class="s${e.on ? ' heat' : ''}">${esc(evText(e, tgt))}</div></div>`).join('')}</div>
       <div class="row" style="gap:10px"><div class="s" style="flex:1">${on ? (nx ? 'Next · ' + esc(haAt(Date.parse(nx)).toLocaleString('en-GB', { weekday: 'short', hour: '2-digit', minute: '2-digit' })) : '') : 'Paused'}</div>
         <button class="btn ghost f" data-sch="open" data-id="${it.entity_id}" style="gap:8px">${svg('edit')}Edit</button></div></div>`; });
   const { items, pager } = paged('sched', cards, 4);
@@ -1708,6 +1756,22 @@ function viewSchedule(){
       ${list.length ? `<button class="btn f" data-sch="${anyOn ? 'pauseall' : 'resumeall'}" style="gap:8px">${svg(anyOn ? 'stop' : 'play')}${anyOn ? 'Pause all' : 'Resume all'}</button>` : ''}</div>
     <div class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr))">${items.join('') || `<div class="empty" style="grid-column:1/-1">${schEnts().length ? 'No schedules yet · tap New schedule' : 'Label devices with Schedule to plan them here'}</div>`}</div></div>`;
 }
+/* 1.6.0: one icon and colour per device type — schedule device picker, editor and Schedule cards */
+const TCOL = { amber: ['var(--amber)', 'rgba(226,182,110,.14)'], heat: ['var(--heat)', 'rgba(232,142,126,.14)'], mint: ['var(--mint)', 'rgba(143,217,182,.14)'], cool: ['var(--cool)', 'rgba(140,192,232,.14)'], violet: ['#B79CF0', 'rgba(183,156,240,.14)'], teal: ['#6FC6D9', 'rgba(111,198,217,.14)'], grey: ['var(--text2)', 'rgba(147,163,179,.12)'] };
+function devType(id){
+  const d = dmn(id), n = String(attr(id, 'friendly_name') || id).toLowerCase(), L = (ls) => hasLabel(id, ls);
+  if (d === 'light' || L(['light'])) return { ic: 'bulb', c: 'amber', sub: 'Light', acts: ['On', 'Off'] };
+  if (d === 'cover' || L(['curtain', 'roller', 'shutter'])) return { ic: 'curtains', c: 'violet', sub: 'Curtains', acts: ['Open', 'Close'] };
+  if (d === 'water_heater' || L(['hot_water'])) return { ic: 'water', c: 'heat', sub: 'Boiler', acts: ['On', 'Off'] };
+  if (L(['recirculation']) || /pump|recirc/.test(n)) return { ic: 'pump', c: 'mint', sub: 'Pump', acts: ['On', 'Off'] };
+  if (d === 'valve' || /irrigat|sprinkl|watering/.test(n)) return { ic: 'sprinkler', c: 'teal', sub: d === 'valve' ? 'Valve' : 'Watering', acts: d === 'valve' ? ['Open', 'Close'] : ['On', 'Off'] };
+  if (L(['heated_wall'])) return { ic: 'hwall', c: 'heat', sub: 'Wall', acts: [d === 'climate' ? 'Heat' : 'On', 'Off'] };
+  if (L(['ufh'])) return { ic: 'waves', c: 'heat', sub: 'Floor', acts: [d === 'climate' ? 'Heat' : 'On', 'Off'] };
+  if (d === 'climate') return climateKind(id) === 'ac' ? { ic: 'snow', c: 'cool', sub: 'AC', acts: ['Cool', 'Off'] } : { ic: 'flame', c: 'heat', sub: 'Heating', acts: ['Heat', 'Off'] };
+  return { ic: 'power', c: 'grey', sub: d === 'fan' ? 'Fan' : 'Switch', acts: ['On', 'Off'] };
+}
+const devIcon = (id, size) => { const t = devType(id), c = TCOL[t.c], z = size || 44; return `<span class="dic" style="width:${z}px;height:${z}px;color:${c[0]};background:${c[1]}">${svg(t.ic)}</span>`; };
+const evLabel = (id, e) => { const a = id ? devType(id).acts : ['On', 'Off']; return e.on ? a[0] : a[1]; };
 const edDefTemp = (id) => id && dmn(id) === 'climate' ? (attr(id, 'temperature') || 22) : null;
 function edNew(id){ const t = id || schEnts()[0] || null; ED = { eid: null, ent: t, days: DPRE.daily.slice(), ev: [{ time: '07:00', sun: '', off: 0, on: true, temp: edDefTemp(t) }, { time: '09:00', sun: '', off: 0, on: false, temp: edDefTemp(t) }] }; }
 function edLoad(eid){ const it = SCH.find(x => x.entity_id === eid); if (!it) return false; const t = schTarget(it);
@@ -1719,19 +1783,20 @@ function schEditor(){
   const days = DAYS.map(([k, n]) => `<button class="btn${ED.days.includes(k) ? ' sel' : ' ghost'}" data-sch="day" data-id="${k}">${n}</button>`).join('');
   const pre = [['daily', 'Every day'], ['workday', 'Weekdays'], ['weekend', 'Weekend']].map(([k, n]) => `<button class="btn ghost f" data-sch="pre" data-id="${k}">${n}</button>`).join('');
   const offs = [-120, -90, -60, -45, -30, -15, 0, 15, 30, 45, 60, 90, 120];
+  const offTxt = (o) => o ? (o > 0 ? '+' : '−') + fmtMin(Math.abs(o)) : 'Exact';
+  const dd = (k, i, inner, w) => `<button class="btn ghost dd" data-sch="pk" data-k="${k}" data-i="${i}" style="flex:none;width:${w || 150}px">${inner}${svg('chevd')}</button>`;
   const rows = ED.ev.map((e, i) => `<div class="row" style="gap:10px;min-height:64px">
-      <button class="btn f${e.on ? ' sel' : ' ghost'}" data-sch="onoff" data-i="${i}" style="width:96px">${e.on ? 'On' : 'Off'}</button>
-      <select onchange="ED.ev[${i}].sun=this.value;schEditor()" class="btn ghost f" style="width:140px">${[['', 'Time'], ['sunrise', 'Sunrise'], ['sunset', 'Sunset']].map(([v, n]) => `<option value="${v}"${e.sun === v ? ' selected' : ''}>${n}</option>`).join('')}</select>
-      ${e.sun ? `<select onchange="ED.ev[${i}].off=+this.value" class="btn ghost f" style="width:150px">${offs.map(o => `<option value="${o}"${e.off === o ? ' selected' : ''}>${o ? (o > 0 ? '+' : '−') + fmtMin(Math.abs(o)) : 'Exact'}</option>`).join('')}</select>`
-        : `<input type="time" value="${e.time}" onchange="ED.ev[${i}].time=this.value" class="btn ghost f" style="width:150px;font-size:18px;color-scheme:dark">`}
-      ${isC && e.on ? `<button class="btn sq ghost" data-sch="tmp" data-i="${i}" data-d="-0.5" aria-label="Lower">${svg('minus')}</button><div class="spv" style="min-width:76px;text-align:center">${fmtT(e.temp)}°</div><button class="btn sq ghost" data-sch="tmp" data-i="${i}" data-d="0.5" aria-label="Higher">${svg('plus')}</button>` : ''}
+      ${dd('act', i, `<b style="font-weight:500">${esc(evLabel(ED.ent, e))}</b>`)}
+      ${dd('mode', i, `<b style="font-weight:500">${e.sun ? (e.sun === 'sunrise' ? 'Sunrise' : 'Sunset') : 'Time'}</b>`)}
+      ${e.sun ? dd('off', i, `<span class="tv">${offTxt(e.off)}</span>`, 160) : dd('time', i, `<span class="tv">${esc(e.time)}</span>`)}
+      ${isC && e.on ? `<div class="s" style="flex:none;margin-left:8px">Set point</div><button class="btn sq ghost" data-sch="tmp" data-i="${i}" data-d="-0.5" aria-label="Lower">${svg('minus')}</button><div class="spv" style="min-width:76px;text-align:center">${fmtT(e.temp)}°</div><button class="btn sq ghost" data-sch="tmp" data-i="${i}" data-d="0.5" aria-label="Higher">${svg('plus')}</button>` : ''}
       <div class="sp"></div><button class="btn sq ghost" data-sch="del" data-i="${i}" aria-label="Remove time">${svg('x')}</button></div>`).join('<div class="hr"></div>');
   openOv(`<div class="dlg wide" style="gap:14px"><div class="row" style="height:56px"><div class="col"><div style="font-size:30px;font-weight:300;letter-spacing:-.02em">${ED.eid ? 'Edit schedule' : 'New schedule'}</div><div class="s">Device · days · On / Off times</div></div><button class="btn sq" data-act="close" aria-label="Close">${svg('x')}</button></div>
-    <div class="row" style="gap:12px"><div class="s" style="flex:none;width:70px">Device</div>${entSelect()}</div>
+    <div class="row" style="gap:12px"><div class="s" style="flex:none;width:70px">Device</div>${entButton()}</div>
     <div class="row" style="gap:8px">${days}${pre}</div>
     <div style="flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column">${rows || '<div class="empty">Add an On or Off time</div>'}</div>
     <div class="row" style="gap:10px"><button class="btn ghost f" data-sch="addpair" style="gap:8px">${svg('plus')}On + Off</button><button class="btn ghost f" data-sch="addone" style="gap:8px">${svg('plus')}One time</button><div class="sp"></div>
-      ${ED.eid ? `<button class="btn ghost f" data-sch="remove" style="gap:8px">${svg('x')}Delete</button>` : ''}<button class="btn f sel" data-sch="save" style="min-width:160px">Save</button></div></div>`, 'sched');
+      ${ED.eid ? `<button class="btn ghost f" data-sch="remove" style="gap:8px">${svg('x')}Delete</button>` : ''}<button class="btn f sel" data-sch="save" style="min-width:160px">Save</button></div></div>${pkHtml()}`, 'sched');
 }
 function edAction(e){ const id = ED.ent, d = dmn(id);
   if (d === 'climate') return e.on ? { service: 'climate.set_temperature', entity_id: id, service_data: { temperature: e.temp, hvac_mode: climateKind(id) === 'ac' ? 'cool' : 'heat' } } : { service: 'climate.set_hvac_mode', entity_id: id, service_data: { hvac_mode: 'off' } };
@@ -1762,7 +1827,26 @@ function schAct(a, d){
     else { const keep = store.get('schPaused', []); const ids = keep.length ? keep : list.map(it => it.entity_id); ids.forEach(id => { optimistic(id, 'on'); call('switch', 'turn_on', {}, { entity_id: id }); }); store.set('schPaused', []); toast('Schedules resumed'); }
     return; }
   if (!ED) return;
-  const e = d.i != null ? ED.ev[+d.i] : null;
+  const e = d.i != null ? ED.ev[+d.i] : null, P = ED.pk;
+  if (a === 'pk') { ED.pk = { k: d.k, i: d.i != null ? +d.i : null, fresh: true };
+    if (d.k === 'time') { const t = String(e.time || '07:00'); Object.assign(ED.pk, { v: { h: t.slice(0, 2), m: t.slice(3, 5) }, f: 'h', buf: null }); }
+    return schEditor(); }
+  if (a === 'pkclose') { ED.pk = null; return schEditor(); }
+  if (P && a === 'pkroom') { P.room = d.v; return schEditor(); }
+  if (a === 'pkdev') { ED.ent = d.id; ED.ev.forEach(x => { if (x.temp == null) x.temp = edDefTemp(d.id); }); ED.pk = null; return schEditor(); }
+  if (P && a === 'pkv') { const x = ED.ev[P.i];
+    if (P.k === 'act') { x.on = d.v === '1'; if (x.temp == null) x.temp = edDefTemp(ED.ent); }
+    else if (P.k === 'mode') { x.sun = d.v; if (!d.v) x.off = 0; }
+    else if (P.k === 'off') x.off = +d.v;
+    ED.pk = null; return schEditor(); }
+  /* time pad: two fields, digits that would give more than 23 h or 59 min are disabled */
+  if (P && a === 'tpf') { P.f = d.f; P.buf = null; return schEditor(); }
+  if (P && a === 'tpd') { const v = (P.buf == null ? '' : P.buf) + d.n;
+    if (v.length === 2) { P.v[P.f] = v; P.buf = null; if (P.f === 'h') P.f = 'm'; } else { P.buf = v; P.v[P.f] = ''; }
+    return schEditor(); }
+  if (P && a === 'tpb') { const v = P.buf == null ? P.v[P.f] : P.buf; P.buf = v.slice(0, -1); P.v[P.f] = ''; return schEditor(); }
+  if (P && a === 'tpc') { P.v = { h: '', m: '' }; P.f = 'h'; P.buf = ''; return schEditor(); }
+  if (P && a === 'tps') { if (tpDone(P)) { ED.ev[P.i].time = P.v.h + ':' + P.v.m; ED.pk = null; } return schEditor(); }
   if (a === 'ent') { ED.ent = d.id; ED.ev.forEach(x => { if (x.temp == null) x.temp = edDefTemp(d.id); }); }
   else if (a === 'day') ED.days = ED.days.includes(d.id) ? ED.days.filter(x => x !== d.id) : ED.days.concat(d.id);
   else if (a === 'pre') ED.days = DPRE[d.id].slice();
@@ -1780,12 +1864,49 @@ function schAct(a, d){
 
 const curtEnts = () => Object.keys(S).filter(id => dmn(id) === 'cover' && hasLabel(id, ['curtain', 'roller', 'shutter']) && !hasLabel(id, SET.hideLabels) && show(id) && labelRoom(id));
 
-/* Schedule editor: device picker as a list grouped by room */
-function entSelect(){
-  const ids = schEnts(); if (!ids.length) return '<div class="empty">No devices labelled Schedule</div>';
-  const groups = {}; ids.forEach(id => { const r = schRoom(id); const k = r ? r.name : 'Other'; (groups[k] = groups[k] || []).push(id); });
+/* Schedule editor (1.6.0): device field + pickers in the panel style instead of Android's white lists */
+function schGroups(){
+  const ids = schEnts(); const groups = {}; ids.forEach(id => { const r = schRoom(id); const k = r ? r.name : 'Other'; (groups[k] = groups[k] || []).push(id); });
   const order = M.rooms.map(r => r.name).filter(n => groups[n]); Object.keys(groups).sort().forEach(n => { if (!order.includes(n) && n !== 'Other') order.push(n); }); if (groups.Other) order.push('Other');
-  return `<select onchange="schAct('ent',{id:this.value})" class="btn ghost" style="flex:1;justify-content:flex-start;text-align:left;font:400 18px var(--sans);letter-spacing:0;text-transform:none;padding:0 16px;color-scheme:dark">${order.map(g => `<optgroup label="${esc(g)}">${groups[g].map(id => `<option value="${id}"${id === ED.ent ? ' selected' : ''}>${esc(g + ' · ' + NM(id))}</option>`).join('')}</optgroup>`).join('')}</select>`;
+  return { groups, order };
+}
+function entButton(){
+  if (!schEnts().length) return '<div class="empty">No devices labelled Schedule</div>';
+  const id = ED.ent, r = id && schRoom(id);
+  return `<button class="btn ghost dd dev" data-sch="pk" data-k="dev">${id ? devIcon(id, 40) + `<span class="dn">${esc((r ? r.name + ' · ' : '') + NM(id))}</span>` : '<span class="dn" style="padding-left:10px;color:var(--text2)">Choose a device</span>'}${svg('chevd')}</button>`;
+}
+const tpDone = (P) => P.buf == null && P.v.h.length === 2 && P.v.m.length === 2;
+function pkHtml(){
+  const P = ED && ED.pk; if (!P) return '';
+  const anim = P.fresh ? ' anim' : ''; P.fresh = false;
+  let body = '', cls = P.k;
+  if (P.k === 'dev') {
+    const { groups, order } = schGroups();
+    const cur = (ED.ent && (schRoom(ED.ent) || {}).name) || 'Other';
+    const room = P.room && groups[P.room] ? P.room : (groups[cur] ? cur : order[0]);
+    body = `<div class="pkh"><b>Device</b><button class="btn sq ghost" data-sch="pkclose" aria-label="Close">${svg('x')}</button></div>
+      <div class="pkc"><div class="pkrs">${order.map(g => `<button class="pkr${g === room ? ' cur' : ''}" data-sch="pkroom" data-v="${esc(g)}"><span>${esc(g)}</span><i>${groups[g].length}</i></button>`).join('')}</div>
+      <div class="pkds">${(groups[room] || []).map(id => { const t = devType(id); return `<button class="pkd" data-sch="pkdev" data-id="${id}">${devIcon(id, 44)}<span class="tx"><b>${esc(NM(id))}</b><small>${esc(t.sub + ' · ' + t.acts.join(' / '))}</small></span>${id === ED.ent ? svg('check') : ''}</button>`; }).join('')}</div></div>`;
+  } else if (P.k === 'time') {
+    const e = ED.ev[P.i], act = (k) => P.f === k, shown = (k) => act(k) && P.buf != null ? P.buf : P.v[k];
+    const fld = (k, lbl) => { const v = shown(k); const t = v.length === 0 ? '<i>--</i>' : v.length === 1 ? esc(v) + '<i>_</i>' : esc(v);
+      return `<button class="tpf${act(k) ? ' on' : ''}" data-sch="tpf" data-f="${k}"><span class="tv">${t}${act(k) ? '<u></u>' : ''}</span><small>${lbl}</small></button>`; };
+    const c = P.buf == null ? '' : P.buf;
+    const ok = (n) => P.f === 'h' ? (c.length === 0 ? n <= 2 : (c === '2' ? n <= 3 : true)) : (c.length === 0 ? n <= 5 : true);
+    const key = (n, z) => `<button class="tpk${z ? ' z' : ''}" data-sch="tpd" data-n="${n}"${ok(n) ? '' : ' disabled'}>${n}</button>`;
+    const done = tpDone(P);
+    body = `<div class="pkh"><b>${esc((ED.ent ? NM(ED.ent) + ' · ' : '') + evLabel(ED.ent, e))} time</b></div>
+      <div class="tpr">${fld('h', 'Hours 00–23')}<div class="tpc">:</div>${fld('m', 'Minutes 00–59')}</div>
+      <div class="tpg">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => key(n)).join('')}${key(0, true)}<button class="tpk" data-sch="tpb" aria-label="Delete">${svg('bksp')}</button></div>
+      <div class="tpa"><button class="btn ghost" data-sch="pkclose">Cancel</button><button class="btn ghost" data-sch="tpc">Clear</button><button class="btn sel" data-sch="tps"${done ? '' : ' disabled'}>${done ? 'Set ' + P.v.h + ':' + P.v.m : 'Set'}</button></div>`;
+  } else {
+    const e = ED.ev[P.i]; let title, opts, cur, cols = 1;
+    if (P.k === 'act') { const a = ED.ent ? devType(ED.ent).acts : ['On', 'Off']; title = 'Action'; opts = [['1', a[0]], ['0', a[1]]]; cur = e.on ? '1' : '0'; }
+    else if (P.k === 'mode') { title = 'Start'; opts = [['', 'Time'], ['sunrise', 'Sunrise'], ['sunset', 'Sunset']]; cur = e.sun || ''; }
+    else { title = (e.sun === 'sunrise' ? 'Sunrise' : 'Sunset') + ' · shift'; opts = [-120, -90, -60, -45, -30, -15, 0, 15, 30, 45, 60, 90, 120].map(o => [String(o), o ? (o > 0 ? '+' : '−') + fmtMin(Math.abs(o)) : 'Exact']); cur = String(e.off || 0); cols = 4; }
+    body = `<div class="pkh"><b>${esc(title)}</b></div><div class="pkl" style="grid-template-columns:repeat(${cols},minmax(0,1fr))">${opts.map(([v, l]) => `<button class="pko${v === cur ? ' cur' : ''}" data-sch="pkv" data-v="${esc(v)}">${esc(l)}${v === cur ? svg('check') : ''}</button>`).join('')}</div>`;
+  }
+  return `<div class="pkw${anim}"><div class="pk ${cls}">${body}</div></div>`;
 }
 
 /* Lights: count of lights on as a yellow round badge (keeps "Bedroom 1" readable) */
@@ -2015,7 +2136,10 @@ stage.addEventListener('click', (e) => {
   if (d.sxdelno) { E.confirm = false; sxPaint(); return; }
   if (d.sxdelok) { sxDelete(); return; }
 });
-function closeOv(){ ovKind = null; SX.ed = null; $('ov').classList.remove('show'); $('ov').innerHTML = ''; }
+function closeOv(){ ovKind = null; SX.ed = null; if (typeof ED !== 'undefined' && ED) ED.pk = null; const ov = $('ov');
+  if (!ov.classList.contains('show')) { ov.innerHTML = ''; return; }
+  const t = ++ovSeq; ov.classList.add('out');
+  setTimeout(() => { if (t !== ovSeq) return; ov.classList.remove('show', 'out', 'still'); ov.innerHTML = ''; }, 170); }
 document.addEventListener('keydown', () => touched());
 
 </script>

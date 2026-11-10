@@ -218,7 +218,7 @@ pumpc: '<circle cx="11" cy="13.5" r="7"/><path d="M11 13.5c1-2.2 3-3.2 4.5-3M11 
   recirc: '<path d="M20 12a8 8 0 0 1-14 5.3M4 12a8 8 0 0 1 14-5.3"/><path d="M18 3v4h-4M6 21v-4h4"/>',
 };
 /* ---------- Home Assistant connection: own WebSocket, independent of the parent page internals ---------- */
-const BUILD = '1.5.1';
+const BUILD = '1.6.0';
 const HC = { ready: false, states: {}, entities: {}, devices: {}, areas: {} };
 let ws = null, wsOk = false, msgId = 0, backoff = 1000, FC_ID = 0, lastMsg = Date.now(), downSince = Date.now(), reloading = false, regT = 0; const BOOT = Date.now();
 const waiters = {};
@@ -233,8 +233,10 @@ function wsSend(msg){ if (!wsOk || !ws) return Promise.reject(new Error('offline
   return new Promise((res, rej) => { waiters[id] = { res, rej }; setTimeout(() => { if (waiters[id]) { delete waiters[id]; rej(new Error('timeout')); } }, 15000); }); }
 HC.callWS = (msg) => wsSend(msg);
 HC.callService = (domain, service, service_data) => wsSend({ type: 'call_service', domain, service, service_data: service_data || {} });
+/* the Home Assistant frontend that hosts this page: the parent, or higher up when the SSV loader guard sits in between (1.5.2) */
+function haHost(){ let w = window; for (let i = 0; i < 4 && w !== w.parent; i++) { w = w.parent; try { const ha = w.document.querySelector('home-assistant'); if (ha) return ha; } catch (e) { return null; } } return null; }
 async function getToken(){
-  try { const ha = window.parent !== window && window.parent.document.querySelector('home-assistant');
+  try { const ha = haHost();
     if (ha && ha.hass && ha.hass.auth) { if (ha.hass.auth.expired) await ha.hass.auth.refreshAccessToken(); return ha.hass.auth.data.access_token; } } catch (e) {}
   let t = null; try { t = JSON.parse(localStorage.getItem('hassTokens') || 'null'); } catch (e) {}
   if (!t || !t.refresh_token) throw new Error('login');
@@ -548,7 +550,7 @@ let lastTouch = Date.now(), forceAwake = 0;
    Enable JavaScript Interface). Without it the screen is not dimmed at all — no dark layer over the page.
    The first touch only wakes the panel; it does not press anything. A doorbell or alarm wakes it too. ===== */
 const DIM = { on: false, b: null, eat: 0 };
-const fullyApi = () => { try { const F = window.fully || (window.parent !== window && window.parent.fully); return F && F.setScreenBrightness && F.getScreenBrightness ? F : null; } catch (e) { return null; } };
+const fullyApi = () => { try { const F = window.fully || (window.parent !== window && window.parent.fully) || (window.top !== window && window.top.fully); return F && F.setScreenBrightness && F.getScreenBrightness ? F : null; } catch (e) { return null; } };
 function dimSet(on){
   if (on === DIM.on) return; const F = fullyApi(); if (!F) { DIM.on = false; return; }
   try {

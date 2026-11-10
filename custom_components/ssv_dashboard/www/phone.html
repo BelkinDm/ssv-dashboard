@@ -121,6 +121,21 @@ html,body{overflow:hidden;height:100%;overscroll-behavior:none}
 .ph-row .ic{width:42px;height:42px;border-radius:12px;background:#16212C;color:var(--text2);display:flex;align-items:center;justify-content:center;flex:none}
 .ph-row b{font-size:17px;font-weight:600;display:block}
 .ph-row em{font:500 11px var(--mono);letter-spacing:.1em;text-transform:uppercase;font-style:normal;color:var(--text2)}
+/* 1.6.0: schedule pickers on the phone */
+.dlg .row:has(> .btn.dd){flex-wrap:wrap;gap:6px!important}
+.dlg .btn.dd:not(.dev){width:auto!important;flex:1 1 calc(33% - 34px)!important;min-width:0;padding:0 8px 0 12px}
+.dlg .btn.dd .tv{font-size:17px}.dlg .btn.dd>.i:last-child{width:14px;height:14px}
+.dlg .row:has(> .btn.dd)>.sp,.dlg .row:has(> .btn.dd)>.s{display:none}
+.dlg .row:has(> .btn.dd)>[data-sch=del]{order:1}.dlg .row:has(> .btn.dd)>[data-sch=tmp],.dlg .row:has(> .btn.dd)>.spv{order:2}.dlg .row:has(> .btn.dd)>[data-sch=tmp][data-d="-0.5"]{margin-left:auto}
+.dlg .row:has(> [data-sch=day]),.dlg .row:has(> [data-sch=addpair]){flex-wrap:wrap;gap:6px!important}
+.dlg .row:has(> [data-sch=day])>.btn{flex:1 1 12%;min-width:0;padding:0 4px;height:44px}
+.dlg .row:has(> [data-sch=addpair])>.btn{flex:1 1 40%;min-width:0}
+.pk,.pk.off,.pk.time{width:calc(100% - 16px)!important;max-height:calc(100% - 16px);overflow-y:auto;padding:16px}
+.pk.dev{width:calc(100% - 16px)!important;height:calc(100% - 16px)!important}
+.pkc{flex-direction:column}.pkrs{width:auto;flex-direction:row;overflow-x:auto;flex:none}.pkr{flex:none;white-space:nowrap}
+.pkds{grid-template-columns:1fr;border-left:0;padding-left:0;border-top:1px solid var(--line);padding-top:10px}
+.pk.off .pkl{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+.tpf{width:auto;flex:1;height:96px}.tpf .tv{font-size:52px}.tpf .tv u{height:42px}.tpk{height:54px}
 </script>
 <script type="text/plain" id="phjs">
 /* ===== SSV phone behaviour ===== */
