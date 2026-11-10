@@ -19,7 +19,7 @@ b{color:#E8EDF2;font-weight:500;font-size:18px;letter-spacing:.02em}
 small{font:12px/1 ui-monospace,Menlo,Consolas,monospace;letter-spacing:.12em;text-transform:uppercase;color:#56636F}
 </style></head>
 <body><iframe id="f" title="SSV Dashboard" allow="fullscreen; autoplay; microphone; camera"></iframe>
-<div class="c" id="c"><div class="d"></div><b id="t">Reconnecting…</b><small id="s">Waiting for Home Assistant</small></div>
+<div class="c" id="c"><div class="d"></div><b id="t">Reconnecting…</b><small id="s">Your home automation will start soon</small></div>
 <script>
 (() => {
   const LOADER_BUILD = '__SSV_VERSION__';
@@ -46,7 +46,7 @@ small{font:12px/1 ui-monospace,Menlo,Consolas,monospace;letter-spacing:.12em;tex
         frame._t0 = Date.now();
         try { frame.contentWindow.location.replace(to); } catch (e) { frame.src = to; }
         return; } } catch (e) {}
-    show(true, n > 2 ? 'Home Assistant is starting · try ' + n : 'Waiting for Home Assistant');
+    show(true, 'Your home automation will start soon');   /* 1.6.1: one calm line for the owner, no attempt counter */
     timer = setTimeout(wait, Math.min(2000 * n, 10000));
   };
   frame.addEventListener('load', () => {
@@ -60,7 +60,7 @@ small{font:12px/1 ui-monospace,Menlo,Consolas,monospace;letter-spacing:.12em;tex
     if (state !== 'open') return;
     if (alive()) { bad = 0; if (!cover.classList.contains('off')) show(false); return; }
     if (!loadedAt && Date.now() - (frame._t0 || 0) < 30000) return;   /* first load still running */
-    if (++bad >= 2) { n = 0; show(true, 'Waiting for Home Assistant'); wait(); }
+    if (++bad >= 2) { n = 0; show(true, 'Your home automation will start soon'); wait(); }
   }, 15000);
 
   /* the guard itself updates with SSV Dashboard: reload when a newer loader is installed and answers */

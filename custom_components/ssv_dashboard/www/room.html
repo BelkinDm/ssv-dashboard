@@ -218,7 +218,7 @@ pumpc: '<circle cx="11" cy="13.5" r="7"/><path d="M11 13.5c1-2.2 3-3.2 4.5-3M11 
   recirc: '<path d="M20 12a8 8 0 0 1-14 5.3M4 12a8 8 0 0 1 14-5.3"/><path d="M18 3v4h-4M6 21v-4h4"/>',
 };
 /* ---------- Home Assistant connection: own WebSocket, independent of the parent page internals ---------- */
-const BUILD = '1.6.0';
+const BUILD = '1.6.1';
 const HC = { ready: false, states: {}, entities: {}, devices: {}, areas: {} };
 let ws = null, wsOk = false, msgId = 0, backoff = 1000, FC_ID = 0, lastMsg = Date.now(), downSince = Date.now(), reloading = false, regT = 0; const BOOT = Date.now();
 const waiters = {};
@@ -460,8 +460,8 @@ const relayBtn = (id, off) => `<button class="btn sq${off ? '' : ' sel'}" data-r
 function ufhLine(id, title){
   if (isRelay(id)) { const off = !isOn(id);
     return `<div class="card${off ? '' : ' heat'}"><div class="row">${svg('waves', 'width:22px;height:22px;flex:none;color:' + (off ? 'var(--text2)' : 'var(--heat)'))}<div style="min-width:0"><div class="nm">${esc(title)}</div><div class="lab${off ? '' : ' heat'}">${ufhStatus(id, !off)}</div></div><div class="sp"></div>${relayBtn(id, off)}</div></div>`; }
-  const s = st(id); const off = s.state === 'off'; const cur = attr(id, 'current_temperature');
-  return `<div class="card${off ? '' : ' heat'}"><div class="row">${svg('waves', 'width:22px;height:22px;flex:none;color:' + (off ? 'var(--text2)' : 'var(--heat)'))}<div style="min-width:0"><div class="nm">${esc(title)}</div><div class="lab${off ? '' : ' heat'}" style="white-space:nowrap">${ufhStatus(id, !off)}${cur != null ? ' · ' + fmtT(cur) + '°' : ''}</div></div><div class="sp"></div>${stepper(id, off)}<button class="btn sq${off ? '' : ' sel'}" data-mode="${id}" data-m="${off ? 'heat' : 'off'}" aria-label="Power">${svg('power')}</button></div></div>`;
+  const s = st(id); const off = s.state === 'off';   /* 1.6.1: no room temperature here — the header shows it */
+  return `<div class="card${off ? '' : ' heat'}"><div class="row">${svg('waves', 'width:22px;height:22px;flex:none;color:' + (off ? 'var(--text2)' : 'var(--heat)'))}<div style="min-width:0"><div class="nm">${esc(title)}</div><div class="lab${off ? '' : ' heat'}" style="white-space:nowrap">${ufhStatus(id, !off)}</div></div><div class="sp"></div>${stepper(id, off)}<button class="btn sq${off ? '' : ' sel'}" data-mode="${id}" data-m="${off ? 'heat' : 'off'}" aria-label="Power">${svg('power')}</button></div></div>`;
 }
 function ufhRunRow(id){
   const r = runsOf(id, []); const tid = 'timer.ssv_ufh_' + id.split('.')[1]; if (!r.length || !st(tid)) return '';
@@ -479,10 +479,9 @@ function ufhStatus(id, on){
 function ufhCard(id, title, th, zone){
   const relay = isRelay(id); const off = relay ? !isOn(id) : st(id).state === 'off';
   const tid = 'timer.ssv_ufh_' + id.split('.')[1]; const ts = tState(tid); const timed = !off && ts.on;
-  const cur = th && th.t != null ? th.t : (relay ? null : attr(id, 'current_temperature'));
-  /* the room it heats, as on the Heated wall card: Off · Master Bathroom · 24.6° */
+  /* the room it heats, as on the Heated wall card: Off · Master Bathroom (1.6.1: no temperature — the header shows the WC's own) */
   const rr = roomOf(id); const where = rr && rr !== ROOM ? pretty(rr) : (zone || '');
-  return `<div class="card${off ? '' : ' heat'}">${cardHead('waves', off ? '' : 'heat', title, (off ? 'Off' : timed ? `Run · <span class="cd" data-left="${tid}">${leftText(ts)}</span>` : 'On') + (where ? ' · ' + esc(where) : '') + (cur != null ? ' · ' + fmtT(cur) + '°' : ''), `<button class="btn sq${off ? '' : ' sel'}" data-ufh="${off ? 'man' : 'off'}" data-id="${id}" aria-label="Power">${svg('power')}</button>`)}
+  return `<div class="card${off ? '' : ' heat'}">${cardHead('waves', off ? '' : 'heat', title, (off ? 'Off' : timed ? `Run · <span class="cd" data-left="${tid}">${leftText(ts)}</span>` : 'On') + (where ? ' · ' + esc(where) : ''), `<button class="btn sq${off ? '' : ' sel'}" data-ufh="${off ? 'man' : 'off'}" data-id="${id}" aria-label="Power">${svg('power')}</button>`)}
     ${relay ? '' : `<div class="row g3e"><button class="btn${off ? ' dim' : ''}" data-tmp="${id}" data-d="-0.5" aria-label="Lower">${svg('minus')}</button><div class="spbox${off ? ' off' : ''}">${attr(id, 'temperature') != null ? fmtT(attr(id, 'temperature')) + '°' : '--'}</div><button class="btn${off ? ' dim' : ''}" data-tmp="${id}" data-d="0.5" aria-label="Higher">${svg('plus')}</button></div>`}</div>`;
 }
 let lpage = 0;
@@ -615,9 +614,11 @@ function fit(){ const k = Math.min(innerWidth, innerHeight) / 480; $('stage').st
 let toastT = 0;
 function toast(t){ const el = $('toast'); el.textContent = t; el.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('show'), 2500); }
 const tmpQ = {};
-function stepTemp(id, d){ const cur = tmpQ[id] != null ? tmpQ[id].v : +attr(id, 'temperature') || 22; const v = Math.round((cur + d) * 2) / 2;
+/* 1.6.1: the thermostat's own step (target_temp_step, e.g. 1° on SSV-made floor thermostats), within its min / max */
+function stepTemp(id, d){ const cur = tmpQ[id] != null ? tmpQ[id].v : +attr(id, 'temperature') || 22; const step = +attr(id, 'target_temp_step') || 0.5;
+  const v = Math.min(+attr(id, 'max_temp') || 35, Math.max(+attr(id, 'min_temp') || 5, Math.round((cur + Math.sign(d) * step) / step) * step));
   clearTimeout(tmpQ[id] && tmpQ[id].t); tmpQ[id] = { v, t: setTimeout(() => { call('climate', 'set_temperature', { entity_id: id, temperature: v }); delete tmpQ[id]; }, 600) };
-  document.querySelectorAll(`[data-tmp="${id}"]`).forEach(b => { const sp = b.parentElement.querySelector('.spv'); if (sp) sp.textContent = fmtT(v) + '°'; }); }
+  document.querySelectorAll(`[data-tmp="${id}"]`).forEach(b => { const sp = b.parentElement.querySelector('.spv, .spbox'); if (sp) sp.textContent = fmtT(v) + '°'; }); }
 async function ensureTimer(tid, labels, dur){
   if (st(tid)) return tid;
   try { await HA().callWS({ type: 'timer/create', name: tid.split('.')[1], duration: dur, restore: true });
@@ -725,8 +726,11 @@ start();
 
 /* ---------- header: room climate + outside forecast, on every page ---------- */
 function renderHead(){
-  const th = (M && M.roomTH) || {}; let w = Object.keys(S()).find(id => dmn(id) === 'weather'); if (w && (!real(w) || !isFinite(parseFloat(attr(w, 'temperature'))))) w = null; const fc = w && FC && FC[0] && FC[0].temperature != null ? FC[0] : null;
-  $('hroom').innerHTML = `<div class="hl">Room</div><div class="hv">${th.t != null ? fmtT(th.t) + '°' : '--'}${th.h != null ? `<span>${th.h}%</span>` : ''}</div>`;
+  /* 1.6.1: on the WC tab (or another attached room) the header shows that room's own temperature and humidity */
+  const zk = view === 'wc' ? 'wc' : view.startsWith('att:') ? view.slice(4) : null; const Z = zk && M && M.att && M.att[zk];
+  const own = Z && Z.th && (Z.th.t != null || Z.th.h != null);
+  const th = own ? Z.th : (M && M.roomTH) || {}; const lbl = own ? (Z.z.name || Z.z.key || 'WC') : 'Room'; let w = Object.keys(S()).find(id => dmn(id) === 'weather'); if (w && (!real(w) || !isFinite(parseFloat(attr(w, 'temperature'))))) w = null; const fc = w && FC && FC[0] && FC[0].temperature != null ? FC[0] : null;
+  $('hroom').innerHTML = `<div class="hl">${esc(lbl)}</div><div class="hv">${th.t != null ? fmtT(th.t) + '°' : '--'}${th.h != null ? `<span>${th.h}%</span>` : ''}</div>`;
   $('hout').innerHTML = w ? `<div class="hl">${svg('cloud', 'width:12px;height:12px')}<span>${esc(st(w).state.replace(/[-_]/g, ' '))}</span></div><div class="hv">${Math.round(attr(w, 'temperature'))}°${fc ? `<span>${Math.round(fc.temperature)}° / ${Math.round(fc.templow)}°</span>` : ''}</div>` : '';
 }
 

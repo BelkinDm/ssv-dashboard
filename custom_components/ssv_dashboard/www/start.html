@@ -16,7 +16,7 @@ h1{margin:0;color:#E8EDF2;font-weight:300;font-size:min(14vw,96px);letter-spacin
 b{color:#E8EDF2;font-weight:500;font-size:18px}
 small{font:12px/1.6 ui-monospace,Menlo,Consolas,monospace;letter-spacing:.12em;text-transform:uppercase;color:#56636F}
 </style></head>
-<body><div class="c"><h1 id="clk">--:--</h1><div class="d"></div><b>Reconnecting…</b><small id="s">__NAME__ · waiting for Home Assistant</small></div>
+<body><div class="c"><h1 id="clk">--:--</h1><div class="d"></div><b>Reconnecting…</b><small id="s">Your home automation will start soon</small></div>
 <script>
 (() => {
   const HA = '__HA__'.replace(/\/+$/, '');           /* Home Assistant address as the tablet reaches it */
@@ -27,7 +27,7 @@ small{font:12px/1.6 ui-monospace,Menlo,Consolas,monospace;letter-spacing:.12em;t
   let n = 0;
   const try_ = () => {
     n++; const img = new Image(); let done = false;
-    const next = () => { if (done) return; done = true; document.getElementById('s').textContent = '__NAME__ · Home Assistant is not answering · try ' + n; setTimeout(try_, Math.min(3000 * n, 15000)); };
+    const next = () => { if (done) return; done = true; document.getElementById('s').textContent = 'Your home automation will start soon'; setTimeout(try_, Math.min(3000 * n, 15000)); };
     img.onload = () => { if (done) return; done = true; location.replace(PAGE); };
     img.onerror = next; setTimeout(next, 8000);
     img.src = PING + '?t=' + Date.now();

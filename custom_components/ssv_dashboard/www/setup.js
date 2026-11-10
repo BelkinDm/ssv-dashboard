@@ -176,7 +176,7 @@ class SSVSetup extends HTMLElement {
         : '<span class="dim">On / Off only — no temperature sensor (label Temperature Humidity) in this room</span>';
       return `<tr><td>${esc(x.name)}<div class="mono dim">${esc(x.relay)}</div></td><td>${esc(x.area_name || '—')}</td><td>${x.sensors.length ? esc(x.sensors.map(nm).join(', ')) : '<span class="dim">—</span>'}</td><td class="act" style="text-align:left">${act}</td></tr>`; }).join('');
     return `<div class="card"><h2>Floor heating on relays</h2>
-      <p>Relays and valves with the label UFH. Without a room sensor the panels show On / Off and Run. With a sensor, <b>Make thermostat</b> creates Home Assistant's Generic Thermostat (relay + sensor): the panels then show the room temperature and the set point, and the relay itself is hidden (label No Panel). Defaults: 16–28 °C, hysteresis 0.3 °C, at least 5 min between valve switchings — change them in the thermostat's options.</p>
+      <p>Relays and valves with the label UFH. Without a room sensor the panels show On / Off. With a sensor, <b>Make thermostat</b> creates Home Assistant's Generic Thermostat (relay + sensor): the panels then show the room temperature and the set point, and the relay itself is hidden (label No Panel). Defaults: 16–28 °C, set point step 1 °C, hysteresis 3 °C, at least 5 min between valve switchings — change them in the thermostat's options.</p>
       <table><tr><th style="width:30%">Relay</th><th style="width:16%">Room</th><th style="width:22%">Room sensor</th><th>Thermostat</th></tr>${rows}</table></div>`;
   }
   /* the start file for one panel: kept on the tablet, Fully Kiosk Start URL; opens the panel when HA answers */

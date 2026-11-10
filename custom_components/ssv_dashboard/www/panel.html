@@ -241,13 +241,13 @@ button{font:inherit;color:inherit;cursor:pointer;margin:0}
   <div id="crit" class="scrim" role="alertdialog" aria-modal="true"></div>
   <div id="toast"></div>
   <div id="night"></div>
-  <div id="conn">Connecting to Home Assistant…</div>
+  <div id="conn">Connecting…</div>
 </div>
 
 <script>
 /* SSV wall panel 10" — single consolidated file (no override blocks).
    BUILD changes on every deploy; open panels compare it every 10 min and reload themselves. */
-const BUILD = '1.6.0';
+const BUILD = '1.6.1';
 let lastMsg = Date.now(), downSince = 0, noData = 0, reloading = false; const BOOT = Date.now();
 const UNAVAILABLE = '<div class="empty">This section is temporarily unavailable</div>';
 function safe(fn, fallback = ''){ try { return fn(); } catch (e) { console.error('[panel]', e); return fallback; } }
@@ -1851,7 +1851,7 @@ function schAct(a, d){
   else if (a === 'day') ED.days = ED.days.includes(d.id) ? ED.days.filter(x => x !== d.id) : ED.days.concat(d.id);
   else if (a === 'pre') ED.days = DPRE[d.id].slice();
   else if (a === 'onoff') { e.on = !e.on; if (e.temp == null) e.temp = edDefTemp(ED.ent); }
-  else if (a === 'tmp') e.temp = Math.round(((+e.temp || 22) + (+d.d)) * 2) / 2;
+  else if (a === 'tmp') { const stp = +attr(ED.ent, 'target_temp_step') || 0.5; e.temp = Math.min(+attr(ED.ent, 'max_temp') || 35, Math.max(+attr(ED.ent, 'min_temp') || 5, Math.round(((+e.temp || 22) + Math.sign(+d.d) * stp) / stp) * stp)); }
   else if (a === 'del') ED.ev.splice(+d.i, 1);
   else if (a === 'addpair') ED.ev.push({ time: '18:00', sun: '', off: 0, on: true, temp: edDefTemp(ED.ent) }, { time: '22:00', sun: '', off: 0, on: false, temp: edDefTemp(ED.ent) });
   else if (a === 'addone') ED.ev.push({ time: '12:00', sun: '', off: 0, on: true, temp: edDefTemp(ED.ent) });
