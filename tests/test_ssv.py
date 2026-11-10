@@ -434,6 +434,20 @@ async def test_relay_floor_heating_thermostat(hass, hass_ws_client):
     assert (await client.receive_json())["result"]["climate"] == climate
     await client.send_json({"id": 4, "type": f"{DOMAIN}/thermostats/list"})
     assert (await client.receive_json())["result"]["items"][0]["thermostat"] == climate
+    # 1.6.1: step 1 °C, hysteresis 3 °C
+    assert st.attributes.get("target_temp_step") == 1
+    gt = hass.config_entries.async_entries("generic_thermostat")[0]
+    assert gt.options["cold_tolerance"] == 3 and gt.options["hot_tolerance"] == 3
+    # a thermostat SSV made before 1.6.1 gets them once at start
+    from custom_components.ssv_dashboard.thermostats import THERMO_FLAG, async_migrate_thermostats
+    hass.config_entries.async_update_entry(gt, options={**gt.options, "cold_tolerance": 0.3, "hot_tolerance": 0.3, "target_temp_step": "0.5"})
+    store = hass.data[DOMAIN]["panels"]
+    store.flags = [f for f in store.flags if f != THERMO_FLAG]
+    assert await async_migrate_thermostats(hass, store) == 1
+    await hass.async_block_till_done()
+    assert gt.options["cold_tolerance"] == 3 and gt.options["target_temp_step"] == 1
+    assert hass.states.get(climate).attributes.get("target_temp_step") == 1
+    assert await async_migrate_thermostats(hass, store) == 0   # only once
 
 
 async def test_no_inex_objects_after_start(hass):
