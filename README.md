@@ -10,6 +10,7 @@ Everything on the panels is built from Home Assistant itself: floors → rooms �
 | Room panel 4″ (`room.html`) | Light, curtains, climate, WC and water of one room, night mode |
 | Phone (`phone.html`) | Same logic with bottom tabs Home · Rooms · Lights · Climate · More; on a screen of 600 × 900 or more it switches to the Tablet dashboard |
 | User scenes | The owner and users create, change and delete their own scenes from devices labelled **Scene Device** — only with values the device supports; brightness, colour, AC mode, set point and fan speed; each device can start later and go back after N minutes; check boxes choose the panels and the 10″ Home page |
+| Schedules | Schedule tab (10″, tablet, phone): device, days and On / Off times. All choices open in panel-style windows, never the white Android lists: **Device** — rooms on the left, devices with a coloured icon on the right (light — amber bulb, boiler — red drop, pump — green, AC — blue snowflake, floor / wall heating — red, curtains — violet, watering — teal); **Action** — On / Off, Open / Close, Heat or Cool / Off (climate rows with Heat / Cool also have a set point); **Time** — 24 h, two fields hours : minutes and a number pad that only lets you type 00–23 and 00–59; Sunrise / Sunset with a shift. Windows open and close softly |
 | Run timers | Run buttons (e.g. 1h / 2h / 3h) for heated walls, hot water and recirculation (floor heating: On / Off, set point and schedules, no Run) — chosen on the SSV Dashboard page; the integration turns the device off when the timer ends |
 | `sensor.ssv_time` | Panel clocks follow Home Assistant time, not the tablet's clock |
 | Panels | Each screen is a panel with a name, screen type (10″, 4″, Tablet, Phone; 5.5″ Main / Room coming), purpose (residential, hotel room, office, gym, common area), rooms, attached rooms (WC, Shower…) and tabs; each gets its own dashboard and labels `Panel <Name>`, `Panel <Name> <Room>` |
@@ -37,7 +38,7 @@ Then put labels on your entities (Settings → Entities → select → Add label
 
 When the power comes back, a tablet starts faster than Home Assistant. Without help it shows “Unable to connect”, “Bad Gateway” or a white “404: Not Found” and stays there. SSV Dashboard avoids this in two places:
 
-1. **Inside Home Assistant** the dashboards open the panel through `/local/ssv/loader.html` (the integration writes it to `/config/www/ssv/`). Home Assistant serves it even while it is still starting; it shows “Reconnecting…” and opens the panel as soon as SSV Dashboard answers. On a new install `/local` works after one more restart; the SSV Dashboard page then switches the dashboards over by itself.
+1. **Inside Home Assistant** the dashboards open the panel through `/local/ssv/loader.html` (the integration writes it to `/config/www/ssv/`). Home Assistant serves it even while it is still starting; it shows “Reconnecting…” and opens the panel as soon as SSV Dashboard answers. The loader stays as a guard around the panel: every 15 s it checks that the panel is still there, and if after an update or a restart the panel was left on “404: Not Found”, “Bad Gateway” or a blank screen, it shows “Reconnecting…” and opens the panel again as soon as SSV Dashboard answers — no reload by hand, no Fully Kiosk timer. On a new install `/local` works after one more restart; the SSV Dashboard page then switches the dashboards over by itself.
 2. **On the tablet** keep the panel's start file: SSV Dashboard page → panel → **Tablet file** → `ssv-start-<id>.html`. Copy it to the tablet's *Download* folder.
 
 Fully Kiosk Browser settings (menu names can differ a little between Fully versions):
@@ -88,7 +89,7 @@ Since 1.5 nothing SSV makes carries the old INEX name: at start SSV replaces tim
 4. Пользовательские сцены делают сами жильцы на панели: яркость, цвет, режим и уставка кондиционера, скорость вентилятора; у каждого устройства своя задержка включения и возврат через N минут; галочками — на каких панелях и на главной 10″.
 5. Повесить метки на зоны, устройства и сущности — сами метки создаёт интеграция.
 
-Обновление: новый Release на GitHub → HACS → Обновить → перезапуск. Панели перезагрузятся сами в течение 10 минут; о новой версии SSV сообщает уведомлением в HA.
+Обновление: новый Release на GitHub → HACS → Обновить → перезапуск. Панели перезагрузятся сами в течение 10 минут; о новой версии SSV сообщает уведомлением в HA. Если после обновления или перезапуска панель осталась на «404: Not Found», «Bad Gateway» или пустом экране, загрузчик это заметит (проверка каждые 15 с), покажет «Reconnecting…» и сам откроет панель, как только SSV ответит.
 
 ## Labels
 
