@@ -247,7 +247,7 @@ button{font:inherit;color:inherit;cursor:pointer;margin:0}
 <script>
 /* SSV wall panel 10" — single consolidated file (no override blocks).
    BUILD changes on every deploy; open panels compare it every 10 min and reload themselves. */
-const BUILD = '1.6.2';
+const BUILD = '1.6.3';
 let lastMsg = Date.now(), downSince = 0, noData = 0, reloading = false; const BOOT = Date.now();
 const UNAVAILABLE = '<div class="empty">This section is temporarily unavailable</div>';
 function safe(fn, fallback = ''){ try { return fn(); } catch (e) { console.error('[panel]', e); return fallback; } }
@@ -1767,7 +1767,14 @@ const SHORT = [
   [/\b(thermostat|relay|actuator|controller|switch|valve|climate|entity|device)\b/gi, ''],
   [/\([^)]*\)/g, ''],
 ];
+/* 1.6.3: floor heating is just UFH, air conditioning AC, a heated wall Heated wall — whatever the HA name says
+   (floors, zones, other rooms). Two of the same kind in one room: UFH 1, UFH 2 */
+const SCH_FIXED = { waves: 'UFH', snow: 'AC', hwall: 'Heated wall' };
 function schName(id){
+  const t = devType(id), fx = SCH_FIXED[t.ic];
+  if (fx) { const rn = (schRoom(id) || {}).name || '';
+    const same = schEnts().filter(x => devType(x).ic === t.ic && ((schRoom(x) || {}).name || '') === rn).sort();
+    return same.length > 1 ? fx + ' ' + (same.indexOf(id) + 1) : fx; }
   let n = NM(id); const r = schRoom(id); const a = areaName(id);
   [r && r.name, a].filter(Boolean).forEach(x => { const re = new RegExp('(^|[\\s·\\-–—,])' + String(x).replace(/[.*+?^$(){}|[\]\\]/g, '\\$&') + '(?=[\\s·\\-–—,]|$)', 'gi'); const m = n.replace(re, ' ').trim(); if (m) n = m; });
   for (const [re, to] of SHORT) n = n.replace(re, to);
