@@ -88,6 +88,7 @@ class PanelStore:
         self.seen: list[str] = []            # candidates the installer has already been shown
         self.managed_timers: list[str] = []
         self.notified: str | None = None     # last version announced as an update
+        self.flags: list[str] = []           # one-time migrations already done
         self._listeners: list = []
 
     async def async_load(self) -> None:
@@ -107,12 +108,13 @@ class PanelStore:
         self.seen = data.get("seen", [])
         self.notified = data.get("notified")
         self.managed_timers = data.get("managed_timers", [])
+        self.flags = data.get("flags", [])
 
     @callback
     def async_save(self) -> None:
         self._store.async_delay_save(
             lambda: {"panels": self.panels, "timers": self.timers, "seen": self.seen,
-                     "managed_timers": self.managed_timers, "notified": self.notified}, 1)
+                     "managed_timers": self.managed_timers, "notified": self.notified, "flags": self.flags}, 1)
         for cb in list(self._listeners):
             cb()
 

@@ -7,8 +7,10 @@ the set point, the room temperature, schedules and Run timers work as with any f
 thermostat keeps working without SSV. The new climate gets the relay's area and labels plus
 Climate + UFH; the relay gets No Panel so the panel does not show it twice.
 
-Defaults (change them later in the thermostat's options): 16–28 °C, hysteresis 0.3 °C,
-at least 5 minutes between valve switchings (thermal actuators take minutes to open).
+Defaults (change them later in the thermostat's options): 16–28 °C, set point step 1 °C,
+hysteresis 3 °C (cold and hot tolerance), at least 5 minutes between valve switchings
+(thermal actuators take minutes to open). 1.6.1: thermostats SSV made earlier get the
+step and hysteresis once, at the first start of 1.6.1.
 """
 from __future__ import annotations
 
@@ -17,6 +19,7 @@ import logging
 import voluptuous as vol
 
 from homeassistant.components import websocket_api
+from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import area_registry as ar, device_registry as dr, entity_registry as er
 
@@ -27,12 +30,15 @@ _LOGGER = logging.getLogger(__name__)
 GT = "generic_thermostat"
 DEFAULTS = {
     "ac_mode": False,
-    "cold_tolerance": 0.3,
-    "hot_tolerance": 0.3,
+    "cold_tolerance": 3.0,
+    "hot_tolerance": 3.0,
     "min_cycle_duration": {"hours": 0, "minutes": 5, "seconds": 0},
     "min_temp": 16.0,
     "max_temp": 28.0,
 }
+# set after the flow: older Home Assistant has no step field in the Generic Thermostat form,
+# but every version reads target_temp_step from the entry options
+STEP = {"target_temp_step": 1.0}   # a number: older versions do not accept the text "1"
 
 
 def _area(hass: HomeAssistant, eid: str) -> str | None:
@@ -114,6 +120,11 @@ async def async_make_thermostat(hass: HomeAssistant, relay: str, sensor: str) ->
         raise vol.Invalid(f"Thermostat not created: {res.get('errors') or res.get('reason') or res.get('type')}")
     await hass.async_block_till_done()
     entry_id = res["result"].entry_id
+    gt = hass.config_entries.async_get_entry(entry_id)
+    if gt is not None and gt.options.get("target_temp_step") != STEP["target_temp_step"]:
+        hass.config_entries.async_update_entry(gt, options={**gt.options, **STEP})
+        await hass.config_entries.async_reload(entry_id)
+        await hass.async_block_till_done()
     climate = next((e.entity_id for e in er.async_entries_for_config_entry(reg, entry_id) if e.domain == "climate"), None)
     if climate is None:
         raise vol.Invalid("Thermostat created but its climate entity was not found")
@@ -124,6 +135,31 @@ async def async_make_thermostat(hass: HomeAssistant, relay: str, sensor: str) ->
     reg.async_update_entity(relay, labels=relay_labels | {"no_panel"})
     _LOGGER.info("Thermostat %s made for %s with %s", climate, relay, sensor)
     return climate
+
+
+THERMO_FLAG = "thermostat_step1_hyst3"   # 1.6.1, done once per install
+
+
+async def async_migrate_thermostats(hass: HomeAssistant, store) -> int:
+    """Once: thermostats SSV made on floor-heating relays get step 1 °C and hysteresis 3 °C."""
+    if THERMO_FLAG in store.flags:
+        return 0
+    relays = {c["relay"] for c in candidates(hass)}
+    want = {"cold_tolerance": DEFAULTS["cold_tolerance"], "hot_tolerance": DEFAULTS["hot_tolerance"], **STEP}
+    n = 0
+    for entry in hass.config_entries.async_entries(GT):
+        if entry.options.get("heater") not in relays:
+            continue
+        if all(str(entry.options.get(k)) == str(v) for k, v in want.items()):
+            continue
+        hass.config_entries.async_update_entry(entry, options={**entry.options, **want})
+        if entry.state is ConfigEntryState.LOADED:
+            hass.config_entries.async_schedule_reload(entry.entry_id)
+        n += 1
+        _LOGGER.info("Thermostat %s: step 1 °C, hysteresis 3 °C", entry.title)
+    store.flags.append(THERMO_FLAG)
+    store.async_save()
+    return n
 
 
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/thermostats/list"})
