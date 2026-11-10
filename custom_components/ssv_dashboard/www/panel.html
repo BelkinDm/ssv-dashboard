@@ -1777,8 +1777,11 @@ function edNew(id){ const t = id || schEnts()[0] || null; ED = { eid: null, ent:
 function edLoad(eid){ const it = SCH.find(x => x.entity_id === eid); if (!it) return false; const t = schTarget(it);
   ED = { eid, ent: t, days: (it.weekdays || []).flatMap(x => DPRE[x] || [x]), ev: (it.timeslots || []).map(ts => { const e = evOf(ts); const m = /^(sunrise|sunset)(?:([+-])(\d\d):(\d\d))?/.exec(e.time || '');
     return { time: m ? '07:00' : (e.time || '07:00').slice(0, 5), sun: m ? m[1] : '', off: m && m[2] ? (m[2] === '-' ? -1 : 1) * ((+m[3]) * 60 + (+m[4])) : 0, on: e.on, temp: e.temp != null ? e.temp : edDefTemp(t) }; }) }; return true; }
-function schEditor(){
-  if (!ED) return; const isC = ED.ent && dmn(ED.ent) === 'climate';
+/* 1.6.1: a re-render keeps where the lists were scrolled to (rooms in the device picker, the time list) */
+const SCROLLS = ['.pkrs', '.pkds', '.pkl', '#ov .dlg > div[style*="overflow:auto"]'];
+function keepScroll(skip){ const o = {}; SCROLLS.forEach(q => { const el = document.querySelector(q); if (el && !(skip || []).includes(q)) o[q] = [el.scrollTop, el.scrollLeft]; }); return () => SCROLLS.forEach(q => { const el = document.querySelector(q); if (el && o[q]) { el.scrollTop = o[q][0]; el.scrollLeft = o[q][1]; } }); }
+function schEditor(skip){
+  if (!ED) return; const restore = keepScroll(skip); const isC = ED.ent && dmn(ED.ent) === 'climate';
   const ents = schEnts().map(id => { const r = schRoom(id); return `<button class="btn${id === ED.ent ? ' sel' : ' ghost'}" data-sch="ent" data-id="${id}" style="flex:none;padding:0 16px">${esc((r ? r.name + ' · ' : '') + NM(id))}</button>`; }).join('');
   const days = DAYS.map(([k, n]) => `<button class="btn${ED.days.includes(k) ? ' sel' : ' ghost'}" data-sch="day" data-id="${k}">${n}</button>`).join('');
   const pre = [['daily', 'Every day'], ['workday', 'Weekdays'], ['weekend', 'Weekend']].map(([k, n]) => `<button class="btn ghost f" data-sch="pre" data-id="${k}">${n}</button>`).join('');
@@ -1797,6 +1800,7 @@ function schEditor(){
     <div style="flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column">${rows || '<div class="empty">Add an On or Off time</div>'}</div>
     <div class="row" style="gap:10px"><button class="btn ghost f" data-sch="addpair" style="gap:8px">${svg('plus')}On + Off</button><button class="btn ghost f" data-sch="addone" style="gap:8px">${svg('plus')}One time</button><div class="sp"></div>
       ${ED.eid ? `<button class="btn ghost f" data-sch="remove" style="gap:8px">${svg('x')}Delete</button>` : ''}<button class="btn f sel" data-sch="save" style="min-width:160px">Save</button></div></div>${pkHtml()}`, 'sched');
+  restore();
 }
 function edAction(e){ const id = ED.ent, d = dmn(id);
   if (d === 'climate') return e.on ? { service: 'climate.set_temperature', entity_id: id, service_data: { temperature: e.temp, hvac_mode: climateKind(id) === 'ac' ? 'cool' : 'heat' } } : { service: 'climate.set_hvac_mode', entity_id: id, service_data: { hvac_mode: 'off' } };
@@ -1832,7 +1836,7 @@ function schAct(a, d){
     if (d.k === 'time') { const t = String(e.time || '07:00'); Object.assign(ED.pk, { v: { h: t.slice(0, 2), m: t.slice(3, 5) }, f: 'h', buf: null }); }
     return schEditor(); }
   if (a === 'pkclose') { ED.pk = null; return schEditor(); }
-  if (P && a === 'pkroom') { P.room = d.v; return schEditor(); }
+  if (P && a === 'pkroom') { P.room = d.v; return schEditor(['.pkds']); }   /* rooms stay where they were, the new room's devices from the top */
   if (a === 'pkdev') { ED.ent = d.id; ED.ev.forEach(x => { if (x.temp == null) x.temp = edDefTemp(d.id); }); ED.pk = null; return schEditor(); }
   if (P && a === 'pkv') { const x = ED.ev[P.i];
     if (P.k === 'act') { x.on = d.v === '1'; if (x.temp == null) x.temp = edDefTemp(ED.ent); }
