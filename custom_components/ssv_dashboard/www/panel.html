@@ -247,7 +247,7 @@ button{font:inherit;color:inherit;cursor:pointer;margin:0}
 <script>
 /* SSV wall panel 10" — single consolidated file (no override blocks).
    BUILD changes on every deploy; open panels compare it every 10 min and reload themselves. */
-const BUILD = '1.6.1';
+const BUILD = '1.6.2';
 let lastMsg = Date.now(), downSince = 0, noData = 0, reloading = false; const BOOT = Date.now();
 const UNAVAILABLE = '<div class="empty">This section is temporarily unavailable</div>';
 function safe(fn, fallback = ''){ try { return fn(); } catch (e) { console.error('[panel]', e); return fallback; } }
@@ -1745,7 +1745,7 @@ function viewSchedule(){
   const cards = list.map(it => { const tgt = schTarget(it); const on = schOn(it); const r = tgt && schRoom(tgt);
     const nx = it.timestamps && (it.next_entries || []).length ? it.timestamps[it.next_entries[0]] : null;
     return `<div class="card" style="gap:12px">
-      <div class="row" style="gap:14px">${tgt && S[tgt] ? devIcon(tgt, 44) : ''}<div class="col"><div class="e w">${esc(tgt && S[tgt] ? NM(tgt) : it.name || 'Schedule')}</div><div class="s">${esc((r ? r.name + ' · ' : '') + dayText(it.weekdays))}</div></div>
+      <div class="row" style="gap:14px">${tgt && S[tgt] ? devIcon(tgt, 44) : ''}<div class="col"><div class="e w">${esc(tgt && S[tgt] ? schName(tgt) : it.name || 'Schedule')}</div><div class="s">${esc((r ? r.name + ' · ' : '') + dayText(it.weekdays))}</div></div>
         <button class="sw${on ? ' on' : ''}" data-sch="toggle" data-id="${it.entity_id}" aria-label="Enable schedule"><i></i></button></div>
       <div style="flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;gap:6px;justify-content:center">${(it.timeslots || []).map(evOf).map(e => `<div class="row" style="gap:12px;justify-content:flex-start"><div style="font-size:22px;font-weight:300;min-width:150px">${esc(timeText(e.time))}</div><div class="s${e.on ? ' heat' : ''}">${esc(evText(e, tgt))}</div></div>`).join('')}</div>
       <div class="row" style="gap:10px"><div class="s" style="flex:1">${on ? (nx ? 'Next · ' + esc(haAt(Date.parse(nx)).toLocaleString('en-GB', { weekday: 'short', hour: '2-digit', minute: '2-digit' })) : '') : 'Paused'}</div>
@@ -1755,6 +1755,25 @@ function viewSchedule(){
   return `<div class="vw"><div class="bar"><button class="btn f sel" data-sch="new" style="gap:8px">${svg('plus')}New schedule</button><div class="sp"></div>${pager}
       ${list.length ? `<button class="btn f" data-sch="${anyOn ? 'pauseall' : 'resumeall'}" style="gap:8px">${svg(anyOn ? 'stop' : 'play')}${anyOn ? 'Pause all' : 'Resume all'}</button>` : ''}</div>
     <div class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr))">${items.join('') || `<div class="empty" style="grid-column:1/-1">${schEnts().length ? 'No schedules yet · tap New schedule' : 'Label devices with Schedule to plan them here'}</div>`}</div></div>`;
+}
+/* 1.6.1: short device names on the Schedule tab — the room is already shown next to them, so it is cut out,
+   and long technical words become the usual short forms: Floor heating → UFH, Air conditioner → AC, … */
+const SHORT = [
+  [/\b(under\s*floor|underfloor|floor)\s*heating\b|\bheated\s*floor\b|\bufh\b/gi, 'UFH'],
+  [/\bair\s*condition(er|ing)\b|\ba\/?c\b/gi, 'AC'],
+  [/\b(heated\s*wall|wall\s*heating)\b/gi, 'Heated wall'],
+  [/\bdomestic\s*hot\s*water\b|\bdhw\b/gi, 'Hot water'],
+  [/\brecirculation\s*pump\b/gi, 'Recirculation'],
+  [/\b(thermostat|relay|actuator|controller|switch|valve|climate|entity|device)\b/gi, ''],
+  [/\([^)]*\)/g, ''],
+];
+function schName(id){
+  let n = NM(id); const r = schRoom(id); const a = areaName(id);
+  [r && r.name, a].filter(Boolean).forEach(x => { const re = new RegExp('(^|[\\s·\\-–—,])' + String(x).replace(/[.*+?^$(){}|[\]\\]/g, '\\$&') + '(?=[\\s·\\-–—,]|$)', 'gi'); const m = n.replace(re, ' ').trim(); if (m) n = m; });
+  for (const [re, to] of SHORT) n = n.replace(re, to);
+  n = n.replace(/\s*[·\-–—,]\s*$/, '').replace(/^\s*[·\-–—,]\s*/, '').replace(/\s+/g, ' ').trim();
+  if (!n) n = devType(id).sub;
+  return /^[a-z]/.test(n) ? n.charAt(0).toUpperCase() + n.slice(1) : n;
 }
 /* 1.6.0: one icon and colour per device type — schedule device picker, editor and Schedule cards */
 const TCOL = { amber: ['var(--amber)', 'rgba(226,182,110,.14)'], heat: ['var(--heat)', 'rgba(232,142,126,.14)'], mint: ['var(--mint)', 'rgba(143,217,182,.14)'], cool: ['var(--cool)', 'rgba(140,192,232,.14)'], violet: ['#B79CF0', 'rgba(183,156,240,.14)'], teal: ['#6FC6D9', 'rgba(111,198,217,.14)'], grey: ['var(--text2)', 'rgba(147,163,179,.12)'] };
@@ -1782,7 +1801,7 @@ const SCROLLS = ['.pkrs', '.pkds', '.pkl', '#ov .dlg > div[style*="overflow:auto
 function keepScroll(skip){ const o = {}; SCROLLS.forEach(q => { const el = document.querySelector(q); if (el && !(skip || []).includes(q)) o[q] = [el.scrollTop, el.scrollLeft]; }); return () => SCROLLS.forEach(q => { const el = document.querySelector(q); if (el && o[q]) { el.scrollTop = o[q][0]; el.scrollLeft = o[q][1]; } }); }
 function schEditor(skip){
   if (!ED) return; const restore = keepScroll(skip); const isC = ED.ent && dmn(ED.ent) === 'climate';
-  const ents = schEnts().map(id => { const r = schRoom(id); return `<button class="btn${id === ED.ent ? ' sel' : ' ghost'}" data-sch="ent" data-id="${id}" style="flex:none;padding:0 16px">${esc((r ? r.name + ' · ' : '') + NM(id))}</button>`; }).join('');
+  const ents = schEnts().map(id => { const r = schRoom(id); return `<button class="btn${id === ED.ent ? ' sel' : ' ghost'}" data-sch="ent" data-id="${id}" style="flex:none;padding:0 16px">${esc((r ? r.name + ' · ' : '') + schName(id))}</button>`; }).join('');
   const days = DAYS.map(([k, n]) => `<button class="btn${ED.days.includes(k) ? ' sel' : ' ghost'}" data-sch="day" data-id="${k}">${n}</button>`).join('');
   const pre = [['daily', 'Every day'], ['workday', 'Weekdays'], ['weekend', 'Weekend']].map(([k, n]) => `<button class="btn ghost f" data-sch="pre" data-id="${k}">${n}</button>`).join('');
   const offs = [-120, -90, -60, -45, -30, -15, 0, 15, 30, 45, 60, 90, 120];
@@ -1877,7 +1896,7 @@ function schGroups(){
 function entButton(){
   if (!schEnts().length) return '<div class="empty">No devices labelled Schedule</div>';
   const id = ED.ent, r = id && schRoom(id);
-  return `<button class="btn ghost dd dev" data-sch="pk" data-k="dev">${id ? devIcon(id, 40) + `<span class="dn">${esc((r ? r.name + ' · ' : '') + NM(id))}</span>` : '<span class="dn" style="padding-left:10px;color:var(--text2)">Choose a device</span>'}${svg('chevd')}</button>`;
+  return `<button class="btn ghost dd dev" data-sch="pk" data-k="dev">${id ? devIcon(id, 40) + `<span class="dn">${esc((r ? r.name + ' · ' : '') + schName(id))}</span>` : '<span class="dn" style="padding-left:10px;color:var(--text2)">Choose a device</span>'}${svg('chevd')}</button>`;
 }
 const tpDone = (P) => P.buf == null && P.v.h.length === 2 && P.v.m.length === 2;
 function pkHtml(){
@@ -1890,7 +1909,7 @@ function pkHtml(){
     const room = P.room && groups[P.room] ? P.room : (groups[cur] ? cur : order[0]);
     body = `<div class="pkh"><b>Device</b><button class="btn sq ghost" data-sch="pkclose" aria-label="Close">${svg('x')}</button></div>
       <div class="pkc"><div class="pkrs">${order.map(g => `<button class="pkr${g === room ? ' cur' : ''}" data-sch="pkroom" data-v="${esc(g)}"><span>${esc(g)}</span><i>${groups[g].length}</i></button>`).join('')}</div>
-      <div class="pkds">${(groups[room] || []).map(id => { const t = devType(id); return `<button class="pkd" data-sch="pkdev" data-id="${id}">${devIcon(id, 44)}<span class="tx"><b>${esc(NM(id))}</b><small>${esc(t.sub + ' · ' + t.acts.join(' / '))}</small></span>${id === ED.ent ? svg('check') : ''}</button>`; }).join('')}</div></div>`;
+      <div class="pkds">${(groups[room] || []).map(id => { const t = devType(id); return `<button class="pkd" data-sch="pkdev" data-id="${id}">${devIcon(id, 44)}<span class="tx"><b>${esc(schName(id))}</b><small>${esc(t.sub + ' · ' + t.acts.join(' / '))}</small></span>${id === ED.ent ? svg('check') : ''}</button>`; }).join('')}</div></div>`;
   } else if (P.k === 'time') {
     const e = ED.ev[P.i], act = (k) => P.f === k, shown = (k) => act(k) && P.buf != null ? P.buf : P.v[k];
     const fld = (k, lbl) => { const v = shown(k); const t = v.length === 0 ? '<i>--</i>' : v.length === 1 ? esc(v) + '<i>_</i>' : esc(v);
@@ -1899,7 +1918,7 @@ function pkHtml(){
     const ok = (n) => P.f === 'h' ? (c.length === 0 ? n <= 2 : (c === '2' ? n <= 3 : true)) : (c.length === 0 ? n <= 5 : true);
     const key = (n, z) => `<button class="tpk${z ? ' z' : ''}" data-sch="tpd" data-n="${n}"${ok(n) ? '' : ' disabled'}>${n}</button>`;
     const done = tpDone(P);
-    body = `<div class="pkh"><b>${esc((ED.ent ? NM(ED.ent) + ' · ' : '') + evLabel(ED.ent, e))} time</b></div>
+    body = `<div class="pkh"><b>${esc((ED.ent ? schName(ED.ent) + ' · ' : '') + evLabel(ED.ent, e))} time</b></div>
       <div class="tpr">${fld('h', 'Hours 00–23')}<div class="tpc">:</div>${fld('m', 'Minutes 00–59')}</div>
       <div class="tpg">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => key(n)).join('')}${key(0, true)}<button class="tpk" data-sch="tpb" aria-label="Delete">${svg('bksp')}</button></div>
       <div class="tpa"><button class="btn ghost" data-sch="pkclose">Cancel</button><button class="btn ghost" data-sch="tpc">Clear</button><button class="btn sel" data-sch="tps"${done ? '' : ' disabled'}>${done ? 'Set ' + P.v.h + ':' + P.v.m : 'Set'}</button></div>`;

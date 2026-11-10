@@ -218,7 +218,7 @@ pumpc: '<circle cx="11" cy="13.5" r="7"/><path d="M11 13.5c1-2.2 3-3.2 4.5-3M11 
   recirc: '<path d="M20 12a8 8 0 0 1-14 5.3M4 12a8 8 0 0 1 14-5.3"/><path d="M18 3v4h-4M6 21v-4h4"/>',
 };
 /* ---------- Home Assistant connection: own WebSocket, independent of the parent page internals ---------- */
-const BUILD = '1.6.1';
+const BUILD = '1.6.2';
 const HC = { ready: false, states: {}, entities: {}, devices: {}, areas: {} };
 let ws = null, wsOk = false, msgId = 0, backoff = 1000, FC_ID = 0, lastMsg = Date.now(), downSince = Date.now(), reloading = false, regT = 0; const BOOT = Date.now();
 const waiters = {};
