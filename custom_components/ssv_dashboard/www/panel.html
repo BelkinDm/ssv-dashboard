@@ -247,7 +247,7 @@ button{font:inherit;color:inherit;cursor:pointer;margin:0}
 <script>
 /* SSV wall panel 10" — single consolidated file (no override blocks).
    BUILD changes on every deploy; open panels compare it every 10 min and reload themselves. */
-const BUILD = '1.6.3';
+const BUILD = '1.6.4';
 let lastMsg = Date.now(), downSince = 0, noData = 0, reloading = false; const BOOT = Date.now();
 const UNAVAILABLE = '<div class="empty">This section is temporarily unavailable</div>';
 function safe(fn, fallback = ''){ try { return fn(); } catch (e) { console.error('[panel]', e); return fallback; } }
@@ -1096,7 +1096,10 @@ function acBlock(id, roomy){
     ${roomy && fans.length ? `<div class="row" style="gap:6px"><span class="s" style="width:44px">Fan</span>${fans.map(f => `<button class="btn${f===a.fan_mode?' sel':''}" data-fan="${id}" data-m="${esc(f)}">${esc(f)}</button>`).join('')}</div>` : ''}</div>`;
 }
 /* status under the name: Off / Heating (On) / Run 1:59:59 — the countdown lives here, so the buttons never change size */
-const ufhStat = (id, off, onTxt) => { const tid = 'timer.ssv_ufh_' + id.split('.')[1]; return off ? 'Off' : tOn(tid) ? 'Run · ' + cdSpan(tid) : onTxt; };
+/* 1.6.4: a floor thermostat that is on has two states — Heating (valve open) and Standby (set point reached, waiting) */
+const STANDBY = '<span style="color:var(--amber)">Standby</span>';
+const ufhPhase = (id) => isRelay(id) ? 'On' : attr(id, 'hvac_action') === 'heating' ? 'Heating' : STANDBY;
+const ufhStat = (id, off, onTxt) => { const tid = 'timer.ssv_ufh_' + id.split('.')[1]; return off ? 'Off' : tOn(tid) ? 'Run · ' + cdSpan(tid) : isRelay(id) ? onTxt : ufhPhase(id); };
 /* floor heating on a relay (valve): On / Off and Run, no set point (Home Assistant thermostat = climate, made on the SSV page) */
 const isRelay = (id) => /^(switch|input_boolean)\./.test(id);
 function relayBlock(id){
@@ -1113,7 +1116,7 @@ const blkLabel = (id) => heatLabel(id).replace(/^Floor heating$/, 'Floor heat');
 function heatBlock(id){
   if (isRelay(id)) return relayBlock(id);
   const s = st(id); const na = !real(id); const off = s.state === 'off' || na;
-  return `<div class="blk ${off?'':'heat'}"><div class="row" style="gap:8px"><div class="lab">${svg('waves', `color:${off?'var(--text2)':'var(--heat)'}`)}<b style="color:${off?'var(--soft)':'var(--heat)'};white-space:nowrap;font-size:12px;letter-spacing:.08em">${esc(blkLabel(id))} · ${na?'Unavailable':off?'Off':'On'}</b></div>
+  return `<div class="blk ${off?'':'heat'}"><div class="row" style="gap:8px"><div class="lab">${svg('waves', `color:${off?'var(--text2)':'var(--heat)'}`)}<b style="color:${off?'var(--soft)':'var(--heat)'};white-space:nowrap;font-size:12px;letter-spacing:.08em">${esc(blkLabel(id))} · ${na?'Unavailable':off?'Off':ufhPhase(id)}</b></div>
     ${stepper(id, off)}<button class="btn sq${off?'':' sel'}" data-mode="${id}" data-m="${off?'heat':'off'}" aria-label="Power">${svg('power')}</button></div>${schedChip([id])}</div>`;
 }
 function ufhRuns(id){

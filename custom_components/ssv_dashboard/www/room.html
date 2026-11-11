@@ -218,7 +218,7 @@ pumpc: '<circle cx="11" cy="13.5" r="7"/><path d="M11 13.5c1-2.2 3-3.2 4.5-3M11 
   recirc: '<path d="M20 12a8 8 0 0 1-14 5.3M4 12a8 8 0 0 1 14-5.3"/><path d="M18 3v4h-4M6 21v-4h4"/>',
 };
 /* ---------- Home Assistant connection: own WebSocket, independent of the parent page internals ---------- */
-const BUILD = '1.6.3';
+const BUILD = '1.6.4';
 const HC = { ready: false, states: {}, entities: {}, devices: {}, areas: {} };
 let ws = null, wsOk = false, msgId = 0, backoff = 1000, FC_ID = 0, lastMsg = Date.now(), downSince = Date.now(), reloading = false, regT = 0; const BOOT = Date.now();
 const waiters = {};
@@ -472,7 +472,8 @@ function ufhRunRow(id){
 function ufhStatus(id, on){
   const tid = 'timer.ssv_ufh_' + id.split('.')[1]; const ts = tState(tid);
   if (on && ts.on) return `Run · <span class="cd" data-left="${tid}">${leftText(ts)}</span>`;
-  return on ? 'On' : 'Off';
+  if (!on) return 'Off';
+  return isRelay(id) ? 'On' : attr(id, 'hvac_action') === 'heating' ? 'Heating' : '<span style="color:var(--amber)">Standby</span>';   /* 1.6.4: valve open / waiting */
 }
 /* WC / attached room: floor heating is the same card as the heated wall, same height — header with name, room
    temperature and status on the right; one row: set point (thermostat only), Manual (on) and Off. No Run buttons here. */
@@ -481,7 +482,7 @@ function ufhCard(id, title, th, zone){
   const tid = 'timer.ssv_ufh_' + id.split('.')[1]; const ts = tState(tid); const timed = !off && ts.on;
   /* the room it heats, as on the Heated wall card: Off · Master Bathroom (1.6.1: no temperature — the header shows the WC's own) */
   const rr = roomOf(id); const where = rr && rr !== ROOM ? pretty(rr) : (zone || '');
-  return `<div class="card${off ? '' : ' heat'}">${cardHead('waves', off ? '' : 'heat', title, (off ? 'Off' : timed ? `Run · <span class="cd" data-left="${tid}">${leftText(ts)}</span>` : 'On') + (where ? ' · ' + esc(where) : ''), `<button class="btn sq${off ? '' : ' sel'}" data-ufh="${off ? 'man' : 'off'}" data-id="${id}" aria-label="Power">${svg('power')}</button>`)}
+  return `<div class="card${off ? '' : ' heat'}">${cardHead('waves', off ? '' : 'heat', title, (off ? 'Off' : timed ? `Run · <span class="cd" data-left="${tid}">${leftText(ts)}</span>` : ufhStatus(id, true)) + (where ? ' · ' + esc(where) : ''), `<button class="btn sq${off ? '' : ' sel'}" data-ufh="${off ? 'man' : 'off'}" data-id="${id}" aria-label="Power">${svg('power')}</button>`)}
     ${relay ? '' : `<div class="row g3e"><button class="btn${off ? ' dim' : ''}" data-tmp="${id}" data-d="-0.5" aria-label="Lower">${svg('minus')}</button><div class="spbox${off ? ' off' : ''}">${attr(id, 'temperature') != null ? fmtT(attr(id, 'temperature')) + '°' : '--'}</div><button class="btn${off ? ' dim' : ''}" data-tmp="${id}" data-d="0.5" aria-label="Higher">${svg('plus')}</button></div>`}</div>`;
 }
 let lpage = 0;
