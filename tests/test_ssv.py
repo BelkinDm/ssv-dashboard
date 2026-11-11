@@ -428,7 +428,7 @@ async def test_relay_floor_heating_thermostat(hass, hass_ws_client):
     assert {"climate", "ufh", "bedroom_2"} <= set(ce.labels) and ce.area_id == area.id
     assert "no_panel" in reg.async_get(relay.entity_id).labels
     st = hass.states.get(climate)
-    assert st is not None and st.attributes["min_temp"] == 16 and st.attributes["max_temp"] == 28
+    assert st is not None and st.attributes["min_temp"] == 16 and st.attributes["max_temp"] == 35
     # second time: the same thermostat, not a new one
     await client.send_json({"id": 3, "type": f"{DOMAIN}/thermostats/make", "relay": relay.entity_id, "sensor": sen.entity_id})
     assert (await client.receive_json())["result"]["climate"] == climate
@@ -437,7 +437,7 @@ async def test_relay_floor_heating_thermostat(hass, hass_ws_client):
     # 1.6.1: step 1 °C, hysteresis 3 °C
     assert st.attributes.get("target_temp_step") == 1
     gt = hass.config_entries.async_entries("generic_thermostat")[0]
-    assert gt.options["cold_tolerance"] == 3 and gt.options["hot_tolerance"] == 3
+    assert gt.options["cold_tolerance"] == 2 and gt.options["hot_tolerance"] == 0
     # a thermostat SSV made before 1.6.1 gets them once at start
     from custom_components.ssv_dashboard.thermostats import THERMO_FLAG, async_migrate_thermostats
     hass.config_entries.async_update_entry(gt, options={**gt.options, "cold_tolerance": 0.3, "hot_tolerance": 0.3, "target_temp_step": "0.5"})
@@ -445,9 +445,29 @@ async def test_relay_floor_heating_thermostat(hass, hass_ws_client):
     store.flags = [f for f in store.flags if f != THERMO_FLAG]
     assert await async_migrate_thermostats(hass, store) == 1
     await hass.async_block_till_done()
-    assert gt.options["cold_tolerance"] == 3 and gt.options["target_temp_step"] == 1
+    assert gt.options["cold_tolerance"] == 2 and gt.options["target_temp_step"] == 1
     assert hass.states.get(climate).attributes.get("target_temp_step") == 1
     assert await async_migrate_thermostats(hass, store) == 0   # only once
+    # 1.6.4: thermostats made with 16–28 °C get 16–35 °C once
+    from custom_components.ssv_dashboard.thermostats import RANGE_FLAG, async_migrate_thermostat_range
+    hass.config_entries.async_update_entry(gt, options={**gt.options, "max_temp": 28.0, "cold_tolerance": 3.0, "hot_tolerance": 3.0})
+    store.flags = [f for f in store.flags if f != RANGE_FLAG]
+    assert await async_migrate_thermostat_range(hass, store) == 1
+    await hass.async_block_till_done()
+    assert hass.states.get(climate).attributes["max_temp"] == 35
+    assert gt.options["cold_tolerance"] == 2 and gt.options["hot_tolerance"] == 0
+    assert await async_migrate_thermostat_range(hass, store) == 0
+    # 1.6.4: room 22.5 °C, floor switched on at 23 °C -> SSV opens the valve at once
+    from pytest_homeassistant_custom_component.common import async_mock_service
+    calls = async_mock_service(hass, "homeassistant", "turn_on")
+    hass.states.async_set(sen.entity_id, "22.5", {"device_class": "temperature", "unit_of_measurement": "°C"})
+    hass.states.async_set(relay.entity_id, "off")
+    await hass.services.async_call("climate", "set_hvac_mode", {"entity_id": climate, "hvac_mode": "off"}, blocking=True)
+    await hass.services.async_call("climate", "set_temperature", {"entity_id": climate, "temperature": 23}, blocking=True)
+    calls.clear()
+    await hass.services.async_call("climate", "set_hvac_mode", {"entity_id": climate, "hvac_mode": "heat"}, blocking=True)
+    await hass.async_block_till_done()
+    assert any(relay.entity_id in str(c.data.get("entity_id")) for c in calls), calls
 
 
 async def test_no_inex_objects_after_start(hass):
