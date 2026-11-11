@@ -7,10 +7,12 @@ the set point, the room temperature, schedules and Run timers work as with any f
 thermostat keeps working without SSV. The new climate gets the relay's area and labels plus
 Climate + UFH; the relay gets No Panel so the panel does not show it twice.
 
-Defaults (change them later in the thermostat's options): 16–28 °C, set point step 1 °C,
-hysteresis 3 °C (cold and hot tolerance), at least 5 minutes between valve switchings
-(thermal actuators take minutes to open). 1.6.1: thermostats SSV made earlier get the
-step and hysteresis once, at the first start of 1.6.1.
+Defaults (change them later in the thermostat's options): set point 16–35 °C, step 1 °C,
+heats up to the set point and waits (Standby) until the room is 2 °C under it (cold tolerance 2,
+hot tolerance 0), at least 5 minutes between valve switchings (thermal actuators take minutes).
+When the floor is switched on or its set point is raised while the room is under the set point,
+SSV opens the valve at once (Generic Thermostat alone would wait for the 2 °C). Thermostats SSV
+made earlier get these values once (1.6.1 step, 1.6.4 range and hysteresis).
 """
 from __future__ import annotations
 
@@ -20,7 +22,8 @@ import voluptuous as vol
 
 from homeassistant.components import websocket_api
 from homeassistant.config_entries import ConfigEntryState
-from homeassistant.core import HomeAssistant
+from homeassistant.const import EVENT_STATE_CHANGED
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import area_registry as ar, device_registry as dr, entity_registry as er
 
 from .const import DOMAIN
@@ -30,11 +33,11 @@ _LOGGER = logging.getLogger(__name__)
 GT = "generic_thermostat"
 DEFAULTS = {
     "ac_mode": False,
-    "cold_tolerance": 3.0,
-    "hot_tolerance": 3.0,
+    "cold_tolerance": 2.0,   # 1.6.4: back on when the room is 2 °C under the set point
+    "hot_tolerance": 0.0,    # valve closes when the set point is reached
     "min_cycle_duration": {"hours": 0, "minutes": 5, "seconds": 0},
     "min_temp": 16.0,
-    "max_temp": 28.0,
+    "max_temp": 35.0,
 }
 # set after the flow: older Home Assistant has no step field in the Generic Thermostat form,
 # but every version reads target_temp_step from the entry options
@@ -138,6 +141,7 @@ async def async_make_thermostat(hass: HomeAssistant, relay: str, sensor: str) ->
 
 
 THERMO_FLAG = "thermostat_step1_hyst3"   # 1.6.1, done once per install
+RANGE_FLAG = "thermostat_164"            # 1.6.4: range 16–35 °C and hysteresis 2 / 0, once per install
 
 
 async def async_migrate_thermostats(hass: HomeAssistant, store) -> int:
@@ -160,6 +164,80 @@ async def async_migrate_thermostats(hass: HomeAssistant, store) -> int:
     store.flags.append(THERMO_FLAG)
     store.async_save()
     return n
+
+
+async def async_migrate_thermostat_range(hass: HomeAssistant, store) -> int:
+    """Once (1.6.4): thermostats SSV made on floor-heating relays get 16–35 °C and hysteresis 2 / 0."""
+    if RANGE_FLAG in store.flags:
+        return 0
+    relays = {c["relay"] for c in candidates(hass)}
+    want = {k: DEFAULTS[k] for k in ("min_temp", "max_temp", "cold_tolerance", "hot_tolerance")}
+    n = 0
+    for entry in hass.config_entries.async_entries(GT):
+        if entry.options.get("heater") not in relays:
+            continue
+        if all(entry.options.get(k) == v for k, v in want.items()):
+            continue
+        hass.config_entries.async_update_entry(entry, options={**entry.options, **want})
+        if entry.state is ConfigEntryState.LOADED:
+            hass.config_entries.async_schedule_reload(entry.entry_id)
+        n += 1
+        _LOGGER.info("Thermostat %s: set point 16–35 °C, hysteresis 2 / 0", entry.title)
+    store.flags.append(RANGE_FLAG)
+    store.async_save()
+    return n
+
+
+def _ssv_thermostats(hass: HomeAssistant) -> dict[str, str]:
+    """climate entity -> relay, for the Generic Thermostats SSV made on floor-heating relays."""
+    relays = {c["relay"] for c in candidates(hass)}
+    reg = er.async_get(hass)
+    out = {}
+    for entry in hass.config_entries.async_entries(GT):
+        heater = entry.options.get("heater")
+        if heater in relays:
+            for ent in er.async_entries_for_config_entry(reg, entry.entry_id):
+                if ent.domain == "climate":
+                    out[ent.entity_id] = heater
+    return out
+
+
+@callback
+def async_setup_start_heating(hass: HomeAssistant):
+    """1.6.4: switched on, or set point raised, while the room is under the set point -> open the valve now.
+
+    Generic Thermostat only switches on when the room is cold_tolerance (2 °C) under the set point; with
+    the room at 22 °C and the set point 23 °C the floor would just wait. Once the valve is open, Generic
+    Thermostat keeps it open up to the set point (hot tolerance 0) and then waits for the 2 °C again."""
+    cache: dict = {"map": None}
+
+    @callback
+    def _registry_changed(_event) -> None:
+        cache["map"] = None
+
+    @callback
+    def _state_changed(event) -> None:
+        eid = event.data.get("entity_id", "")
+        if not eid.startswith("climate."):
+            return
+        if cache["map"] is None:
+            cache["map"] = _ssv_thermostats(hass)
+        relay = cache["map"].get(eid)
+        new, old = event.data.get("new_state"), event.data.get("old_state")
+        if relay is None or new is None or new.state != "heat":
+            return
+        tgt, cur = new.attributes.get("temperature"), new.attributes.get("current_temperature")
+        if tgt is None or cur is None:
+            return
+        started = old is None or old.state != "heat" or (old.attributes.get("temperature") or 0) < tgt
+        rst = hass.states.get(relay)
+        if started and cur < tgt and rst is not None and rst.state == "off":
+            _LOGGER.debug("%s: %.1f < %.1f, opening %s", eid, cur, tgt, relay)
+            hass.async_create_task(hass.services.async_call("homeassistant", "turn_on", {"entity_id": relay}))
+
+    unsubs = [hass.bus.async_listen(EVENT_STATE_CHANGED, _state_changed),
+              hass.bus.async_listen(er.EVENT_ENTITY_REGISTRY_UPDATED, _registry_changed)]
+    return lambda: [u() for u in unsubs]
 
 
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/thermostats/list"})
