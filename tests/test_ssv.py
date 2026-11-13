@@ -457,6 +457,18 @@ async def test_relay_floor_heating_thermostat(hass, hass_ws_client):
     assert hass.states.get(climate).attributes["max_temp"] == 35
     assert gt.options["cold_tolerance"] == 2 and gt.options["hot_tolerance"] == 0
     assert await async_migrate_thermostat_range(hass, store) == 0
+    # 1.6.5: named "UFH <Room>"; an old "<Room> floor heating" is renamed once
+    assert hass.states.get(climate).name == "UFH Bedroom 2"
+    from custom_components.ssv_dashboard.thermostats import NAME_FLAG, async_rename_thermostats
+    reg.async_update_entity(climate, name="Bedroom 2 floor heating")
+    reg.async_update_entity(climate, name=None)
+    hass.states.async_set(climate, hass.states.get(climate).state, {**hass.states.get(climate).attributes, "friendly_name": "Bedroom 2 floor heating"})
+    store.flags = [f for f in store.flags if f != NAME_FLAG]
+    assert await async_rename_thermostats(hass, store) == 1
+    assert reg.async_get(climate).name == "UFH Bedroom 2"
+    reg.async_update_entity(climate, name="My floor")   # a name typed by hand is never touched
+    store.flags = [f for f in store.flags if f != NAME_FLAG]
+    assert await async_rename_thermostats(hass, store) == 0
     # 1.6.4: room 22.5 °C, floor switched on at 23 °C -> SSV opens the valve at once
     from pytest_homeassistant_custom_component.common import async_mock_service
     calls = async_mock_service(hass, "homeassistant", "turn_on")
