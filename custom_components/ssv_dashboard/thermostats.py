@@ -114,7 +114,8 @@ async def async_make_thermostat(hass: HomeAssistant, relay: str, sensor: str) ->
         return existing
     area = _area(hass, relay)
     rst = hass.states.get(relay)
-    name = (area and (a := ar.async_get(hass).async_get_area(area)) and f"{a.name} floor heating") or f"{rst.name if rst else relay} thermostat"
+    # 1.6.5: "UFH <room>": the panels drop the room, so scenes and schedules just say UFH
+    name = (area and (a := ar.async_get(hass).async_get_area(area)) and f"UFH {a.name}") or f"UFH {rst.name if rst else relay}"
     flow = await hass.config_entries.flow.async_init(GT, context={"source": "user"})
     res = await hass.config_entries.flow.async_configure(flow["flow_id"], {"name": name, "heater": relay, "target_sensor": sensor, **DEFAULTS})
     if res.get("type") == "form" and res.get("step_id") == "presets":
@@ -184,6 +185,41 @@ async def async_migrate_thermostat_range(hass: HomeAssistant, store) -> int:
         n += 1
         _LOGGER.info("Thermostat %s: set point 16–35 °C, hysteresis 2 / 0", entry.title)
     store.flags.append(RANGE_FLAG)
+    store.async_save()
+    return n
+
+
+NAME_FLAG = "thermostat_name_ufh"   # 1.6.5, done once per install
+
+
+async def async_rename_thermostats(hass: HomeAssistant, store) -> int:
+    """Once (1.6.5): thermostats SSV made as "<Room> floor heating" become "UFH <Room>".
+
+    Only when the name is still SSV's own (no name typed by hand in Home Assistant)."""
+    if NAME_FLAG in store.flags:
+        return 0
+    reg = er.async_get(hass)
+    areas = ar.async_get(hass)
+    n = 0
+    for climate, relay in _ssv_thermostats(hass).items():
+        ent = reg.async_get(climate)
+        if ent is None or ent.name:
+            continue
+        area_id = ent.area_id or _area(hass, relay)
+        a = area_id and areas.async_get_area(area_id)
+        if not a:
+            continue
+        new = f"UFH {a.name}"
+        st = hass.states.get(climate)
+        if st is not None and st.name == new:
+            continue
+        reg.async_update_entity(climate, name=new)
+        entry = ent.config_entry_id and hass.config_entries.async_get_entry(ent.config_entry_id)
+        if entry is not None and entry.title.endswith("floor heating"):
+            hass.config_entries.async_update_entry(entry, title=new)
+        n += 1
+        _LOGGER.info("Thermostat %s renamed to %s", climate, new)
+    store.flags.append(NAME_FLAG)
     store.async_save()
     return n
 

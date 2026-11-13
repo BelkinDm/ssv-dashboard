@@ -33,7 +33,7 @@ from .http import async_register_files, local_served
 from .labels import ensure_base_labels
 from .panels import PanelStore, async_register_ws as async_register_panel_ws, restyle_panel_labels
 from .scenes import async_setup_scenes, async_unload_scenes
-from .thermostats import async_migrate_thermostat_range, async_migrate_thermostats, async_setup_start_heating, async_register_ws as async_register_thermostat_ws
+from .thermostats import async_migrate_thermostat_range, async_migrate_thermostats, async_rename_thermostats, async_setup_start_heating, async_register_ws as async_register_thermostat_ws
 from .timers import async_migrate_timers, async_setup_timers
 from .updates import async_watch_updates, update_info
 
@@ -74,6 +74,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await async_migrate_timers(hass, store)   # 1.5: no more inex_ timers
     await async_migrate_thermostats(hass, store)   # 1.6.1: step 1 °C, hysteresis 3 °C
     await async_migrate_thermostat_range(hass, store)   # 1.6.4: set point 16–35 °C
+    await async_rename_thermostats(hass, store)   # 1.6.5: UFH <Room>
     await async_setup_scenes(hass)
     unsubs = [async_setup_start_heating(hass)]   # 1.6.4: floor heating starts at once under the set point
     if entry.options.get(CONF_TIMER_ACTIONS, True):
