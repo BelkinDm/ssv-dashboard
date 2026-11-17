@@ -1190,7 +1190,7 @@ function tLeft(tid){ const t = tid && S[tid]; if (!t) return null;
 const tOn = (tid) => { const t = tid && S[tid]; return !!t && (t.state === 'active' || t.state === 'paused'); };
 const cdText = (tid) => { const l = tLeft(tid); return l == null ? '' : hms(l); };
 const cdSpan = (tid) => `<span data-cd="${tid}" style="font-variant-numeric:tabular-nums">${cdText(tid)}</span>`;
-const stHtml = (w) => w.timed && w.tid ? 'Run · ' + cdSpan(w.tid) : esc(w.status);
+const stHtml = (w) => (w.phase ? w.phase + ' · ' : '') + (w.timed && w.tid ? 'Run · ' + cdSpan(w.tid) : esc(w.status));
 function hms(sec){ sec = Math.max(0, Math.ceil(sec)); const h = Math.floor(sec/3600), m = Math.floor(sec%3600/60), s = sec%60; return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`; }
 function timerInfo(x){
   const t = st(x.timer); const sc = st(x.start);
@@ -1620,7 +1620,9 @@ function wallState(id){
   const tid = wallTimerId(id); const t = S[tid]; let timed = tOn(tid), left = timed ? cdText(tid) : '';
   const dur = t ? t.attributes.duration || '' : '';
   const cur = attr(id, 'current_temperature');
-  return { na, off, timed, left, cur, tid, dur, status: timed ? 'Run' + (left ? ' · ' + left : '') : off ? 'Off' : 'Manual' };
+  /* 1.6.7: like floor heating — Heating (warming) / Standby (set point reached) while it is on */
+  const phase = off || attr(id, 'hvac_action') == null ? '' : attr(id, 'hvac_action') === 'heating' ? 'Heating' : STANDBY;
+  return { na, off, timed, left, cur, tid, dur, phase, status: timed ? 'Run' + (left ? ' · ' + left : '') : off ? 'Off' : 'Manual' };
 }
 async function ensureWallTimer(id){
   const tid = wallTimerId(id); if (S[tid]) return tid;

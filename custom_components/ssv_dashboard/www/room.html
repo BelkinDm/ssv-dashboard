@@ -502,6 +502,8 @@ function ufhRunRow(id){
   return `<div class="row eq">${r.slice(0, 4).map((m, i) => `<button class="btn${ts.on && String(ts.dur || '').replace(/^0/, '') === durStr(m).replace(/^0/, '') ? ' sel' : ''}" data-urun="${id}" data-min="${m}">${i ? '' : svg('run')}<span class="t">${fmtMin(m)}</span></button>`).join('')}</div>`;
 }
 /* status under the name: Off / On / Run 1:59:59 — the countdown lives here, so no button moves or changes size */
+/* 1.6.7: Heating (warming) / Standby (set point reached, waiting) — floor heating and the heated wall alike */
+const heatPhase = (id) => isRelay(id) ? 'On' : attr(id, 'hvac_action') === 'heating' ? 'Heating' : attr(id, 'hvac_action') == null ? 'On' : '<span style="color:var(--amber)">Standby</span>';
 function ufhStatus(id, on){
   const tid = 'timer.ssv_ufh_' + id.split('.')[1]; const ts = tState(tid);
   if (on && ts.on) return `Run · <span class="cd" data-left="${tid}">${leftText(ts)}</span>`;
@@ -515,7 +517,7 @@ function ufhCard(id, title, th, zone){
   const tid = 'timer.ssv_ufh_' + id.split('.')[1]; const ts = tState(tid); const timed = !off && ts.on;
   /* the room it heats, as on the Heated wall card: Off · Master Bathroom (1.6.1: no temperature — the header shows the WC's own) */
   const rr = roomOf(id); const where = rr && rr !== ROOM ? pretty(rr) : (zone || '');
-  return `<div class="card${off ? '' : ' heat'}">${cardHead('waves', off ? '' : 'heat', title, (off ? 'Off' : timed ? `Run · <span class="cd" data-left="${tid}">${leftText(ts)}</span>` : ufhStatus(id, true)) + schNote(id) + (where ? ' · ' + esc(where) : ''), `<button class="btn sq${off ? '' : ' sel'}" data-ufh="${off ? 'man' : 'off'}" data-id="${id}" aria-label="Power">${svg('power')}</button>`)}
+  return `<div class="card${off ? '' : ' heat'}">${cardHead('waves', off ? '' : 'heat', title, (off ? 'Off' : heatPhase(id) + (timed ? ` · Run <span class="cd" data-left="${tid}">${leftText(ts)}</span>` : '')) + schNote(id) + (where ? ' · ' + esc(where) : ''), `<button class="btn sq${off ? '' : ' sel'}" data-ufh="${off ? 'man' : 'off'}" data-id="${id}" aria-label="Power">${svg('power')}</button>`)}
     ${relay ? '' : `<div class="row g3e"><button class="btn${off ? ' dim' : ''}" data-tmp="${id}" data-d="-0.5" aria-label="Lower">${svg('minus')}</button><div class="spbox${off ? ' off' : ''}">${attr(id, 'temperature') != null ? fmtT(attr(id, 'temperature')) + '°' : '--'}</div><button class="btn${off ? ' dim' : ''}" data-tmp="${id}" data-d="0.5" aria-label="Higher">${svg('plus')}</button></div>`}${ufhSeg(id)}</div>`;
 }
 /* 1.6.6: Schedule | Manual only when the floor heating has a schedule; otherwise the card has two rows */
@@ -706,14 +708,22 @@ function schSet(id, on){ const ids = schFor(id).map(it => it.entity_id); if (!id
   call('switch', on ? 'turn_on' : 'turn_off', { entity_id: ids }); schedule(); }
 function toggleLight(id){ call(dmn(id) === 'light' ? 'light' : 'homeassistant', 'toggle', { entity_id: id }); }
 
-document.addEventListener('pointerdown', () => { const wasNight = $('night').classList.contains('show'); lastTouch = Date.now();
+/* 1.6.7: the night-screen buttons act on pointerdown and the screen stays dark. Before, the touch first woke the
+   panel (lastTouch), and the next render — a clock tick or any state change — removed the night screen with its
+   buttons before the click arrived, so "All lights off" did nothing. */
+function nightBtn(b){ const d = b.dataset;
+  if (d.alloff) { const on = M.lights.filter(isOn); if (on.length) call('homeassistant', 'turn_off', { entity_id: on }); toast('All lights off'); }
+  else if (d.cvall) { call('cover', 'close_cover', { entity_id: M.covers }); toast('Closing curtains'); }
+  setTimeout(() => { if ($('night').classList.contains('show')) renderNight(); }, 1500); }
+let nightTap = 0;
+document.addEventListener('pointerdown', (e) => { const wasNight = $('night').classList.contains('show');
+  const nb = wasNight && e.target.closest('#night button');
+  if (nb) { nightTap = Date.now(); e.preventDefault(); nightBtn(nb); return; }
+  lastTouch = Date.now();
   if (wasNight) { forceAwake = Date.now() + IDLE * 1000; } }, true);
 document.addEventListener('click', (e) => {
-  if ($('night').classList.contains('show')) { const b = e.target.closest('button');
-    if (b && b.dataset.alloff) call('homeassistant', 'turn_off', { entity_id: M.lights });
-    else if (b && b.dataset.cvall) call('cover', 'close_cover', { entity_id: M.covers });
-    else { $('night').classList.remove('show'); }
-    return; }
+  if (Date.now() - nightTap < 1000) return;   /* a night-screen button, already done on pointerdown */
+  if ($('night').classList.contains('show')) { $('night').classList.remove('show'); return; }
   const b = e.target.closest('button'); if (!b) return; const d = b.dataset;
   if (d.tab) { view = d.tab; render(); return; }
   if (d.light) { if (suppress) return; toggleLight(d.light); return; }
@@ -777,7 +787,7 @@ function start(){
 function wallCard(id){
   loadSched(); const off = st(id).state === 'off'; const ts = tState(wallTimerId(id)); const timed = !off && ts.on; const cur = attr(id, 'current_temperature'); const r = roomOf(id);
   const L = schFor(id); const m = runsOf(id, [WALL_RUN])[0]; const sp = attr(id, 'temperature');
-  return `<div class="card${off ? '' : ' heat'}">${cardHead('hwall', off ? '' : 'heat', 'Heated wall', (off ? 'Off' : timed ? `Run · <span class="cd" data-left="${wallTimerId(id)}">${leftText(ts)}</span>` : L.some(schOn) ? 'Schedule' : 'Manual') + schNote(id) + (r && r !== ROOM ? ' · ' + esc(pretty(r)) : '') + (cur != null ? ' · ' + fmtT(cur) + '°' : ''),
+  return `<div class="card${off ? '' : ' heat'}">${cardHead('hwall', off ? '' : 'heat', 'Heated wall', (off ? 'Off' : heatPhase(id) + (timed ? ` · Run <span class="cd" data-left="${wallTimerId(id)}">${leftText(ts)}</span>` : '')) + schNote(id) + (r && r !== ROOM ? ' · ' + esc(pretty(r)) : '') + (cur != null ? ' · ' + fmtT(cur) + '°' : ''),
       `<button class="btn sq${off ? '' : ' sel'}" data-wall="${off ? 'man' : 'off'}" data-id="${id}" aria-label="Power">${svg('power')}</button>`)}
     <div class="row g3e"><button class="btn${off ? ' dim' : ''}" data-tmp="${id}" data-d="-1" aria-label="Lower">${svg('minus')}</button><div class="spbox${off ? ' off' : ''}">${sp != null ? fmtT(sp) + '°' : '--'}</div><button class="btn${off ? ' dim' : ''}" data-tmp="${id}" data-d="1" aria-label="Higher">${svg('plus')}</button></div>
     <div class="seg">${L.length ? schSeg(id) : ''}<button class="${!off && !timed && !L.some(schOn) ? 'sel' : ''}" data-wall="man" data-id="${id}">${svg('hand')}Manual</button><button class="${timed ? 'sel' : ''}" data-wall="run" data-id="${id}" data-min="${m}">${svg('clock')}<span class="t">${fmtMin(m)}</span></button></div></div>`;
