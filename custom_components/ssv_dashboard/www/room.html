@@ -39,6 +39,29 @@ main{flex:1;min-height:0;display:flex;flex-direction:column;gap:8px;padding:8px}
 .row.runs.k4{grid-template-columns:calc(var(--c) - var(--cp)) var(--c) var(--c) calc(var(--c) - var(--cp))}
 .cd{font-variant-numeric:tabular-nums}
 /* WC floor heating: power in the header; − set point + as three equal cells on the columns of the Heated wall buttons */
+/* 1.6.6: mode switch under the set point — Schedule | Manual on floor heating (only when it has a schedule),
+   Manual | 3h on the heated wall (Schedule | Manual | 3h when it has one). Power stays the ⏻ button in the header. */
+.seg{height:48px;flex:none;display:flex;gap:4px;padding:4px;border-radius:12px;background:var(--raised);border:1px solid var(--line2)}
+.card.heat .seg{border-color:#6A423E}
+.seg>button{flex:1 1 0;min-width:0;border-radius:9px;display:flex;align-items:center;justify-content:center;gap:6px;color:var(--text2);font:500 11px var(--mono);letter-spacing:.12em;text-transform:uppercase;white-space:nowrap;overflow:hidden}
+.seg>button.sel{background:var(--mint);color:#0A2018}
+.seg>button .t{text-transform:none}
+/* 1.6.6: WC tab — cards keep their size; when floor heating + heated wall + lights do not fit, everything gets a bit smaller */
+#view.wc>.card,#view.home>.card{flex:none}
+#view.home .spbox{height:40px;font-size:22px}
+#view.home .seg{height:40px;padding:3px}
+#view.tight .card{padding:8px 12px;gap:6px}
+#view.tight .card .btn{height:36px;min-height:0}
+#view.tight .card .btn.sq{width:36px;min-width:36px}
+#view.tight .spbox{height:36px;font-size:20px}
+#view.tight .seg{height:36px;padding:3px}
+#view.tight .card .nm{font-size:15px}
+/* still too much (Home: AC with fan speeds + floor heating with Schedule | Manual + lights): one step smaller */
+#view.tighter{gap:6px}
+#view.tighter .card{padding:6px 10px;gap:6px}
+#view.tighter .card .btn,#view.tighter .spbox,#view.tighter .seg{height:33px}
+#view.tighter .card .btn.sq{width:33px;min-width:33px}
+#view.tighter .spv{font-size:19px}
 .row.g3e{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.spbox{height:48px;border-radius:12px;border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;font:300 24px var(--sans);font-variant-numeric:tabular-nums}.spbox.off{color:var(--text3)}
 
 /* Home: everything fits one 480 px screen — same 8 px gap between all buttons and cards */
@@ -222,6 +245,8 @@ pumpc: '<circle cx="11" cy="13.5" r="7"/><path d="M11 13.5c1-2.2 3-3.2 4.5-3M11 
   fan: '<circle cx="12" cy="12" r="2"/><path d="M12 10c0-4 1-7 4-7 2 0 3 2 2 4l-4 4M14 12c4 0 7 1 7 4 0 2-2 3-4 2l-4-4M12 14c0 4-1 7-4 7-2 0-3-2-2-4l4-4M10 12c-4 0-7-1-7-4 0-2 2-3 4-2l4 4"/>',
   bath: '<path d="M4 12h16v3a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z"/><path d="M6 12V6a2 2 0 0 1 3.5-1.3"/><path d="M7 19l-1 2M17 19l1 2"/>',
   run: '<path d="M4 12h14M13 6l6 6-6 6"/>',
+  cal: '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/>',
+  clock: '<circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/>',
   hand: '<path d="M8 13V6a1.5 1.5 0 0 1 3 0v5M11 11V4.5a1.5 1.5 0 0 1 3 0V11M14 11V5.5a1.5 1.5 0 0 1 3 0V12M17 10a1.5 1.5 0 0 1 3 0v4a7 7 0 0 1-7 7h-1a7 7 0 0 1-5.6-2.8L3.4 15.6a1.5 1.5 0 0 1 2.3-1.9L8 16"/>',
   recirc: '<path d="M20 12a8 8 0 0 1-14 5.3M4 12a8 8 0 0 1 14-5.3"/><path d="M18 3v4h-4M6 21v-4h4"/>',
 };
@@ -279,7 +304,7 @@ async function connect(){
         const states = await wsSend({ type: 'get_states' }); const S0 = {}; states.forEach(x => S0[x.entity_id] = x); HC.states = S0;
         await wsSend({ type: 'subscribe_events', event_type: 'state_changed' });
         ['entity_registry_updated', 'device_registry_updated', 'area_registry_updated', 'label_registry_updated'].forEach(t => wsSend({ type: 'subscribe_events', event_type: t }).catch(() => {}));
-        await loadRegistry(); HC.ready = true; downSince = 0; setConn('');
+        await loadRegistry(); loadSched(true); HC.ready = true; downSince = 0; setConn('');
         FC = null; const W = Object.keys(HC.states).find(id => dmn(id) === 'weather');
         if (W) { const p = wsSend({ type: 'weather/subscribe_forecast', forecast_type: 'daily', entity_id: W }); FC_ID = msgId; p.catch(() => {}); }
         schedule();
@@ -289,7 +314,7 @@ async function connect(){
       if (m.id === FC_ID && m.event.forecast) { FC = m.event.forecast; schedule(); return; }
       const et = m.event.event_type;
       if (!HA_LIVE && m.event.time_fired) { const f = Date.parse(m.event.time_fired); if (!isNaN(f)) HA_OFF = f - Date.now(); }
-      if (et === 'state_changed') { const d = m.event.data; if (d.new_state) HC.states[d.entity_id] = d.new_state; else delete HC.states[d.entity_id]; if (/^sensor\.ssv_time$/.test(d.entity_id) && d.new_state) haTimeSync(d.new_state.state, true); schedule(); }
+      if (et === 'state_changed') { const d = m.event.data; if (d.new_state) HC.states[d.entity_id] = d.new_state; else delete HC.states[d.entity_id]; if (/^sensor\.ssv_time$/.test(d.entity_id) && d.new_state) haTimeSync(d.new_state.state, true); if (/^switch\.schedule_/.test(d.entity_id) && (!d.new_state || !d.old_state)) setTimeout(() => loadSched(true), 1000); schedule(); }
       else if (/_registry_updated$/.test(et || '')) { clearTimeout(regT); regT = setTimeout(() => loadRegistry().catch(() => {}), 1500); }
     }
   };
@@ -444,7 +469,7 @@ safe(() => { if (M.ac){ const s = st(M.ac); const off = s.state === 'off'; const
     out.push(`<div class="card ac${off ? '' : /heat/.test(act) ? ' heat' : ' cool'}"><div class="row">${svg('snow', 'width:22px;height:22px;flex:none;color:' + (off ? 'var(--text2)' : /heat/.test(act) ? 'var(--heat)' : 'var(--cool)'))}<div style="min-width:0"><div class="nm" style="color:${off ? 'var(--text)' : /heat/.test(act) ? 'var(--heat)' : 'var(--cool)'}">Air conditioning</div><div class="lab">${esc(off ? 'Off' : String(act).replace(/_/g, ' '))}</div></div><div class="sp"></div><div class="stp3">${stepper(M.ac, off)}</div></div>
       <div class="row eq">${modes.map(m => `<button class="btn${s.state === m ? ' sel' : ''}" data-mode="${M.ac}" data-m="${m}">${m === 'heat_cool' ? 'Auto' : m}</button>`).join('')}</div>
       ${fans.length ? `<div class="row eq">${fans.map(f => `<button class="btn${!off && fan === f ? ' sel' : ''}${off ? ' dim' : ''}" data-fan="${M.ac}" data-f="${esc(f)}">${svg('fan', 'width:16px;height:16px')}${esc(FAN_NAME[String(f).toLowerCase()] || f)}</button>`).join('')}</div>` : ''}</div>`); } });
-safe(() => { const z = Object.values(M.att).find(x => x.ufh); const id = M.ufh || (z && z.ufh); if (id) out.push(ufhLine(id, M.ufh ? 'Floor heating' : 'Floor heating · ' + z.z.name)); });
+safe(() => { const z = Object.values(M.att).find(x => x.ufh); const id = M.ufh || (z && z.ufh); if (id) out.push(ufhCard(id, 'Floor heating', null, M.ufh ? '' : z.z.name)); });   /* 1.6.6: the same card as on WC */
 safe(() => { /* up to 4 buttons: Main of the room, Balcony, Main of each attached room, then scenes with this room's labels.
    Label 'home' picks lights explicitly; without it the automatic rule applies. Other lights live on the Light tab */
 const isMain = (id) => /\bmain\b/i.test(attr(id, 'friendly_name') || '') || ['chandelier', 'downlight', 'track', 'ceiling'].includes(lightIcon(id));
@@ -467,9 +492,9 @@ const cardHead = (icon, tone, title, status, right) => `<div class="row">${svg(i
 const relayBtn = (id, off) => `<button class="btn sq${off ? '' : ' sel'}" data-relay="${id}" data-on="${off ? '1' : ''}" aria-label="Power">${svg('power')}</button>`;
 function ufhLine(id, title){
   if (isRelay(id)) { const off = !isOn(id);
-    return `<div class="card${off ? '' : ' heat'}"><div class="row">${svg('waves', 'width:22px;height:22px;flex:none;color:' + (off ? 'var(--text2)' : 'var(--heat)'))}<div style="min-width:0"><div class="nm">${esc(title)}</div><div class="lab${off ? '' : ' heat'}">${ufhStatus(id, !off)}</div></div><div class="sp"></div>${relayBtn(id, off)}</div></div>`; }
+    return `<div class="card${off ? '' : ' heat'}"><div class="row">${svg('waves', 'width:22px;height:22px;flex:none;color:' + (off ? 'var(--text2)' : 'var(--heat)'))}<div style="min-width:0"><div class="nm">${esc(title)}</div><div class="lab${off ? '' : ' heat'}">${ufhStatus(id, !off)}${schNote(id)}</div></div><div class="sp"></div>${relayBtn(id, off)}</div></div>`; }
   const s = st(id); const off = s.state === 'off';   /* 1.6.1: no room temperature here — the header shows it */
-  return `<div class="card${off ? '' : ' heat'}"><div class="row">${svg('waves', 'width:22px;height:22px;flex:none;color:' + (off ? 'var(--text2)' : 'var(--heat)'))}<div style="min-width:0"><div class="nm">${esc(title)}</div><div class="lab${off ? '' : ' heat'}" style="white-space:nowrap">${ufhStatus(id, !off)}</div></div><div class="sp"></div><button class="btn sq${off ? '' : ' sel'}" data-mode="${id}" data-m="${off ? 'heat' : 'off'}" aria-label="Power">${svg('power')}</button><div class="stp3">${stepper(id, off)}</div></div></div>`;   /* 1.6.5: power first, so − value + sit on the same columns as the AC card above */
+  return `<div class="card${off ? '' : ' heat'}"><div class="row">${svg('waves', 'width:22px;height:22px;flex:none;color:' + (off ? 'var(--text2)' : 'var(--heat)'))}<div style="min-width:0"><div class="nm">${esc(title)}</div><div class="lab${off ? '' : ' heat'}" style="white-space:nowrap">${ufhStatus(id, !off)}${schNote(id)}</div></div><div class="sp"></div><button class="btn sq${off ? '' : ' sel'}" data-mode="${id}" data-m="${off ? 'heat' : 'off'}" aria-label="Power">${svg('power')}</button><div class="stp3">${stepper(id, off)}</div></div></div>`;   /* 1.6.5: power first, so − value + sit on the same columns as the AC card above */
 }
 function ufhRunRow(id){
   const r = runsOf(id, []); const tid = 'timer.ssv_ufh_' + id.split('.')[1]; if (!r.length || !st(tid)) return '';
@@ -490,9 +515,12 @@ function ufhCard(id, title, th, zone){
   const tid = 'timer.ssv_ufh_' + id.split('.')[1]; const ts = tState(tid); const timed = !off && ts.on;
   /* the room it heats, as on the Heated wall card: Off · Master Bathroom (1.6.1: no temperature — the header shows the WC's own) */
   const rr = roomOf(id); const where = rr && rr !== ROOM ? pretty(rr) : (zone || '');
-  return `<div class="card${off ? '' : ' heat'}">${cardHead('waves', off ? '' : 'heat', title, (off ? 'Off' : timed ? `Run · <span class="cd" data-left="${tid}">${leftText(ts)}</span>` : ufhStatus(id, true)) + (where ? ' · ' + esc(where) : ''), `<button class="btn sq${off ? '' : ' sel'}" data-ufh="${off ? 'man' : 'off'}" data-id="${id}" aria-label="Power">${svg('power')}</button>`)}
-    ${relay ? '' : `<div class="row g3e"><button class="btn${off ? ' dim' : ''}" data-tmp="${id}" data-d="-0.5" aria-label="Lower">${svg('minus')}</button><div class="spbox${off ? ' off' : ''}">${attr(id, 'temperature') != null ? fmtT(attr(id, 'temperature')) + '°' : '--'}</div><button class="btn${off ? ' dim' : ''}" data-tmp="${id}" data-d="0.5" aria-label="Higher">${svg('plus')}</button></div>`}</div>`;
+  return `<div class="card${off ? '' : ' heat'}">${cardHead('waves', off ? '' : 'heat', title, (off ? 'Off' : timed ? `Run · <span class="cd" data-left="${tid}">${leftText(ts)}</span>` : ufhStatus(id, true)) + schNote(id) + (where ? ' · ' + esc(where) : ''), `<button class="btn sq${off ? '' : ' sel'}" data-ufh="${off ? 'man' : 'off'}" data-id="${id}" aria-label="Power">${svg('power')}</button>`)}
+    ${relay ? '' : `<div class="row g3e"><button class="btn${off ? ' dim' : ''}" data-tmp="${id}" data-d="-0.5" aria-label="Lower">${svg('minus')}</button><div class="spbox${off ? ' off' : ''}">${attr(id, 'temperature') != null ? fmtT(attr(id, 'temperature')) + '°' : '--'}</div><button class="btn${off ? ' dim' : ''}" data-tmp="${id}" data-d="0.5" aria-label="Higher">${svg('plus')}</button></div>`}${ufhSeg(id)}</div>`;
 }
+/* 1.6.6: Schedule | Manual only when the floor heating has a schedule; otherwise the card has two rows */
+function ufhSeg(id){ loadSched(); const L = schFor(id); if (!L.length) return '';
+  const on = L.some(schOn); return `<div class="seg">${schSeg(id)}<button class="${on ? '' : 'sel'}" data-sch="off" data-id="${id}">${svg('hand')}Manual</button></div>`; }
 let lpage = 0;
 function vLight(){
   const ids = M.lights.slice().sort(lightSort); const per = 7; const pages = Math.max(1, Math.ceil(ids.length / per)); if (lpage >= pages) lpage = 0;
@@ -526,6 +554,26 @@ function vCurtains(){
     <div class="row">${cbtns(id, k, moving)}</div></div>`; }).join('')}</div>`;
 }
 
+/* 1.6.6: schedules made on the 10" panel (Scheduler component): one switch.schedule_* per schedule, its target in the actions */
+let SCH = [], SCH_T = 0;
+async function loadSched(force){ if (!force && Date.now() - SCH_T < 60000) return; SCH_T = Date.now();
+  try { const r = await wsSend({ type: 'scheduler' }); SCH = Array.isArray(r) ? r : []; schedule(); } catch (e) {} }
+const schTarget = (it) => { for (const ts of it.timeslots || []) for (const a of ts.actions || []) { const e = a.entity_id || (a.target && a.target.entity_id); if (e) return Array.isArray(e) ? e[0] : e; } return null; };
+const schFor = (id) => SCH.filter(it => schTarget(it) === id && st(it.entity_id));
+const schOn = (it) => isOn(it.entity_id);
+/* next event of the device's active schedule, from the Scheduler switch (next_trigger / next_slot):
+   " · On 06:00 · 26°", " · Off 22:00", " · On Mon 06:00" when it is not today */
+function schNote(id){ const it = schFor(id).filter(schOn).sort((a, b) => String(attr(a.entity_id, 'next_trigger') || '~').localeCompare(String(attr(b.entity_id, 'next_trigger') || '~')))[0]; if (!it) return '';
+  const nt = Date.parse(attr(it.entity_id, 'next_trigger') || ''); if (isNaN(nt)) return '';
+  const ts = (it.timeslots || [])[+attr(it.entity_id, 'next_slot') || 0] || {}; const a = (ts.actions || [])[0] || {}; const sd = a.service_data || a.data || {};
+  const on = !(/turn_off|close/.test(a.service || '') || sd.hvac_mode === 'off'); const d = haAt(nt), now = haNow();
+  const day = d.toDateString() === now.toDateString() ? '' : d.toLocaleDateString('en-GB', { weekday: 'short' }) + ' ';
+  return ' · ' + (on ? 'On ' : 'Off ') + day + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) + (on && sd.temperature != null ? ' · ' + fmtT(+sd.temperature) + '°' : ''); }
+/* option a: on floor heating and the heated wall any manual action (⏻, set point, Manual, 3h) pauses their schedules.
+   Air conditioners: schedules are left alone on the room panel (10" panel only). Hot water / recirculation: 10" panel only. */
+const heatSch = (id) => !!id && (has(id, 'ufh') || has(id, 'heated_wall'));
+function schPause(id){ if (!heatSch(id) || !schFor(id).some(schOn)) return; schSet(id, false); toast('Schedule paused · Manual'); }
+const schSeg = (id) => `<button class="${schFor(id).some(schOn) ? 'sel' : ''}" data-sch="on" data-id="${id}">${svg('cal')}Schedule</button>`;
 const wallTimerId = (id) => 'timer.ssv_wall_' + id.split('.')[1];
 function vWC(key){
   const Z = M.att[key] || M.att[Object.keys(M.att)[0]]; if (!Z) return '<div class="empty">Nothing here</div>';
@@ -601,13 +649,14 @@ function render(){
   if (dragging) return;
   M = safe(model, M); if (!M) return; safe(renderHead); const T = safe(tabs, [['home', 'Home', 'home']]); if (!T.some(t => t[0] === view)) view = 'home';
   $('nav').innerHTML = T.map(([k, n, ic]) => `<button class="${k === view ? 'on' : ''}" data-tab="${k}">${svg(ic)}<span>${n}</span></button>`).join('');
-  $('view').classList.toggle('home', view === 'home');
+  $('view').classList.toggle('home', view === 'home'); $('view').classList.toggle('wc', view === 'wc' || view.startsWith('att:'));
   $('view').innerHTML = safe(view.startsWith('att:') ? () => vWC(view.slice(4)) : ({ home: vHome, light: vLight, curtains: vCurtains, wc: () => vWC('wc'), water: vWater }[view] || vHome), '<div class="empty">This section is temporarily unavailable</div>');
   safe(alignRows);
   const night = safe(nightNow, false); $('night').classList.toggle('show', night); if (night) safe(renderNight);
 }
 function alignRows(){
-  const v = $('view'); const home = v.classList.contains('home');
+  const v = $('view'); v.classList.remove('tight', 'tighter'); const fitV = v.classList.contains('home') || v.classList.contains('wc'); const over = () => v.scrollHeight > v.clientHeight + 1;
+  if (fitV && over()) v.classList.add('tight'); if (fitV && over()) v.classList.add('tighter'); const home = v.classList.contains('home');
   const bottom = [...v.children].filter(e => e.matches('.row.eq')).pop(); const n = home && bottom ? bottom.children.length : 0;
   v.querySelectorAll('.card .row.eq, .card .row.runs').forEach(r => { const k = r.children.length; const ok = n > 1 && k === n;
     r.classList.remove('k1', 'k2', 'k3', 'k4'); r.classList.toggle('runs', ok); r.classList.toggle('eq', !ok);
@@ -651,6 +700,10 @@ async function waterRun(fn, min){
   if (tid) { call('timer', 'start', { entity_id: tid, duration: durStr(min) }); toast((fn === 'hot_water' ? 'Hot water' : 'Recirculation') + ' · ' + fmtMin(min)); }
 }
 function waterOff(fn){ const tid = timerOf(['water', fn]); if (tid && st(tid).state !== 'idle') call('timer', 'cancel', { entity_id: tid }); devSet(devs(fn), false); }
+/* 1.6.6: Schedule = the device's schedules on; Manual = paused (the device keeps what it is doing) */
+function schSet(id, on){ const ids = schFor(id).map(it => it.entity_id); if (!ids.length) return;
+  ids.forEach(e => { if (HC.states[e]) HC.states[e] = Object.assign({}, HC.states[e], { state: on ? 'on' : 'off' }); });
+  call('switch', on ? 'turn_on' : 'turn_off', { entity_id: ids }); schedule(); }
 function toggleLight(id){ call(dmn(id) === 'light' ? 'light' : 'homeassistant', 'toggle', { entity_id: id }); }
 
 document.addEventListener('pointerdown', () => { const wasNight = $('night').classList.contains('show'); lastTouch = Date.now();
@@ -667,18 +720,19 @@ document.addEventListener('click', (e) => {
   if (d.alloff) { call('homeassistant', 'turn_off', { entity_id: M.lights.filter(isOn) }); return; }
   if (d.lpage) { lpage++; render(); return; }
   if (d.grp) { const ids = d.grp.split(','); const any = ids.some(isOn); call('homeassistant', any ? 'turn_off' : 'turn_on', { entity_id: ids }); return; }
-  if (d.tmp) { stepTemp(d.tmp, +d.d); return; }
-  if (d.relay) { const on = !!d.on; call('homeassistant', on ? 'turn_on' : 'turn_off', { entity_id: d.relay });
+  if (d.tmp) { schPause(d.tmp); stepTemp(d.tmp, +d.d); return; }
+  if (d.relay) { schPause(d.relay); const on = !!d.on; call('homeassistant', on ? 'turn_on' : 'turn_off', { entity_id: d.relay });
     const tid = 'timer.ssv_ufh_' + d.relay.split('.')[1]; if (!on && tState(tid).on) call('timer', 'cancel', { entity_id: tid }); return; }
-  if (d.mode) { call('climate', 'set_hvac_mode', { entity_id: d.mode, hvac_mode: d.m }); return; }
+  if (d.mode) { schPause(d.mode); call('climate', 'set_hvac_mode', { entity_id: d.mode, hvac_mode: d.m }); return; }
   if (d.cv) { call('cover', d.cv, { entity_id: d.id }); return; }
-  if (d.wall) { wallAct(d.wall, d.id, +d.min || 0); return; }
-  if (d.ufh) { const id = d.id, on = d.ufh === 'man', tid = 'timer.ssv_ufh_' + id.split('.')[1];
+  if (d.wall) { schPause(d.id); wallAct(d.wall, d.id, +d.min || 0); return; }
+  if (d.sch) { schSet(d.id, d.sch === 'on'); toast(d.sch === 'on' ? 'Schedule' : 'Manual'); return; }
+  if (d.ufh) { schPause(d.id); const id = d.id, on = d.ufh === 'man', tid = 'timer.ssv_ufh_' + id.split('.')[1];
     if (tState(tid).on) call('timer', 'cancel', { entity_id: tid });
     if (dmn(id) === 'climate') call('climate', 'set_hvac_mode', { entity_id: id, hvac_mode: on ? 'heat' : 'off' }); else call('homeassistant', on ? 'turn_on' : 'turn_off', { entity_id: id }); return; }
   if (d.fan) { call('climate', 'set_fan_mode', { entity_id: d.fan, fan_mode: d.f }); return; }
   if (d.scene) { if (dmn(d.scene) === 'script') call('script', 'turn_on', { entity_id: d.scene }); else call('ssv_dashboard', 'run_scene', { entity_id: d.scene }); toast(NM(d.scene)); return; }
-  if (d.urun) { const id = d.urun, tid = 'timer.ssv_ufh_' + id.split('.')[1]; if (dmn(id) === 'climate') call('climate', 'set_hvac_mode', { entity_id: id, hvac_mode: 'heat' }); else call('homeassistant', 'turn_on', { entity_id: id });
+  if (d.urun) { schPause(d.urun); const id = d.urun, tid = 'timer.ssv_ufh_' + id.split('.')[1]; if (dmn(id) === 'climate') call('climate', 'set_hvac_mode', { entity_id: id, hvac_mode: 'heat' }); else call('homeassistant', 'turn_on', { entity_id: id });
     if (st(tid)) { call('timer', 'start', { entity_id: tid, duration: durStr(+d.min) }); toast('Floor heating · ' + fmtMin(+d.min)); } return; }
   if (d.wrun) { waterRun(d.wrun, +d.min); return; }
   if (d.woff) { waterOff(d.woff); return; }
@@ -718,10 +772,15 @@ function start(){
   setInterval(() => { if (view !== 'home' && Date.now() - lastTouch > 120000) { view = 'home'; lpage = 0; render(); } }, 5000);
 }
 
+/* 1.6.6: the heated wall is built like floor heating — ⏻ in the header (on = Manual, off), − set point + below,
+   then the mode switch: Manual | 3h (Schedule | Manual | 3h when the wall has a schedule) */
 function wallCard(id){
-  const off = st(id).state === 'off'; const ts = tState(wallTimerId(id)); const timed = !off && ts.on; const cur = attr(id, 'current_temperature'); const r = roomOf(id);
-  return `<div class="card${off ? '' : ' heat'}">${cardHead('hwall', off ? '' : 'heat', 'Heated wall', (off ? 'Off' : timed ? `Run · <span class="cd" data-left="${wallTimerId(id)}">${leftText(ts)}</span>` : 'Manual') + (r && r !== ROOM ? ' · ' + esc(pretty(r)) : '') + (cur != null ? ' · ' + fmtT(cur) + '°' : ''))}
-    <div class="row">${runsOf(id, [WALL_RUN]).map((m, i) => `<button class="btn${timed && String(ts.dur || '').replace(/^0/, '') === durStr(m).replace(/^0/, '') ? ' sel' : ''}" data-wall="run" data-id="${id}" data-min="${m}">${i ? '' : svg('run')}<span class="t">${fmtMin(m)}</span></button>`).join('')}<button class="btn${!off && !timed ? ' sel' : ''}" data-wall="man" data-id="${id}">${svg('hand')}Manual</button><button class="btn${off ? ' sel' : ''}" data-wall="off" data-id="${id}">${svg('power')}Off</button></div></div>`;
+  loadSched(); const off = st(id).state === 'off'; const ts = tState(wallTimerId(id)); const timed = !off && ts.on; const cur = attr(id, 'current_temperature'); const r = roomOf(id);
+  const L = schFor(id); const m = runsOf(id, [WALL_RUN])[0]; const sp = attr(id, 'temperature');
+  return `<div class="card${off ? '' : ' heat'}">${cardHead('hwall', off ? '' : 'heat', 'Heated wall', (off ? 'Off' : timed ? `Run · <span class="cd" data-left="${wallTimerId(id)}">${leftText(ts)}</span>` : L.some(schOn) ? 'Schedule' : 'Manual') + schNote(id) + (r && r !== ROOM ? ' · ' + esc(pretty(r)) : '') + (cur != null ? ' · ' + fmtT(cur) + '°' : ''),
+      `<button class="btn sq${off ? '' : ' sel'}" data-wall="${off ? 'man' : 'off'}" data-id="${id}" aria-label="Power">${svg('power')}</button>`)}
+    <div class="row g3e"><button class="btn${off ? ' dim' : ''}" data-tmp="${id}" data-d="-1" aria-label="Lower">${svg('minus')}</button><div class="spbox${off ? ' off' : ''}">${sp != null ? fmtT(sp) + '°' : '--'}</div><button class="btn${off ? ' dim' : ''}" data-tmp="${id}" data-d="1" aria-label="Higher">${svg('plus')}</button></div>
+    <div class="seg">${L.length ? schSeg(id) : ''}<button class="${!off && !timed && !L.some(schOn) ? 'sel' : ''}" data-wall="man" data-id="${id}">${svg('hand')}Manual</button><button class="${timed ? 'sel' : ''}" data-wall="run" data-id="${id}" data-min="${m}">${svg('clock')}<span class="t">${fmtMin(m)}</span></button></div></div>`;
 }
 
 /* Light order (same rule on every panel): own room first -> balcony -> WC; inside a zone: main -> cove/vanity -> other */
