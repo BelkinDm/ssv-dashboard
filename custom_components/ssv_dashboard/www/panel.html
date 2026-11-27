@@ -139,6 +139,8 @@ button{font:inherit;color:inherit;cursor:pointer;margin:0}
 .blk .btn.dim{color:#5E6E7E;border-color:#1A242E}
 .lab{display:flex;align-items:center;gap:10px;flex:1;min-width:0}
 .lab b{font:600 13px var(--mono);letter-spacing:.1em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* 1.6.8: block label in two lines — what (Floor heat / AC) and its state — so the state never gets cut by the buttons */
+.lab .col{gap:3px}.lab .col b{font-size:12px;letter-spacing:.08em}.lab .col .s{font-size:11px;letter-spacing:.1em}
 .spv{width:76px;text-align:center;font-size:30px;font-weight:300;letter-spacing:-.02em;font-variant-numeric:tabular-nums;flex:none}
 
 /* curtains */
@@ -1101,7 +1103,7 @@ function acBlock(id, roomy){
   const modes = (a.hvac_modes || []).filter(m => MODE[m]).slice(0, 5);
   const fans = (a.fan_modes || []).slice(0, 4);
   return `<div class="blk ${cls}"${roomy?' style="flex:1"':''}>
-    <div class="row" style="gap:8px"><div class="lab">${svg('snow', `color:${col}`)}<b style="color:${col}">AC · ${esc(na?'Unavailable':actTxt)}</b></div>${stepper(id, off)}</div>
+    <div class="row" style="gap:8px"><div class="lab">${svg('snow', `color:${col}`)}<div class="col"><b style="color:${col}">AC</b><span class="s" style="color:${off?'var(--text3)':col}">${esc(na?'Unavailable':actTxt)}</span></div></div>${stepper(id, off)}</div>
     <div class="row" style="gap:6px">${modes.map(m => `<button class="btn${m===mode?' sel':''}" data-mode="${id}" data-m="${m}">${MODE[m]}</button>`).join('')}</div>
     ${roomy && fans.length ? `<div class="row" style="gap:6px"><span class="s" style="width:44px">Fan</span>${fans.map(f => `<button class="btn${f===a.fan_mode?' sel':''}" data-fan="${id}" data-m="${esc(f)}">${esc(f)}</button>`).join('')}</div>` : ''}</div>`;
 }
@@ -1114,7 +1116,7 @@ const ufhStat = (id, off, onTxt) => { const tid = 'timer.ssv_ufh_' + id.split('.
 const isRelay = (id) => /^(switch|input_boolean)\./.test(id);
 function relayBlock(id){
   const s = st(id); const na = !real(id); const off = s.state !== 'on';
-  return `<div class="blk ${off?'':'heat'}"><div class="row" style="gap:8px"><div class="lab">${svg('waves', `color:${off?'var(--text2)':'var(--heat)'}`)}<b style="color:${off?'var(--soft)':'var(--heat)'};white-space:nowrap;font-size:12px;letter-spacing:.08em">${esc(blkLabel(id))} · ${na?'Unavailable':off?'Off':'On'}</b></div>
+  return `<div class="blk ${off?'':'heat'}"><div class="row" style="gap:8px"><div class="lab">${svg('waves', `color:${off?'var(--text2)':'var(--heat)'}`)}<div class="col"><b style="color:${off?'var(--soft)':'var(--heat)'}">${esc(blkLabel(id))}</b><span class="s" style="color:${off?'var(--text3)':'var(--heat)'}">${na?'Unavailable':off?'Off':'On'}</span></div></div>
     <button class="btn sq${off?'':' sel'}" data-relay="${id}" data-on="${off?'1':''}" aria-label="Power">${svg('power')}</button></div>${schedChip([id])}</div>`;
 }
 function heatLine(id){
@@ -1126,7 +1128,7 @@ const blkLabel = (id) => heatLabel(id).replace(/^Floor heating$/, 'Floor heat');
 function heatBlock(id){
   if (isRelay(id)) return relayBlock(id);
   const s = st(id); const na = !real(id); const off = s.state === 'off' || na;
-  return `<div class="blk ${off?'':'heat'}"><div class="row" style="gap:8px"><div class="lab">${svg('waves', `color:${off?'var(--text2)':'var(--heat)'}`)}<b style="color:${off?'var(--soft)':'var(--heat)'};white-space:nowrap;font-size:12px;letter-spacing:.08em">${esc(blkLabel(id))} · ${na?'Unavailable':off?'Off':ufhPhase(id)}</b></div>
+  return `<div class="blk ${off?'':'heat'}"><div class="row" style="gap:8px"><div class="lab">${svg('waves', `color:${off?'var(--text2)':'var(--heat)'}`)}<div class="col"><b style="color:${off?'var(--soft)':'var(--heat)'}">${esc(blkLabel(id))}</b><span class="s" style="color:${off?'var(--text3)':'var(--heat)'}">${na?'Unavailable':off?'Off':ufhPhase(id)}</span></div></div>
     ${stepper(id, off)}<button class="btn sq${off?'':' sel'}" data-mode="${id}" data-m="${off?'heat':'off'}" aria-label="Power">${svg('power')}</button></div>${schedChip([id])}</div>`;
 }
 function ufhRuns(id){
@@ -1532,13 +1534,23 @@ function labelTemp(r){
   return v.length ? v[0] : null;
 }
 function homeClimateCard(){
-  const rows = homeClimateItems().slice(0, 3).map((x, i) => { const s = st(x.id); const dom = x.id.split('.')[0]; const off = s.state === 'off';
+  /* 1.6.8: icon (waves = floor heating, snow = AC) · room · real state (Heating / Standby / Cool…) · room temp; power + set point on the right */
+  const rows = homeClimateItems().slice(0, 3).map((x, i) => { const s = st(x.id); const dom = x.id.split('.')[0]; const na = !real(x.id);
+    const off = na || (dom === 'climate' ? s.state === 'off' : s.state !== 'on');
     let t = labelTemp(x.r); if (t === null) { const v = attr(x.id, 'current_temperature'); if (v !== null && v !== undefined) t = v; }
-    const act = s.attributes.hvac_action || s.state;
-    const mode = dom === 'climate' ? (MODE[s.state] || s.state) : (off ? 'Off' : 'On');
-    const cls = off ? 'dim' : (x.fn === 'ac' && !/heat/.test(act)) ? 'cool' : 'heat';
-    const right = dom === 'climate' ? stepper(x.id, off) : `<button class="sw${off ? '' : ' on'}" data-hatoggle="${x.id}" aria-label="${esc(x.label)}"><i></i></button>`;
-    return (i ? '<div class="hr"></div>' : '') + `<div class="row" style="height:72px"><div class="col"><div class="n" style="font-size:18px">${esc(x.r.name)} · ${esc(x.label)}</div><div class="s ${cls}">${esc(mode)}${t !== null ? ' · ' + fmtT(t) + '°' : ''}</div></div>${right}</div>`; }).join('');
+    const act = s.attributes.hvac_action || s.state; const ac = x.fn === 'ac';
+    let txt, cls;
+    if (na) { txt = 'Unavailable'; cls = 'dim'; }
+    else if (off) { txt = 'Off'; cls = 'dim'; }
+    else if (dom !== 'climate') { txt = 'On'; cls = 'heat'; }
+    else if (ac) { txt = { cooling:'Cooling', heating:'Heating', idle:'Idle', drying:'Drying', fan:'Fan' }[s.attributes.hvac_action] || MODE[s.state] || s.state; cls = /heat/.test(act) ? 'heat' : txt === 'Idle' ? 'amber' : 'cool'; }
+    else { const h = s.attributes.hvac_action === 'heating'; txt = h ? 'Heating' : 'Standby'; cls = h ? 'heat' : 'amber'; }
+    const col = { heat:'var(--heat)', cool:'var(--cool)', amber:'var(--amber)', dim:'var(--text2)' }[cls];
+    const modes = s.attributes.hvac_modes || []; const onMode = ac ? (modes.includes('cool') ? 'cool' : modes.find(m => m !== 'off') || 'cool') : (modes.includes('heat') ? 'heat' : modes.find(m => m !== 'off') || 'heat');
+    const right = dom === 'climate'
+      ? `<div class="row hcc" style="flex:none;gap:8px">${stepper(x.id, off)}<button class="btn sq${off ? '' : ' sel'}" data-mode="${x.id}" data-m="${off ? onMode : 'off'}" aria-label="${esc(x.label)} power"${na ? ' disabled' : ''}>${svg('power')}</button></div>`
+      : `<button class="sw${off ? '' : ' on'}" data-hatoggle="${x.id}" aria-label="${esc(x.label)}"><i></i></button>`;
+    return (i ? '<div class="hr"></div>' : '') + `<div class="row hcr" style="height:72px" title="${esc(x.label)}">${svg(ac ? 'snow' : 'waves', 'width:24px;height:24px;flex:none;color:' + col)}<div class="col"><div class="n" style="font-size:18px">${esc(x.r.name)}</div><div class="s ${cls}"${cls === 'amber' ? ' style="color:var(--amber)"' : ''}>${esc(txt)}${t !== null ? ' · ' + fmtT(t) + '°' : ''}</div></div>${right}</div>`; }).join('');
   return `<section class="card" aria-label="Climate" style="padding:24px">
     <div class="row"><div class="e" style="flex:1">Climate</div>${hasTab('climate') ? '<button class="s" data-tab="climate" style="background:none;border:0;color:var(--text2);padding:8px 0">All rooms ›</button>' : ''}</div>
     <div style="flex:1;min-height:0;display:flex;flex-direction:column;justify-content:${rows ? 'flex-start' : 'center'}">${rows || '<div class="empty">No climate zones</div>'}</div></section>`;
@@ -1576,7 +1588,7 @@ function ufhHeatCard(z){
   return `<div class="card${off ? '' : ' heat'}${na ? ' na' : ''}" style="gap:10px">
       <div class="row"><div class="col"><div class="e w">${esc(z.r.name)}</div><div class="s">Floor heating</div></div>${svg('waves', `width:30px;height:30px;color:${off ? 'var(--text2)' : 'var(--heat)'}`)}</div>
       <div style="flex:1;display:flex;align-items:center;justify-content:space-between;gap:16px">
-        <div class="col" style="gap:6px"><div style="font-size:64px;font-weight:200;letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums">${cur != null ? fmtT(cur) : '--'}<span style="font-size:24px;color:var(--text2);margin-left:4px">°C</span></div><div class="s${off ? '' : ' heat'}" style="font-size:14px">${na ? 'Unavailable' : ufhStat(id, off, relay ? 'On' : 'Heating')}</div></div>
+        <div class="col" style="gap:6px"><div style="font-size:64px;font-weight:200;letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums">${cur != null ? fmtT(cur) : '--'}<span style="font-size:24px;color:var(--text2);margin-left:4px">°C</span></div><div class="s hst${off ? '' : ' heat'}" style="font-size:14px">${na ? 'Unavailable' : ufhStat(id, off, relay ? 'On' : 'Heating')}</div></div>
         ${relay ? '' : `<div class="row" style="flex:none;gap:10px">${stepper(id, off)}</div>`}</div>
       <div style="height:40px;flex:none;display:flex">${schedChip([id])}</div><div class="row" style="gap:10px;flex:none">${r.map((m, i) => `<button class="btn${timed && dur === durStr(m).replace(/^0/, '') ? ' sel' : ' ghost'}" data-urun="${id}" data-min="${m}" style="gap:8px;flex:1 1 0;min-width:0">${i ? '' : WI.run}<span style="text-transform:none">${fmtMin(m)}</span></button>`).join('')}<button class="btn${off ? ' ghost' : ' sel'}" ${off ? 'data-hman' : 'data-hoff'}="${id}" style="gap:8px;flex:1 1 0;min-width:0">${WI.off}${off ? 'Off' : 'On'}</button></div></div>`;
 }
@@ -1597,7 +1609,7 @@ function viewHeating(){
     return `<div class="card${w.off ? '' : ' heat'}${w.na ? ' na' : ''}" style="gap:10px">
       <div class="row"><div class="col"><div class="e w">${esc(z.r.name)}</div><div class="s">Heated wall</div></div>${svg('hwall', `width:30px;height:30px;color:${w.off ? 'var(--text2)' : 'var(--heat)'}`)}</div>
       <div style="flex:1;display:flex;align-items:center;justify-content:space-between;gap:16px">
-        <div class="col" style="gap:6px"><div style="font-size:64px;font-weight:200;letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums">${w.cur != null ? fmtT(w.cur) : '--'}<span style="font-size:24px;color:var(--text2);margin-left:4px">°C</span></div><div class="s${w.off ? '' : ' heat'}" style="font-size:14px">${stHtml(w)}</div></div>
+        <div class="col" style="gap:6px"><div style="font-size:64px;font-weight:200;letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums">${w.cur != null ? fmtT(w.cur) : '--'}<span style="font-size:24px;color:var(--text2);margin-left:4px">°C</span></div><div class="s hst${w.off ? '' : ' heat'}" style="font-size:14px">${stHtml(w)}</div></div>
         <div class="row" style="flex:none;gap:10px">${stepper(z.id, w.off)}</div></div>
       <div style="height:40px;flex:none;display:flex">${schedChip([z.id])}</div><div class="row" style="gap:10px;flex:none">${runsOf(z.id, [180]).map((m, i) => `<button class="btn${w.timed && w.dur === durStr(m).replace(/^0/, '') ? ' sel' : ' ghost'}" data-wrun="${z.id}" data-min="${m}" style="gap:8px;flex:1 1 0;min-width:0">${i ? '' : WI.run}${i ? '' : 'Run '}<span style="text-transform:none">${fmtMin(m)}</span></button>`).join('')}${runsOf(z.id, [180]).length > 1 ? b(!w.off && !w.timed, 'data-wman', WI.hand, '') + b(w.off, 'data-woff', WI.off, '') : b(!w.off && !w.timed, 'data-wman', WI.hand, 'Manual on') + b(w.off, 'data-woff', WI.off, 'Off')}</div></div>`;
   }).join('');
@@ -1653,7 +1665,7 @@ function wallSet(id, mode){
 function wallRows(){
   const out = [];
   zonesBy(CL.wall).forEach(({ r, ids }) => ids.forEach(id => { const w = wallState(id);
-    out.push(`<button class="ln" data-tab="heating">${svg('hwall')}<b>${esc(r.name)} wall</b><em class="${w.off ? '' : 'heat'}">${w.cur != null ? fmtT(w.cur) + '° · ' : ''}${stHtml(w)}</em></button>`); }));
+    out.push(`<button class="ln" data-tab="heating">${svg('hwall')}<b>${esc(r.name)} wall</b><em class="${w.off ? '' : 'heat'}">${w.cur != null ? fmtT(w.cur) + '° · ' : ''}${stHtml(w.timed ? Object.assign({}, w, { phase: '' }) : w)}</em></button>`); }));   /* 1.6.8: with a Run timer only the countdown — the phase made the row too long for the wall name */
   return out;
 }
 

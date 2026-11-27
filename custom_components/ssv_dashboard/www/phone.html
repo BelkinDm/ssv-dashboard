@@ -50,6 +50,14 @@ html,body{overflow:hidden;height:100%;overscroll-behavior:none}
 .pct{font-size:34px}.st{font-size:24px}
 .tile{padding:14px;border-radius:18px}.tile .d,.d{width:42px;height:42px;border-radius:12px}
 #view .grid{flex:none;grid-template-columns:minmax(0,1fr)!important;grid-template-rows:none!important;grid-auto-rows:auto;max-height:none!important;height:auto!important;gap:12px}
+/* 1.6.8: one column, cards top to bottom (Heating fills columns on the wall panel) */
+#view .grid{grid-auto-flow:row!important}
+/* 1.6.8: Home · Climate row: room and state on the first line, set point and power under it */
+/* 1.6.8: Heating cards: the state (Heating · Run · 1:59:59) wraps under the temperature instead of being cut */
+.hst{white-space:normal!important;line-height:1.5}
+.hcr{flex-wrap:wrap;height:auto!important;padding:12px 0;row-gap:10px}
+.hcr>.col{flex:1 1 calc(100% - 40px)}
+.hcr>.hcc{flex:1 1 100%!important}.hcr>.hcc>.spv{flex:1;width:auto}
 #view .grid:has(> .tile){grid-template-columns:repeat(2,minmax(0,1fr))!important;grid-auto-rows:170px}
 #view .grid:has(> .cam){grid-auto-rows:210px}
 .grid:has(> .sct){grid-template-columns:repeat(2,minmax(0,1fr))!important;grid-template-rows:none!important;grid-auto-rows:110px}
